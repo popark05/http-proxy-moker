@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { ThemeProvider as StyledThemeProvider } from 'styled-components';
 import { themes, type ThemeName } from './theme';
-import { GlobalStyle } from './GlobalStyle';
 
 interface ThemeContextValue {
   themeName: ThemeName;
@@ -55,10 +54,12 @@ export function AppThemeProvider({ children }: { children: ReactNode }): JSX.Ele
 
   return (
     <ThemeContext.Provider value={value}>
-      <StyledThemeProvider theme={themes[themeName]}>
-        <GlobalStyle />
-        {children}
-      </StyledThemeProvider>
+      {/*
+        과도기: Tailwind/shadcn(globals.css)로 이전 중이라 styled-components의 GlobalStyle은
+        제거하고(스타일 충돌 방지), styled 컴포넌트가 아직 남은 화면을 위해 theme만 공급한다.
+        모든 화면이 Tailwind로 이전되면 이 Provider 전체를 제거한다.
+      */}
+      <StyledThemeProvider theme={themes[themeName]}>{children}</StyledThemeProvider>
     </ThemeContext.Provider>
   );
 }

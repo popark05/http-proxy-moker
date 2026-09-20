@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { AppThemeProvider } from './theme/ThemeProvider';
 import { AppModeProvider, useAppMode } from './state/app-mode';
+import { AppThemeProvider } from './theme/ThemeProvider';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
+import { Separator } from '@/components/ui/separator';
 import { TopBar } from './components/layout/TopBar';
 import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
@@ -16,60 +18,6 @@ import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
 import { ScenarioPanel } from './components/mock/ScenarioPanel';
-
-const Shell = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const Content = styled.div`
-  flex: 1;
-  min-height: 0;
-`;
-
-const LeftColumn = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const ListArea = styled.div`
-  flex: 1;
-  min-height: 0;
-`;
-
-const DeviceArea = styled.div`
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-  max-height: 40%;
-  overflow: auto;
-`;
-
-const RightColumn = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const DetailArea = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-`;
-
-const MockArea = styled.div`
-  border-top: 1px solid ${({ theme }) => theme.borderSubtle};
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  max-height: 50%;
-  overflow: auto;
-`;
-
-const ScenarioDivider = styled.hr`
-  border: none;
-  border-top: 1px dashed ${({ theme }) => theme.borderSubtle};
-  margin: ${({ theme }) => theme.space.md} 0;
-`;
 
 function AppInner(): JSX.Element {
   const { exchanges, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
@@ -120,7 +68,6 @@ function AppInner(): JSX.Element {
   };
 
   const handleActivateScenario = async (name: string): Promise<void> => {
-    // 시나리오를 목 목록으로 로드. 목킹 모드면 useEffect가 mocks 변경을 감지해 즉시 적용.
     await loadScenario(name);
     setActiveScenario(name);
   };
@@ -133,7 +80,7 @@ function AppInner(): JSX.Element {
 
   const handleAddTag = (id: string, tag: string): void => {
     addTag(id, tag);
-    invalidateIndex(id); // 검색 인덱스 갱신(태그가 인덱스에 포함됨)
+    invalidateIndex(id);
   };
 
   const handleRemoveTag = (id: string, tag: string): void => {
@@ -142,7 +89,7 @@ function AppInner(): JSX.Element {
   };
 
   return (
-    <Shell>
+    <div className="flex h-full flex-col bg-background text-foreground">
       <TopBar />
       <ProjectBar
         project={project}
@@ -152,10 +99,10 @@ function AppInner(): JSX.Element {
         onSave={(name) => void saveCapture(name, exchanges)}
         onLoadSession={(name) => void handleLoadSession(name)}
       />
-      <Content>
+      <div className="min-h-0 flex-1">
         <SplitPane
           left={
-            <LeftColumn>
+            <div className="flex h-full flex-col">
               <ProxyControls
                 status={status}
                 count={exchanges.length}
@@ -166,9 +113,9 @@ function AppInner(): JSX.Element {
                   setSelectedId(undefined);
                 }}
               />
-              <DeviceArea>
+              <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
                 <DevicePanel />
-              </DeviceArea>
+              </div>
               <FilterBar
                 filter={filter}
                 patchFilter={patchFilter}
@@ -179,26 +126,26 @@ function AppInner(): JSX.Element {
                 total={exchanges.length}
                 shown={filtered.length}
               />
-              <ListArea>
+              <div className="min-h-0 flex-1">
                 <TrafficList
                   exchanges={filtered}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                 />
-              </ListArea>
-            </LeftColumn>
+              </div>
+            </div>
           }
           right={
-            <RightColumn>
-              <DetailArea>
+            <div className="flex h-full flex-col">
+              <div className="min-h-0 flex-1 overflow-auto">
                 <ExchangeDetail
                   exchange={selected}
                   onCloneToMock={(exchange) => cloneFromExchange(exchange)}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}
                 />
-              </DetailArea>
-              <MockArea>
+              </div>
+              <div className="max-h-[50%] overflow-auto border-t border-border px-4 py-2">
                 <MockPanel
                   mocks={mocks}
                   mode={mode}
@@ -208,28 +155,31 @@ function AppInner(): JSX.Element {
                   onRemove={removeMock}
                   onSaveScenario={(name) => void handleSaveScenario(name)}
                 />
-                <ScenarioDivider />
+                <Separator className="my-3" />
                 <ScenarioPanel
                   scenarios={project?.scenarios ?? []}
                   activeScenario={activeScenario}
                   onActivate={(name) => void handleActivateScenario(name)}
                   onDelete={(name) => void handleDeleteScenario(name)}
                 />
-              </MockArea>
-            </RightColumn>
+              </div>
+            </div>
           }
         />
-      </Content>
-    </Shell>
+      </div>
+      <Toaster />
+    </div>
   );
 }
 
 export function App(): JSX.Element {
   return (
     <AppThemeProvider>
-      <AppModeProvider>
-        <AppInner />
-      </AppModeProvider>
+      <TooltipProvider delayDuration={300}>
+        <AppModeProvider>
+          <AppInner />
+        </AppModeProvider>
+      </TooltipProvider>
     </AppThemeProvider>
   );
 }

@@ -1,5 +1,4 @@
 import Editor from '@monaco-editor/react';
-import { useAppTheme } from '../../theme/ThemeProvider';
 // import 시점에 monaco를 로컬 번들로 설정(Editor 마운트 전 보장).
 import './monaco-setup';
 
@@ -22,14 +21,13 @@ export function CodeView({
   onChange,
   height = '100%'
 }: CodeViewProps): JSX.Element {
-  const { themeName } = useAppTheme();
-
+  // 앱은 다크 테마 고정.
   return (
     <Editor
       height={height}
       language={language}
       value={value}
-      theme={themeName === 'dark' ? 'vs-dark' : 'vs'}
+      theme="vs-dark"
       onChange={(next) => onChange?.(next ?? '')}
       options={{
         readOnly,
