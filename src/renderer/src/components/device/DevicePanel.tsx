@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Smartphone, Apple, RefreshCw } from 'lucide-react';
 import type {
   AndroidInterceptionMode,
@@ -117,6 +118,26 @@ export function DevicePanel(): JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices();
   const [iosSetupOpen, setIosSetupOpen] = useState(false);
 
+  const handleStart = async (device: DeviceInfo, mode: AndroidInterceptionMode): Promise<void> => {
+    try {
+      const result = await start(device, mode);
+      if (result.warnings.length > 0) {
+        toast.warning('인터셉션 시작(주의 필요)', { description: result.warnings[0] });
+      } else {
+        toast.success('인터셉션 시작됨', { description: device.name });
+      }
+    } catch (e) {
+      toast.error('인터셉션 실패', {
+        description: e instanceof Error ? e.message : String(e)
+      });
+    }
+  };
+
+  const handleStop = async (device: DeviceInfo): Promise<void> => {
+    await stop(device);
+    toast('인터셉션 해제됨', { description: device.name });
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -149,8 +170,8 @@ export function DevicePanel(): JSX.Element {
             key={device.id}
             device={device}
             interception={interceptions[device.id]}
-            onStart={(mode) => void start(device, mode)}
-            onStop={() => void stop(device)}
+            onStart={(mode) => void handleStart(device, mode)}
+            onStop={() => void handleStop(device)}
             onIosSetup={() => setIosSetupOpen(true)}
           />
         ))

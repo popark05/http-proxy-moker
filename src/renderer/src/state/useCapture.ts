@@ -5,8 +5,8 @@ import { reduceCapture, addTag as addTagReducer, removeTag as removeTagReducer }
 interface UseCaptureResult {
   exchanges: CapturedExchange[];
   status: ProxyStatus;
-  startProxy: (port?: number) => Promise<void>;
-  stopProxy: () => Promise<void>;
+  startProxy: (port?: number) => Promise<ProxyStatus>;
+  stopProxy: () => Promise<ProxyStatus>;
   clear: () => void;
   /** 저장된 세션 등 외부 exchange 목록으로 교체(로드용). */
   replaceExchanges: (exchanges: CapturedExchange[]) => void;
@@ -35,11 +35,13 @@ export function useCapture(): UseCaptureResult {
   const startProxy = useCallback(async (port?: number) => {
     const next = await window.mokerApi.proxy.start(port ? { port } : undefined);
     setStatus(next);
+    return next;
   }, []);
 
   const stopProxy = useCallback(async () => {
     const next = await window.mokerApi.proxy.stop();
     setStatus(next);
+    return next;
   }, []);
 
   const clear = useCallback(() => setExchanges([]), []);
