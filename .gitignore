@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+.vite/
+coverage/
+
+# 참고 소스는 로컬 전용 (AGPL, 커밋 제외)
+reference/
