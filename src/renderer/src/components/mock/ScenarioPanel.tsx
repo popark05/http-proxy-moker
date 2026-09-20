@@ -19,7 +19,7 @@ export function ScenarioPanel({
 }: ScenarioPanelProps): JSX.Element {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
         시나리오 ({scenarios.length})
       </h3>
 
@@ -39,7 +39,7 @@ export function ScenarioPanel({
               )}
             >
               {active && <CheckCircle2 className="size-4 shrink-0 text-primary" />}
-              <span className="min-w-0 flex-1 truncate text-[13px]" title={name}>
+              <span className="min-w-0 flex-1 truncate text-sm" title={name}>
                 {name}
               </span>
               {active && <Badge variant="success">활성</Badge>}

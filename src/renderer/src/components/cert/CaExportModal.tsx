@@ -28,13 +28,13 @@ export function CaExportModal({ open, onOpenChange }: CaExportModalProps): JSX.E
     <Modal open={open} onOpenChange={onOpenChange} title="CA 인증서 내보내기">
       <div className="mb-3">
         <div className="mb-1 text-xs text-muted-foreground">SHA-256 지문</div>
-        <div className="break-all font-mono text-[13px] text-foreground">
+        <div className="break-all font-mono text-sm text-foreground">
           {info?.fingerprintSha256 ?? '로딩 중...'}
         </div>
       </div>
       <div className="mb-3">
         <div className="mb-1 text-xs text-muted-foreground">유효기간</div>
-        <div className="font-mono text-[13px] text-foreground">
+        <div className="font-mono text-sm text-foreground">
           {info ? new Date(info.notAfter).toLocaleDateString() : '-'}
         </div>
       </div>

@@ -23,9 +23,9 @@ export function IosSetupModal({ open, onOpenChange }: IosSetupModalProps): JSX.E
         {steps.map((step, i) => (
           <li key={i} className="border-l-2 border-primary pl-3">
             <div className="mb-0.5 font-semibold">{step.title}</div>
-            <div className="text-[13px] leading-relaxed text-muted-foreground">{step.detail}</div>
+            <div className="text-sm leading-relaxed text-muted-foreground">{step.detail}</div>
             {step.value && (
-              <code className="mt-1 inline-block rounded-sm bg-muted px-2 py-0.5 font-mono text-[13px]">
+              <code className="mt-1 inline-block rounded-sm bg-muted px-2 py-0.5 font-mono text-sm">
                 {step.value}
               </code>
             )}

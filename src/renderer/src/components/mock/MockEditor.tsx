@@ -14,7 +14,7 @@ interface MockEditorProps {
 }
 
 const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** 목 정의 편집 모달: method/path/status/헤더/본문(Monaco). */
 export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {

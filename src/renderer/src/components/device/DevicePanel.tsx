@@ -64,7 +64,7 @@ function DeviceItem({
           <Smartphone className="size-[18px] shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px]" title={device.id}>
+          <div className="truncate text-sm" title={device.id}>
             {device.name}
           </div>
         </div>
@@ -120,7 +120,7 @@ export function DevicePanel(): JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           기기
         </h3>
         <div className="flex gap-1">

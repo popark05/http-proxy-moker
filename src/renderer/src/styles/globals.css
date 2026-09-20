@@ -97,15 +97,17 @@
   --font-sans: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', ui-monospace, monospace;
 
-  /* 타이포 스케일 — 데스크탑 도구에 맞춘 촘촘한 단계. */
-  --text-2xs: 0.6875rem;   /* 11px 캡션/라벨 */
-  --text-2xs--line-height: 1rem;
-  --text-xs: 0.75rem;      /* 12px */
-  --text-xs--line-height: 1.05rem;
-  --text-sm: 0.8125rem;    /* 13px 기본 데이터/본문 */
-  --text-sm--line-height: 1.2rem;
-  --text-base: 0.875rem;   /* 14px */
-  --text-base--line-height: 1.35rem;
+  /* 타이포 스케일 — 가독성을 위해 한 단계 키움. */
+  --text-2xs: 0.75rem;     /* 12px 캡션/라벨 */
+  --text-2xs--line-height: 1.1rem;
+  --text-xs: 0.8125rem;    /* 13px */
+  --text-xs--line-height: 1.15rem;
+  --text-sm: 0.875rem;     /* 14px 기본 데이터/본문 */
+  --text-sm--line-height: 1.3rem;
+  --text-base: 0.9375rem;  /* 15px */
+  --text-base--line-height: 1.45rem;
+  --text-lg: 1.0625rem;    /* 17px 제목 */
+  --text-lg--line-height: 1.6rem;
 }
 
 @layer base {
@@ -122,8 +124,8 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
-    font-size: 0.875rem;
-    line-height: 1.4;
+    font-size: 0.9375rem;
+    line-height: 1.45;
     letter-spacing: -0.006em; /* 데스크탑 UI에 맞춰 살짝 타이트하게 */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;

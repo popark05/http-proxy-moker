@@ -71,7 +71,7 @@ export function TrafficList({ exchanges, selectedId, onSelect }: TrafficListProp
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span
                     title={exchange.request.url}
-                    className="truncate font-mono text-[13px] text-muted-foreground"
+                    className="truncate font-mono text-sm text-muted-foreground"
                   >
                     {shortUrl(exchange.request.url)}
                   </span>
@@ -80,7 +80,7 @@ export function TrafficList({ exchanges, selectedId, onSelect }: TrafficListProp
                       {exchange.tags.map((t) => (
                         <span
                           key={t}
-                          className="whitespace-nowrap rounded-sm bg-muted px-1 font-mono text-[10px] leading-tight text-muted-foreground"
+                          className="whitespace-nowrap rounded-sm bg-muted px-1 font-mono text-2xs leading-tight text-muted-foreground"
                         >
                           {t}
                         </span>

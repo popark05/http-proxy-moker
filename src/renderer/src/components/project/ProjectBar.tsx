@@ -51,7 +51,7 @@ export function ProjectBar({
               onChange={(e) => {
                 if (e.target.value) onLoadSession(e.target.value);
               }}
-              className="h-8 rounded-md border border-input bg-transparent px-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">세션 불러오기…</option>
               {project.captureSessions.map((s) => (
@@ -63,7 +63,7 @@ export function ProjectBar({
           )}
         </>
       ) : (
-        <span className="text-[13px] text-muted-foreground">프로젝트가 열려있지 않습니다</span>
+        <span className="text-sm text-muted-foreground">프로젝트가 열려있지 않습니다</span>
       )}
 
       <div className="flex-1" />

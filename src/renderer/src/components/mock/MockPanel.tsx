@@ -54,7 +54,7 @@ export function MockPanel({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           목 정의 ({mocks.length})
         </h3>
         <div className="flex items-center gap-1">
@@ -94,7 +94,7 @@ export function MockPanel({
         mocks.map((mock) => (
           <div key={mock.id} className="flex items-center gap-2 rounded-md border border-border p-2">
             <Badge variant={methodTone(mock.method)}>{mock.method}</Badge>
-            <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={mock.path}>
+            <span className="min-w-0 flex-1 truncate font-mono text-sm" title={mock.path}>
               {mock.path}
             </span>
             {mock.delayMs ? <Badge variant="warning">{mock.delayMs}ms</Badge> : null}

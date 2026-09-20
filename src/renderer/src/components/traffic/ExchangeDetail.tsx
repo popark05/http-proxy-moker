@@ -17,7 +17,7 @@ interface ExchangeDetailProps {
 
 function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <h4 className="px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <h4 className="px-3 py-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
       {children}
     </h4>
   );
@@ -52,7 +52,7 @@ export function ExchangeDetail({
         ) : (
           <Badge variant="neutral">대기 중</Badge>
         )}
-        <span className="break-all font-mono text-[13px] text-muted-foreground">{request.url}</span>
+        <span className="break-all font-mono text-sm text-muted-foreground">{request.url}</span>
         <div className="flex-1" />
         {onCloneToMock && (
           <Button variant="outline" size="sm" onClick={() => onCloneToMock(exchange)}>
