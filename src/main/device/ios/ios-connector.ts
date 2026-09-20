@@ -82,7 +82,7 @@ export class IosConnector implements DeviceConnector {
       {
         title: '4. 인증서 신뢰 활성화',
         detail:
-          '설정 > 일반 > 정보 > 인증서 신뢰 설정에서 MokerProxy CA의 신뢰를 활성화하세요. (이 단계 없이는 HTTPS가 복호화되지 않습니다)'
+          '설정 > 일반 > 정보 > 인증서 신뢰 설정에서 EverMock CA의 신뢰를 활성화하세요. (이 단계 없이는 HTTPS가 복호화되지 않습니다)'
       }
     ];
   }

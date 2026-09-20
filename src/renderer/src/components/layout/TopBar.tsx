@@ -64,7 +64,7 @@ export function TopBar(): JSX.Element {
 
   return (
     <Bar $mode={mode}>
-      <Title>MokerProxy</Title>
+      <Title>EverMock</Title>
       <ModeLabel $mode={mode}>{mode === 'capture' ? '● 캡처 모드' : '● 목킹 모드'}</ModeLabel>
       <Spacer />
       <Controls>

@@ -1,70 +1,31 @@
-import styled, { css } from 'styled-components';
-import { transparentize } from 'polished';
+import * as React from 'react';
+import { Button as UiButton, type ButtonProps as UiButtonProps } from '@/components/ui/button';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type LegacyVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type LegacySize = 'sm' | 'md';
 
-interface ButtonProps {
-  $variant?: Variant;
-  $size?: 'sm' | 'md';
+/** 기존 styled-components Button API($variant/$size)를 shadcn Button으로 매핑하는 어댑터. */
+export interface ButtonProps
+  extends Omit<UiButtonProps, 'variant' | 'size'> {
+  $variant?: LegacyVariant;
+  $size?: LegacySize;
 }
 
-const variantStyles = {
-  primary: css`
-    background: ${({ theme }) => theme.accent};
-    color: ${({ theme }) => theme.accentText};
-    border: 1px solid transparent;
-    &:hover:not(:disabled) {
-      background: ${({ theme }) => theme.accentHover};
-    }
-  `,
-  secondary: css`
-    background: transparent;
-    color: ${({ theme }) => theme.primaryText};
-    border: 1px solid ${({ theme }) => theme.border};
-    &:hover:not(:disabled) {
-      background: ${({ theme }) => theme.panelRaisedBackground};
-    }
-  `,
-  ghost: css`
-    background: transparent;
-    color: ${({ theme }) => theme.secondaryText};
-    border: 1px solid transparent;
-    &:hover:not(:disabled) {
-      background: ${({ theme }) => theme.panelRaisedBackground};
-      color: ${({ theme }) => theme.primaryText};
-    }
-  `,
-  danger: css`
-    background: ${({ theme }) => theme.statusError};
-    color: ${({ theme }) => theme.accentText};
-    border: 1px solid transparent;
-    &:hover:not(:disabled) {
-      background: ${({ theme }) => transparentize(0.15, theme.statusError)};
-    }
-  `
-} as const;
+const variantMap: Record<LegacyVariant, UiButtonProps['variant']> = {
+  primary: 'default',
+  secondary: 'outline',
+  ghost: 'ghost',
+  danger: 'destructive'
+};
 
-export const Button = styled.button<ButtonProps>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${({ theme }) => theme.space.sm};
-  font-family: ${({ theme }) => theme.fonts.sans};
-  font-size: ${({ theme, $size }) =>
-    $size === 'sm' ? theme.fontSizes.input : theme.fontSizes.text};
-  font-weight: 500;
-  padding: ${({ theme, $size }) =>
-    $size === 'sm' ? `${theme.space.xs} ${theme.space.md}` : `${theme.space.sm} ${theme.space.lg}`};
-  border-radius: ${({ theme }) => theme.radii.md};
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-
-  ${({ $variant = 'secondary' }) => variantStyles[$variant]}
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ $variant = 'secondary', $size = 'md', ...props }, ref) => (
+    <UiButton
+      ref={ref}
+      variant={variantMap[$variant]}
+      size={$size === 'sm' ? 'sm' : 'default'}
+      {...props}
+    />
+  )
+);
+Button.displayName = 'Button';

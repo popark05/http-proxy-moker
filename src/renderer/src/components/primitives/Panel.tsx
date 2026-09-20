@@ -1,24 +1,33 @@
-import styled from 'styled-components';
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
-/** 콘텐츠를 담는 기본 표면. */
-export const Panel = styled.section`
-  background: ${({ theme }) => theme.panelBackground};
-  border: 1px solid ${({ theme }) => theme.borderSubtle};
-  border-radius: ${({ theme }) => theme.radii.lg};
-  overflow: hidden;
-`;
+/** 콘텐츠를 담는 기본 표면. (기존 Panel/PanelHeader/PanelBody API 유지) */
+export const Panel = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(
+  ({ className, ...props }, ref) => (
+    <section
+      ref={ref}
+      className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}
+      {...props}
+    />
+  )
+);
+Panel.displayName = 'Panel';
 
-export const PanelHeader = styled.header`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => `${theme.space.md} ${theme.space.lg}`};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-  font-size: ${({ theme }) => theme.fontSizes.subHeading};
-  font-weight: 600;
-`;
+export function PanelHeader({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLElement>): JSX.Element {
+  return (
+    <header
+      className={cn(
+        'flex items-center justify-between gap-3 border-b border-border px-4 py-3 text-base font-semibold',
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
-export const PanelBody = styled.div`
-  padding: ${({ theme }) => theme.space.lg};
-`;
+export function PanelBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): JSX.Element {
+  return <div className={cn('p-4', className)} {...props} />;
+}

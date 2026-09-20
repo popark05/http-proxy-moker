@@ -1,32 +1,26 @@
-import styled from 'styled-components';
-import { transparentize } from 'polished';
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
-interface ChipProps {
+export interface ChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   $active?: boolean;
 }
 
-/** 토글 가능한 필터 칩. 선택 시 accent 색으로 강조. */
-export const Chip = styled.button<ChipProps>`
-  display: inline-flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.xs};
-  padding: ${({ theme }) => `2px ${theme.space.sm}`};
-  border-radius: ${({ theme }) => theme.radii.pill};
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    background 0.1s ease,
-    color 0.1s ease;
-
-  color: ${({ theme, $active }) => ($active ? theme.accentText : theme.secondaryText)};
-  background: ${({ theme, $active }) =>
-    $active ? theme.accent : transparentize(0.85, theme.mutedText)};
-  border: 1px solid
-    ${({ theme, $active }) => ($active ? theme.accent : theme.borderSubtle)};
-
-  &:hover {
-    color: ${({ theme, $active }) => ($active ? theme.accentText : theme.primaryText)};
-  }
-`;
+/** 토글 가능한 필터 칩. 선택 시 primary 강조. (기존 $active API 유지) */
+export const Chip = React.forwardRef<HTMLButtonElement, ChipProps>(
+  ({ $active = false, className, ...props }, ref) => (
+    <button
+      ref={ref}
+      type="button"
+      className={cn(
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-xs transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        $active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground',
+        className
+      )}
+      {...props}
+    />
+  )
+);
+Chip.displayName = 'Chip';
