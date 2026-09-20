@@ -1,51 +1,5 @@
 import { useState } from 'react';
-import styled from 'styled-components';
-import { X, Tag as TagIcon } from '@phosphor-icons/react';
-
-const Wrap = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.xs};
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-`;
-
-const TagPill = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.xs};
-  padding: ${({ theme }) => `2px ${theme.space.sm}`};
-  border-radius: ${({ theme }) => theme.radii.pill};
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  border: 1px solid ${({ theme }) => theme.borderSubtle};
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.secondaryText};
-`;
-
-const RemoveBtn = styled.button`
-  display: inline-flex;
-  border: none;
-  background: transparent;
-  color: ${({ theme }) => theme.mutedText};
-  cursor: pointer;
-  padding: 0;
-  &:hover {
-    color: ${({ theme }) => theme.statusError};
-  }
-`;
-
-const TagInput = styled.input`
-  background: transparent;
-  border: none;
-  color: ${({ theme }) => theme.primaryText};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  min-width: 100px;
-  &:focus {
-    outline: none;
-  }
-`;
+import { X, Tag as TagIcon } from 'lucide-react';
 
 interface TagEditorProps {
   tags: string[];
@@ -64,17 +18,25 @@ export function TagEditor({ tags, onAdd, onRemove }: TagEditorProps): JSX.Elemen
   };
 
   return (
-    <Wrap>
-      <TagIcon size={14} />
+    <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-1.5">
+      <TagIcon className="size-3.5 text-muted-foreground" />
       {tags.map((tag) => (
-        <TagPill key={tag}>
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground"
+        >
           {tag}
-          <RemoveBtn aria-label={`태그 ${tag} 제거`} onClick={() => onRemove(tag)}>
-            <X size={10} />
-          </RemoveBtn>
-        </TagPill>
+          <button
+            type="button"
+            aria-label={`태그 ${tag} 제거`}
+            onClick={() => onRemove(tag)}
+            className="inline-flex text-muted-foreground transition-colors hover:text-destructive"
+          >
+            <X className="size-2.5" />
+          </button>
+        </span>
       ))}
-      <TagInput
+      <input
         placeholder="태그 추가…"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -83,7 +45,8 @@ export function TagEditor({ tags, onAdd, onRemove }: TagEditorProps): JSX.Elemen
         }}
         onBlur={commit}
         aria-label="태그 추가"
+        className="min-w-[100px] flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
       />
-    </Wrap>
+    </div>
   );
 }

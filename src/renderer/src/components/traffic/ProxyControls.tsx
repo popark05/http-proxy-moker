@@ -1,19 +1,7 @@
-import styled from 'styled-components';
-import { Play, Stop, Trash } from '@phosphor-icons/react';
+import { Play, Square, Trash2 } from 'lucide-react';
 import type { ProxyStatus } from '@shared/capture';
-import { Button, Badge } from '../primitives';
-
-const Bar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-`;
-
-const Spacer = styled.div`
-  flex: 1;
-`;
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface ProxyControlsProps {
   status: ProxyStatus;
@@ -31,25 +19,30 @@ export function ProxyControls({
   onClear
 }: ProxyControlsProps): JSX.Element {
   return (
-    <Bar>
+    <div className="flex items-center gap-2 border-b border-border px-3 py-2">
       {status.running ? (
-        <Button $variant="danger" $size="sm" onClick={onStop}>
-          <Stop size={14} weight="fill" /> 중지
+        <Button variant="destructive" size="sm" onClick={onStop}>
+          <Square className="fill-current" /> 중지
         </Button>
       ) : (
-        <Button $variant="primary" $size="sm" onClick={onStart}>
-          <Play size={14} weight="fill" /> 프록시 시작
+        <Button size="sm" onClick={onStart}>
+          <Play className="fill-current" /> 프록시 시작
         </Button>
       )}
 
-      {status.running && <Badge $tone="success">:{status.port} 수신 중</Badge>}
+      {status.running && (
+        <Badge variant="success">
+          <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-current" />
+          :{status.port} 수신 중
+        </Badge>
+      )}
 
-      <Spacer />
+      <div className="flex-1" />
 
-      <Badge $tone="neutral">{count} 건</Badge>
-      <Button $variant="ghost" $size="sm" onClick={onClear} aria-label="캡처 지우기">
-        <Trash size={14} />
+      <Badge variant="neutral">{count} 건</Badge>
+      <Button variant="ghost" size="icon" onClick={onClear} aria-label="캡처 지우기">
+        <Trash2 />
       </Button>
-    </Bar>
+    </div>
   );
 }

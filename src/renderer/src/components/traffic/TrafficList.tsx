@@ -1,73 +1,9 @@
 import { useRef } from 'react';
-import styled from 'styled-components';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { CapturedExchange } from '@shared/capture';
-import { Badge, methodTone, statusTone } from '../primitives';
-
-const Scroll = styled.div`
-  height: 100%;
-  overflow: auto;
-`;
-
-const Row = styled.button<{ $selected: boolean }>`
-  display: grid;
-  grid-template-columns: 56px 1fr 52px;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  width: 100%;
-  text-align: left;
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border: none;
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-  background: ${({ theme, $selected }) =>
-    $selected ? theme.panelRaisedBackground : 'transparent'};
-  color: ${({ theme }) => theme.primaryText};
-  cursor: pointer;
-  font-family: ${({ theme }) => theme.fonts.sans};
-
-  &:hover {
-    background: ${({ theme }) => theme.panelRaisedBackground};
-  }
-`;
-
-const UrlCell = styled.div`
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`;
-
-const Url = styled.span`
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  color: ${({ theme }) => theme.secondaryText};
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const TagRow = styled.div`
-  display: flex;
-  gap: 3px;
-  overflow: hidden;
-`;
-
-const TinyTag = styled.span`
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: 10px;
-  line-height: 1.4;
-  padding: 0 4px;
-  border-radius: ${({ theme }) => theme.radii.sm};
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.mutedText};
-  white-space: nowrap;
-`;
-
-const Empty = styled.div`
-  padding: ${({ theme }) => theme.space.lg};
-  color: ${({ theme }) => theme.mutedText};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
+import { Badge } from '@/components/ui/badge';
+import { methodTone, statusTone } from '../primitives';
+import { cn } from '@/lib/utils';
 
 function shortUrl(url: string): string {
   try {
@@ -96,15 +32,20 @@ export function TrafficList({ exchanges, selectedId, onSelect }: TrafficListProp
   });
 
   if (exchanges.length === 0) {
-    return <Empty>아직 캡처된 요청이 없습니다. 프록시를 시작하고 트래픽을 보내보세요.</Empty>;
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        아직 캡처된 요청이 없습니다. 프록시를 시작하고 트래픽을 보내보세요.
+      </div>
+    );
   }
 
   return (
-    <Scroll ref={parentRef}>
+    <div ref={parentRef} className="h-full overflow-auto">
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
         {virtualizer.getVirtualItems().map((item) => {
           const exchange = exchanges[item.index];
           const response = exchange.response;
+          const selected = exchange.id === selectedId;
           return (
             <div
               key={exchange.id}
@@ -116,35 +57,49 @@ export function TrafficList({ exchanges, selectedId, onSelect }: TrafficListProp
                 transform: `translateY(${item.start}px)`
               }}
             >
-              <Row
-                $selected={exchange.id === selectedId}
+              <button
+                type="button"
                 onClick={() => onSelect(exchange.id)}
+                className={cn(
+                  'grid w-full grid-cols-[56px_1fr_52px] items-center gap-2 border-b border-border px-3 py-2 text-left transition-colors',
+                  selected ? 'bg-accent' : 'hover:bg-accent/50'
+                )}
               >
-                <Badge $tone={methodTone(exchange.request.method)}>
+                <Badge variant={methodTone(exchange.request.method)}>
                   {exchange.request.method}
                 </Badge>
-                <UrlCell>
-                  <Url title={exchange.request.url}>{shortUrl(exchange.request.url)}</Url>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span
+                    title={exchange.request.url}
+                    className="truncate font-mono text-[13px] text-muted-foreground"
+                  >
+                    {shortUrl(exchange.request.url)}
+                  </span>
                   {exchange.tags && exchange.tags.length > 0 && (
-                    <TagRow>
+                    <div className="flex gap-1 overflow-hidden">
                       {exchange.tags.map((t) => (
-                        <TinyTag key={t}>{t}</TinyTag>
+                        <span
+                          key={t}
+                          className="whitespace-nowrap rounded-sm bg-muted px-1 font-mono text-[10px] leading-tight text-muted-foreground"
+                        >
+                          {t}
+                        </span>
                       ))}
-                    </TagRow>
+                    </div>
                   )}
-                </UrlCell>
+                </div>
                 {response === 'aborted' ? (
-                  <Badge $tone="error">✕</Badge>
+                  <Badge variant="error">✕</Badge>
                 ) : response ? (
-                  <Badge $tone={statusTone(response.statusCode)}>{response.statusCode}</Badge>
+                  <Badge variant={statusTone(response.statusCode)}>{response.statusCode}</Badge>
                 ) : (
-                  <Badge $tone="neutral">…</Badge>
+                  <Badge variant="neutral">…</Badge>
                 )}
-              </Row>
+              </button>
             </div>
           );
         })}
       </div>
-    </Scroll>
+    </div>
   );
 }
