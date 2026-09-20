@@ -1,35 +1,10 @@
 import { useState } from 'react';
-import styled from 'styled-components';
-import { FolderOpen, FloppyDisk, Plus } from '@phosphor-icons/react';
+import { FolderOpen, Save, Plus } from 'lucide-react';
 import type { OpenProject } from '@shared/project';
 import type { CapturedExchange } from '@shared/capture';
-import { Button, Badge } from '../primitives';
-
-const Bar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-`;
-
-const Name = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  color: ${({ theme }) => theme.secondaryText};
-`;
-
-const Spacer = styled.div`
-  flex: 1;
-`;
-
-const Select = styled.select`
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.primaryText};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => `2px ${theme.space.sm}`};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface ProjectBarProps {
   project: OpenProject | undefined;
@@ -51,31 +26,32 @@ export function ProjectBar({
   const [sessionName, setSessionName] = useState('session-1');
 
   return (
-    <Bar>
+    <div className="flex items-center gap-2 border-b border-border px-3 py-2">
       {project ? (
         <>
-          <Badge $tone="info">{project.meta.name}</Badge>
-          <input
+          <Badge variant="info">{project.meta.name}</Badge>
+          <Input
             aria-label="세션 이름"
             value={sessionName}
             onChange={(e) => setSessionName(e.target.value)}
-            style={{ width: 120 }}
+            className="h-8 w-32"
           />
           <Button
-            $variant="secondary"
-            $size="sm"
+            variant="outline"
+            size="sm"
             disabled={exchanges.length === 0}
             onClick={() => onSave(sessionName)}
           >
-            <FloppyDisk size={14} /> 저장
+            <Save /> 저장
           </Button>
           {project.captureSessions.length > 0 && (
-            <Select
+            <select
               aria-label="세션 불러오기"
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) onLoadSession(e.target.value);
               }}
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">세션 불러오기…</option>
               {project.captureSessions.map((s) => (
@@ -83,21 +59,21 @@ export function ProjectBar({
                   {s}
                 </option>
               ))}
-            </Select>
+            </select>
           )}
         </>
       ) : (
-        <Name>프로젝트가 열려있지 않습니다</Name>
+        <span className="text-[13px] text-muted-foreground">프로젝트가 열려있지 않습니다</span>
       )}
 
-      <Spacer />
+      <div className="flex-1" />
 
-      <Button $variant="ghost" $size="sm" onClick={() => onCreate('QA Project')}>
-        <Plus size={14} /> 새 프로젝트
+      <Button variant="ghost" size="sm" onClick={() => onCreate('QA Project')}>
+        <Plus /> 새 프로젝트
       </Button>
-      <Button $variant="ghost" $size="sm" onClick={onOpen}>
-        <FolderOpen size={14} /> 열기
+      <Button variant="ghost" size="sm" onClick={onOpen}>
+        <FolderOpen /> 열기
       </Button>
-    </Bar>
+    </div>
   );
 }

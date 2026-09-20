@@ -1,43 +1,7 @@
 import { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import type { CaInfo } from '@shared/certificate';
-import { Modal, Button } from '../primitives';
-
-const Field = styled.div`
-  margin-bottom: ${({ theme }) => theme.space.md};
-`;
-
-const Label = styled.div`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.mutedText};
-  margin-bottom: ${({ theme }) => theme.space.xs};
-`;
-
-const Value = styled.div`
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  color: ${({ theme }) => theme.primaryText};
-  word-break: break-all;
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.space.sm};
-  margin-top: ${({ theme }) => theme.space.lg};
-`;
-
-const Hint = styled.p`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.secondaryText};
-  margin-top: ${({ theme }) => theme.space.md};
-  line-height: 1.6;
-`;
-
-const Result = styled.div`
-  margin-top: ${({ theme }) => theme.space.md};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.statusSuccess};
-`;
+import { Modal } from '../primitives';
+import { Button } from '@/components/ui/button';
 
 interface CaExportModalProps {
   open: boolean;
@@ -62,31 +26,36 @@ export function CaExportModal({ open, onOpenChange }: CaExportModalProps): JSX.E
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="CA 인증서 내보내기">
-      <Field>
-        <Label>SHA-256 지문</Label>
-        <Value>{info?.fingerprintSha256 ?? '로딩 중...'}</Value>
-      </Field>
-      <Field>
-        <Label>유효기간</Label>
-        <Value>{info ? new Date(info.notAfter).toLocaleDateString() : '-'}</Value>
-      </Field>
+      <div className="mb-3">
+        <div className="mb-1 text-xs text-muted-foreground">SHA-256 지문</div>
+        <div className="break-all font-mono text-[13px] text-foreground">
+          {info?.fingerprintSha256 ?? '로딩 중...'}
+        </div>
+      </div>
+      <div className="mb-3">
+        <div className="mb-1 text-xs text-muted-foreground">유효기간</div>
+        <div className="font-mono text-[13px] text-foreground">
+          {info ? new Date(info.notAfter).toLocaleDateString() : '-'}
+        </div>
+      </div>
 
-      <Actions>
-        <Button $variant="primary" $size="sm" onClick={() => void onExport('pem')}>
+      <div className="mt-4 flex gap-2">
+        <Button size="sm" onClick={() => void onExport('pem')}>
           PEM (Android)
         </Button>
-        <Button $variant="primary" $size="sm" onClick={() => void onExport('mobileconfig')}>
+        <Button size="sm" onClick={() => void onExport('mobileconfig')}>
           .mobileconfig (iOS)
         </Button>
-      </Actions>
+      </div>
 
-      {saved && <Result>저장됨: {saved}</Result>}
+      {saved && <div className="mt-3 text-xs text-[hsl(var(--success))]">저장됨: {saved}</div>}
 
-      <Hint>
-        Android: PEM을 기기에 설치(root 기기는 시스템 CA 주입은 Task 4에서 자동화).
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Android: PEM을 기기에 설치(root 기기는 시스템 CA 자동 주입).
         <br />
-        iOS: .mobileconfig 설치 후 설정 &gt; 일반 &gt; 정보 &gt; 인증서 신뢰에서 완전 신뢰를 활성화해야 합니다.
-      </Hint>
+        iOS: .mobileconfig 설치 후 설정 &gt; 일반 &gt; 정보 &gt; 인증서 신뢰에서 완전 신뢰를
+        활성화해야 합니다.
+      </p>
     </Modal>
   );
 }

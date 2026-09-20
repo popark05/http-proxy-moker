@@ -1,45 +1,7 @@
 import { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import type { SetupStep } from '@shared/device';
-import { Modal, Button } from '../primitives';
-
-const StepList = styled.ol`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.md};
-  margin-bottom: ${({ theme }) => theme.space.lg};
-`;
-
-const Step = styled.li`
-  border-left: 2px solid ${({ theme }) => theme.accent};
-  padding-left: ${({ theme }) => theme.space.md};
-`;
-
-const StepTitle = styled.div`
-  font-weight: 600;
-  margin-bottom: ${({ theme }) => theme.space.xs};
-`;
-
-const StepDetail = styled.div`
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  color: ${({ theme }) => theme.secondaryText};
-  line-height: 1.5;
-`;
-
-const StepValue = styled.code`
-  display: inline-block;
-  margin-top: ${({ theme }) => theme.space.xs};
-  padding: ${({ theme }) => `2px ${theme.space.sm}`};
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.space.sm};
-`;
+import { Modal } from '../primitives';
+import { Button } from '@/components/ui/button';
 
 interface IosSetupModalProps {
   open: boolean;
@@ -57,27 +19,27 @@ export function IosSetupModal({ open, onOpenChange }: IosSetupModalProps): JSX.E
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="iOS 인터셉션 셋업">
-      <StepList>
+      <ol className="mb-4 flex flex-col gap-3">
         {steps.map((step, i) => (
-          <Step key={i}>
-            <StepTitle>{step.title}</StepTitle>
-            <StepDetail>{step.detail}</StepDetail>
-            {step.value && <StepValue>{step.value}</StepValue>}
-          </Step>
+          <li key={i} className="border-l-2 border-primary pl-3">
+            <div className="mb-0.5 font-semibold">{step.title}</div>
+            <div className="text-[13px] leading-relaxed text-muted-foreground">{step.detail}</div>
+            {step.value && (
+              <code className="mt-1 inline-block rounded-sm bg-muted px-2 py-0.5 font-mono text-[13px]">
+                {step.value}
+              </code>
+            )}
+          </li>
         ))}
-      </StepList>
-      <Actions>
-        <Button
-          $variant="primary"
-          $size="sm"
-          onClick={() => void window.mokerApi.ca.export('mobileconfig')}
-        >
+      </ol>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => void window.mokerApi.ca.export('mobileconfig')}>
           .mobileconfig 내보내기
         </Button>
-        <Button $variant="secondary" $size="sm" onClick={() => onOpenChange(false)}>
+        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
           닫기
         </Button>
-      </Actions>
+      </div>
     </Modal>
   );
 }

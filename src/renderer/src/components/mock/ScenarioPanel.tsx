@@ -1,45 +1,7 @@
-import styled from 'styled-components';
-import { Trash, Play, CheckCircle } from '@phosphor-icons/react';
-import { Button, Badge } from '../primitives';
-
-const Wrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.sm};
-`;
-
-const HeadTitle = styled.h3`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${({ theme }) => theme.mutedText};
-`;
-
-const Row = styled.div<{ $active: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => theme.space.sm};
-  border: 1px solid
-    ${({ theme, $active }) => ($active ? theme.accent : theme.borderSubtle)};
-  border-radius: ${({ theme }) => theme.radii.md};
-  background: ${({ theme, $active }) => ($active ? theme.panelRaisedBackground : 'transparent')};
-`;
-
-const Name = styled.span`
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
-
-const Empty = styled.div`
-  color: ${({ theme }) => theme.mutedText};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  padding: ${({ theme }) => theme.space.sm};
-`;
+import { Trash2, Play, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface ScenarioPanelProps {
   scenarios: string[];
@@ -56,34 +18,46 @@ export function ScenarioPanel({
   onDelete
 }: ScenarioPanelProps): JSX.Element {
   return (
-    <Wrap>
-      <HeadTitle>시나리오 ({scenarios.length})</HeadTitle>
+    <div className="flex flex-col gap-2">
+      <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        시나리오 ({scenarios.length})
+      </h3>
 
       {scenarios.length === 0 ? (
-        <Empty>저장된 시나리오가 없습니다. 목 정의를 만든 뒤 "시나리오 저장"을 누르세요.</Empty>
+        <div className="p-2 text-xs text-muted-foreground">
+          저장된 시나리오가 없습니다. 목 정의를 만든 뒤 "시나리오 저장"을 누르세요.
+        </div>
       ) : (
         scenarios.map((name) => {
           const active = name === activeScenario;
           return (
-            <Row key={name} $active={active}>
-              {active && <CheckCircle size={16} weight="fill" />}
-              <Name title={name}>{name}</Name>
-              {active && <Badge $tone="success">활성</Badge>}
+            <div
+              key={name}
+              className={cn(
+                'flex items-center gap-2 rounded-md border p-2',
+                active ? 'border-primary bg-accent' : 'border-border'
+              )}
+            >
+              {active && <CheckCircle2 className="size-4 shrink-0 text-primary" />}
+              <span className="min-w-0 flex-1 truncate text-[13px]" title={name}>
+                {name}
+              </span>
+              {active && <Badge variant="success">활성</Badge>}
               <Button
-                $variant={active ? 'ghost' : 'primary'}
-                $size="sm"
+                variant={active ? 'ghost' : 'default'}
+                size="sm"
                 disabled={active}
                 onClick={() => onActivate(name)}
               >
-                <Play size={14} /> {active ? '적용됨' : '활성화'}
+                <Play /> {active ? '적용됨' : '활성화'}
               </Button>
-              <Button $variant="ghost" $size="sm" aria-label="삭제" onClick={() => onDelete(name)}>
-                <Trash size={14} />
+              <Button variant="ghost" size="icon" aria-label="삭제" onClick={() => onDelete(name)}>
+                <Trash2 />
               </Button>
-            </Row>
+            </div>
           );
         })
       )}
-    </Wrap>
+    </div>
   );
 }
