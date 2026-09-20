@@ -1,62 +1,13 @@
-import styled from 'styled-components';
-import { Copy } from '@phosphor-icons/react';
+import { Copy, MousePointerClick } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
-import {
-  Tabs,
-  TabsList,
-  TabTrigger,
-  TabContent,
-  Badge,
-  Button,
-  methodTone,
-  statusTone
-} from '../primitives';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '../common/EmptyState';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { methodTone, statusTone } from '../primitives';
 import { HeaderTable } from './HeaderTable';
 import { BodyView } from './BodyView';
 import { TagEditor } from './TagEditor';
-
-const Wrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const Summary = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => theme.space.md};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-`;
-
-const SummaryUrl = styled.span`
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  color: ${({ theme }) => theme.secondaryText};
-  word-break: break-all;
-`;
-
-const Section = styled.div`
-  padding: ${({ theme }) => theme.space.sm} 0;
-`;
-
-const SectionTitle = styled.h4`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${({ theme }) => theme.mutedText};
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-`;
-
-const BodyWrap = styled.div`
-  height: 320px;
-`;
-
-const Placeholder = styled.div`
-  padding: ${({ theme }) => theme.space.xl};
-  color: ${({ theme }) => theme.mutedText};
-  text-align: center;
-`;
 
 interface ExchangeDetailProps {
   exchange: CapturedExchange | undefined;
@@ -65,9 +16,13 @@ interface ExchangeDetailProps {
   onRemoveTag?: (id: string, tag: string) => void;
 }
 
-const SummarySpacer = styled.div`
-  flex: 1;
-`;
+function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
+  return (
+    <h4 className="px-3 py-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </h4>
+  );
+}
 
 export function ExchangeDetail({
   exchange,
@@ -76,32 +31,40 @@ export function ExchangeDetail({
   onRemoveTag
 }: ExchangeDetailProps): JSX.Element {
   if (!exchange) {
-    return <Placeholder>왼쪽에서 요청을 선택하면 상세가 표시됩니다.</Placeholder>;
+    return (
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={MousePointerClick}
+          title="요청을 선택하세요"
+          description="왼쪽 트래픽 목록에서 항목을 선택하면 요청·응답 상세와 편집 옵션이 표시됩니다."
+        />
+      </div>
+    );
   }
 
   const { request, response } = exchange;
 
   return (
-    <Wrap>
-      <Summary>
-        <Badge $tone={methodTone(request.method)}>{request.method}</Badge>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-border p-3">
+        <Badge variant={methodTone(request.method)}>{request.method}</Badge>
         {response === 'aborted' ? (
-          <Badge $tone="error">중단됨</Badge>
+          <Badge variant="error">중단됨</Badge>
         ) : response ? (
-          <Badge $tone={statusTone(response.statusCode)}>
+          <Badge variant={statusTone(response.statusCode)}>
             {response.statusCode} {response.statusMessage}
           </Badge>
         ) : (
-          <Badge $tone="neutral">대기 중</Badge>
+          <Badge variant="neutral">대기 중</Badge>
         )}
-        <SummaryUrl>{request.url}</SummaryUrl>
-        <SummarySpacer />
+        <span className="break-all font-mono text-sm text-muted-foreground">{request.url}</span>
+        <div className="flex-1" />
         {onCloneToMock && (
-          <Button $variant="secondary" $size="sm" onClick={() => onCloneToMock(exchange)}>
-            <Copy size={14} /> 목으로 복제
+          <Button variant="outline" size="sm" onClick={() => onCloneToMock(exchange)}>
+            <Copy /> 목으로 복제
           </Button>
         )}
-      </Summary>
+      </div>
 
       {(onAddTag || onRemoveTag) && (
         <TagEditor
@@ -111,46 +74,38 @@ export function ExchangeDetail({
         />
       )}
 
-      <Tabs defaultValue="request">
-        <TabsList>
-          <TabTrigger value="request">요청</TabTrigger>
-          <TabTrigger value="response">응답</TabTrigger>
+      <Tabs defaultValue="request" className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="mx-3 mt-2 w-fit">
+          <TabsTrigger value="request">요청</TabsTrigger>
+          <TabsTrigger value="response">응답</TabsTrigger>
         </TabsList>
 
-        <TabContent value="request">
-          <Section>
-            <SectionTitle>헤더</SectionTitle>
-            <HeaderTable headers={request.headers} />
-          </Section>
-          <Section>
-            <SectionTitle>본문</SectionTitle>
-            <BodyWrap>
-              <BodyView body={request.body} />
-            </BodyWrap>
-          </Section>
-        </TabContent>
+        <TabsContent value="request" className="min-h-0 flex-1 overflow-auto">
+          <SectionTitle>헤더</SectionTitle>
+          <HeaderTable headers={request.headers} />
+          <SectionTitle>본문</SectionTitle>
+          <div className="h-80">
+            <BodyView body={request.body} />
+          </div>
+        </TabsContent>
 
-        <TabContent value="response">
+        <TabsContent value="response" className="min-h-0 flex-1 overflow-auto">
           {response && response !== 'aborted' ? (
             <>
-              <Section>
-                <SectionTitle>헤더</SectionTitle>
-                <HeaderTable headers={response.headers} />
-              </Section>
-              <Section>
-                <SectionTitle>본문</SectionTitle>
-                <BodyWrap>
-                  <BodyView body={response.body} />
-                </BodyWrap>
-              </Section>
+              <SectionTitle>헤더</SectionTitle>
+              <HeaderTable headers={response.headers} />
+              <SectionTitle>본문</SectionTitle>
+              <div className="h-80">
+                <BodyView body={response.body} />
+              </div>
             </>
           ) : (
-            <Placeholder>
+            <div className="p-8 text-center text-sm text-muted-foreground">
               {response === 'aborted' ? '요청이 중단되었습니다.' : '응답을 기다리는 중...'}
-            </Placeholder>
+            </div>
           )}
-        </TabContent>
+        </TabsContent>
       </Tabs>
-    </Wrap>
+    </div>
   );
 }

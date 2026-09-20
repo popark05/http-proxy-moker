@@ -1,12 +1,9 @@
-import styled from 'styled-components';
 import type { CapturedBody } from '@shared/capture';
 import { CodeView } from '../code/CodeView';
 
-const Note = styled.div`
-  padding: ${({ theme }) => theme.space.md};
-  color: ${({ theme }) => theme.mutedText};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
+function Note({ children }: { children: React.ReactNode }): JSX.Element {
+  return <div className="p-3 text-sm text-muted-foreground">{children}</div>;
+}
 
 function languageFor(contentType?: string): string {
   if (!contentType) return 'plaintext';

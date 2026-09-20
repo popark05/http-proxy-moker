@@ -1,0 +1,154 @@
+@import 'tailwindcss';
+@plugin 'tailwindcss-animate';
+
+/* 다크 테마를 .dark 클래스로 토글(기본 다크). */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * EverMock 디자인 토큰 (shadcn 변수 체계).
+ * 기존 ink 계열 다크 팔레트를 shadcn --background/--foreground/... 로 재정의.
+ * 값은 HSL 컴포넌트(공백 구분). 라이트/다크 모두 정의하되 앱은 다크 기본.
+ */
+:root {
+  --radius: 0.625rem;
+
+  /* Light (폴백) */
+  --background: 0 0% 100%;
+  --foreground: 222 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 20% 12%;
+  --primary: 227 62% 51%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 20% 20%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 220 14% 94%;
+  --accent-foreground: 222 20% 20%;
+  --destructive: 9 76% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 47% 44%;
+  --warning: 33 88% 53%;
+  --border: 220 13% 88%;
+  --input: 220 13% 88%;
+  --ring: 224 76% 62%;
+}
+
+.dark {
+  /*
+   * EverMock 다크 — 차가운 슬레이트(blue-tinted) 톤 + 최소 색상.
+   * hue를 215~222(쿨 블루그레이)로 통일. 배경 명도 단계를 뚜렷이 해 위계 형성.
+   * 액센트는 primary 블루 하나만 강조하고, 상태색은 채도를 낮춰 절제.
+   */
+  --background: 220 26% 8%;       /* 가장 어두운 캔버스 */
+  --foreground: 214 24% 92%;
+  --card: 219 24% 11%;            /* 패널/사이드 표면 */
+  --card-foreground: 214 24% 92%;
+  --popover: 219 26% 12%;
+  --popover-foreground: 214 24% 92%;
+  --primary: 218 90% 66%;         /* 유일한 강조색 — 쿨 블루 */
+  --primary-foreground: 220 40% 10%;
+  --secondary: 218 18% 18%;
+  --secondary-foreground: 214 20% 88%;
+  --muted: 219 20% 15%;
+  --muted-foreground: 216 14% 60%;
+  --accent: 216 22% 20%;          /* hover/선택 표면 */
+  --accent-foreground: 214 24% 94%;
+  --destructive: 6 66% 58%;       /* 절제된 레드(대비 확보) */
+  --destructive-foreground: 210 30% 96%;
+  --success: 158 42% 46%;         /* 절제된 틸그린 */
+  --warning: 38 70% 56%;          /* 절제된 앰버 */
+  --border: 218 18% 18%;          /* 표면과 미세한 대비 */
+  --input: 218 16% 22%;
+  --ring: 218 90% 66%;
+}
+
+/* Tailwind v4: CSS 변수를 유틸 색상으로 매핑. */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  /* 타이포 스케일 — 가독성을 위해 한 단계 키움. */
+  --text-2xs: 0.75rem;     /* 12px 캡션/라벨 */
+  --text-2xs--line-height: 1.1rem;
+  --text-xs: 0.8125rem;    /* 13px */
+  --text-xs--line-height: 1.15rem;
+  --text-sm: 0.875rem;     /* 14px 기본 데이터/본문 */
+  --text-sm--line-height: 1.3rem;
+  --text-base: 0.9375rem;  /* 15px */
+  --text-base--line-height: 1.45rem;
+  --text-lg: 1.0625rem;    /* 17px 제목 */
+  --text-lg--line-height: 1.6rem;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    letter-spacing: -0.006em; /* 데스크탑 UI에 맞춰 살짝 타이트하게 */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* mono(URL·헤더·상태코드 등 데이터)는 숫자 정렬감을 위해 tabular-nums. */
+  code,
+  pre,
+  .font-mono {
+    font-feature-settings: 'tnum' 1, 'cv01' 1;
+  }
+  /* 얇은 스크롤바(데스크탑 도구 감성). */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+}

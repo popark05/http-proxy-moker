@@ -1,69 +1,10 @@
 import { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import type { MockDefinition, MockFault } from '@shared/mock';
-import { Modal, Button } from '../primitives';
+import { Modal } from '../primitives';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CodeView } from '../code/CodeView';
-
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: ${({ theme }) => theme.space.sm};
-  align-items: center;
-  margin-bottom: ${({ theme }) => theme.space.md};
-`;
-
-const Label = styled.label`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.mutedText};
-`;
-
-const Input = styled.input`
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.primaryText};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  width: 100%;
-`;
-
-const Select = styled.select`
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.primaryText};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  font-family: ${({ theme }) => theme.fonts.sans};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-  width: 100%;
-`;
-
-const FaultNote = styled.div`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.statusWarning};
-  margin-bottom: ${({ theme }) => theme.space.md};
-`;
-
-const BodyLabel = styled.div`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.mutedText};
-  margin-bottom: ${({ theme }) => theme.space.xs};
-`;
-
-const BodyWrap = styled.div`
-  height: 260px;
-  border: 1px solid ${({ theme }) => theme.borderSubtle};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  overflow: hidden;
-`;
-
-const Actions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: ${({ theme }) => theme.space.sm};
-  margin-top: ${({ theme }) => theme.space.lg};
-`;
 
 interface MockEditorProps {
   mock: MockDefinition | undefined;
@@ -71,6 +12,9 @@ interface MockEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave: (mock: MockDefinition) => void;
 }
+
+const selectClass =
+  'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** 목 정의 편집 모달: method/path/status/헤더/본문(Monaco). */
 export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {
@@ -81,7 +25,15 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
   }, [mock]);
 
   if (!draft) {
-    return <Modal open={open} onOpenChange={onOpenChange} title="목 편집" children={<div />} />;
+    return (
+      <Modal
+        open={open}
+        onOpenChange={onOpenChange}
+        title="목 편집"
+        className="w-[94vw] max-w-none sm:max-w-5xl"
+        children={<div />}
+      />
+    );
   }
 
   const update = (patch: Partial<MockDefinition>): void => setDraft({ ...draft, ...patch });
@@ -89,7 +41,6 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
     setDraft({ ...draft, response: { ...draft.response, ...patch } });
 
   const hasFault = !!draft.fault && draft.fault !== 'none';
-
   const headersText = draft.response.headers.map(([k, v]) => `${k}: ${v}`).join('\n');
 
   const applyHeaders = (text: string): void => {
@@ -107,50 +58,73 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="목 편집">
-      <Grid>
-        <Label htmlFor="mock-label">라벨</Label>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="목 편집"
+      className="w-[94vw] max-w-none sm:max-w-5xl"
+    >
+      <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
+        <Label htmlFor="mock-label" className="text-muted-foreground">
+          라벨
+        </Label>
         <Input
           id="mock-label"
+          className="font-mono"
           value={draft.label}
           onChange={(e) => update({ label: e.target.value })}
         />
 
-        <Label htmlFor="mock-method">메서드</Label>
+        <Label htmlFor="mock-method" className="text-muted-foreground">
+          메서드
+        </Label>
         <Input
           id="mock-method"
+          className="font-mono"
           value={draft.method}
           onChange={(e) => update({ method: e.target.value.toUpperCase() })}
         />
 
-        <Label htmlFor="mock-path">경로</Label>
+        <Label htmlFor="mock-path" className="text-muted-foreground">
+          경로
+        </Label>
         <Input
           id="mock-path"
+          className="font-mono"
           value={draft.path}
           onChange={(e) => update({ path: e.target.value })}
         />
 
-        <Label htmlFor="mock-status">상태코드</Label>
+        <Label htmlFor="mock-status" className="text-muted-foreground">
+          상태코드
+        </Label>
         <Input
           id="mock-status"
           type="number"
+          className="font-mono"
           value={draft.response.status}
           disabled={hasFault}
           onChange={(e) => updateResponse({ status: parseInt(e.target.value, 10) || 200 })}
         />
 
-        <Label htmlFor="mock-delay">지연(ms)</Label>
+        <Label htmlFor="mock-delay" className="text-muted-foreground">
+          지연(ms)
+        </Label>
         <Input
           id="mock-delay"
           type="number"
           min={0}
+          className="font-mono"
           value={draft.delayMs ?? 0}
           onChange={(e) => update({ delayMs: Math.max(0, parseInt(e.target.value, 10) || 0) })}
         />
 
-        <Label htmlFor="mock-fault">에러 주입</Label>
-        <Select
+        <Label htmlFor="mock-fault" className="text-muted-foreground">
+          에러 주입
+        </Label>
+        <select
           id="mock-fault"
+          className={selectClass}
           value={draft.fault ?? 'none'}
           onChange={(e) => update({ fault: e.target.value as MockFault })}
         >
@@ -158,46 +132,47 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
           <option value="timeout">타임아웃 (응답 없이 대기)</option>
           <option value="reset">연결 리셋 (RST)</option>
           <option value="close">연결 종료</option>
-        </Select>
-      </Grid>
+        </select>
+      </div>
 
       {hasFault ? (
-        <FaultNote>
+        <div className="mb-3 text-xs text-[hsl(var(--warning))]">
           에러 주입이 설정되어 응답(상태/헤더/본문) 대신 지정한 네트워크 오류가 반환됩니다.
-        </FaultNote>
+        </div>
       ) : (
         <>
-          <BodyLabel>응답 헤더 (한 줄에 하나: Name: Value)</BodyLabel>
-          <BodyWrap style={{ height: 120 }}>
+          <div className="mb-1 text-xs text-muted-foreground">
+            응답 헤더 (한 줄에 하나: Name: Value)
+          </div>
+          <div className="h-[160px] overflow-hidden rounded-md border border-border">
             <CodeView
               value={headersText}
               language="plaintext"
               readOnly={false}
               onChange={applyHeaders}
             />
-          </BodyWrap>
+          </div>
 
-          <div style={{ height: 12 }} />
+          <div className="h-3" />
 
-          <BodyLabel>응답 본문</BodyLabel>
-          <BodyWrap>
+          <div className="mb-1 text-xs text-muted-foreground">응답 본문</div>
+          <div className="h-[42vh] min-h-[320px] overflow-hidden rounded-md border border-border">
             <CodeView
               value={draft.response.body}
               language="json"
               readOnly={false}
               onChange={(body) => updateResponse({ body })}
             />
-          </BodyWrap>
+          </div>
         </>
       )}
 
-      <Actions>
-        <Button $variant="ghost" $size="sm" onClick={() => onOpenChange(false)}>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
           취소
         </Button>
         <Button
-          $variant="primary"
-          $size="sm"
+          size="sm"
           onClick={() => {
             onSave(draft);
             onOpenChange(false);
@@ -205,7 +180,7 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
         >
           저장
         </Button>
-      </Actions>
+      </div>
     </Modal>
   );
 }

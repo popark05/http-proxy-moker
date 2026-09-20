@@ -6,7 +6,10 @@ interface UseDevicesResult {
   refreshing: boolean;
   refresh: () => Promise<void>;
   interceptions: Record<string, InterceptionResult>;
-  start: (device: DeviceInfo, androidMode?: AndroidInterceptionMode) => Promise<void>;
+  start: (
+    device: DeviceInfo,
+    androidMode?: AndroidInterceptionMode
+  ) => Promise<InterceptionResult>;
   stop: (device: DeviceInfo) => Promise<void>;
 }
 
@@ -40,6 +43,7 @@ export function useDevices(): UseDevicesResult {
       androidMode
     );
     setInterceptions((prev) => ({ ...prev, [device.id]: result }));
+    return result;
   }, []);
 
   const stop = useCallback(async (device: DeviceInfo) => {

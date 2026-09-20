@@ -1,61 +1,9 @@
 import { useState } from 'react';
-import styled from 'styled-components';
-import { MagnifyingGlass, X, FunnelSimple } from '@phosphor-icons/react';
+import { Search, X, SlidersHorizontal } from 'lucide-react';
 import type { TrafficFilter, StatusClass } from '@shared/traffic-filter';
-import { Chip, Button } from '../primitives';
-
-const Wrap = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.xs};
-  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-`;
-
-const SearchRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-`;
-
-const SearchInput = styled.input`
-  flex: 1;
-  min-width: 0;
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.primaryText};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
-  font-size: ${({ theme }) => theme.fontSizes.input};
-`;
-
-const ChipRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.xs};
-`;
-
-const RowLabel = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.mutedText};
-  margin-right: ${({ theme }) => theme.space.xs};
-`;
-
-const Count = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-  color: ${({ theme }) => theme.secondaryText};
-  white-space: nowrap;
-`;
-
-const Select = styled.select`
-  background: ${({ theme }) => theme.panelRaisedBackground};
-  color: ${({ theme }) => theme.primaryText};
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: 2px ${({ theme }) => theme.space.xs};
-  font-size: ${({ theme }) => theme.fontSizes.smallPrint};
-`;
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Chip } from '../primitives';
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const;
 const STATUS_CLASSES: StatusClass[] = ['2xx', '3xx', '4xx', '5xx', 'pending', 'error'];
@@ -90,37 +38,45 @@ export function FilterBar({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <Wrap>
-      <SearchRow>
-        <MagnifyingGlass size={14} />
-        <SearchInput
+    <div className="flex flex-col gap-1.5 border-b border-border px-3 py-2">
+      <div className="flex items-center gap-2">
+        <Search className="size-4 shrink-0 text-muted-foreground" />
+        <Input
+          className="h-8"
           placeholder="URL · 헤더 · 본문 검색"
           value={filter.text ?? ''}
           onChange={(e) => patchFilter({ text: e.target.value })}
           aria-label="트래픽 검색"
         />
         <Button
-          $variant="ghost"
-          $size="sm"
+          variant="ghost"
+          size="icon"
           aria-label="필터 펼치기"
           onClick={() => setExpanded((v) => !v)}
+          className="size-8"
         >
-          <FunnelSimple size={14} />
+          <SlidersHorizontal />
         </Button>
         {active && (
-          <Button $variant="ghost" $size="sm" aria-label="필터 초기화" onClick={clearFilter}>
-            <X size={14} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="필터 초기화"
+            onClick={clearFilter}
+            className="size-8"
+          >
+            <X />
           </Button>
         )}
-        <Count>
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           {shown} / {total}
-        </Count>
-      </SearchRow>
+        </span>
+      </div>
 
       {expanded && (
-        <>
-          <ChipRow>
-            <RowLabel>메서드</RowLabel>
+        <div className="flex flex-col gap-1.5 pt-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-xs text-muted-foreground">메서드</span>
             {METHODS.map((m) => (
               <Chip
                 key={m}
@@ -130,10 +86,10 @@ export function FilterBar({
                 {m}
               </Chip>
             ))}
-          </ChipRow>
+          </div>
 
-          <ChipRow>
-            <RowLabel>상태</RowLabel>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-xs text-muted-foreground">상태</span>
             {STATUS_CLASSES.map((s) => (
               <Chip
                 key={s}
@@ -143,14 +99,15 @@ export function FilterBar({
                 {s}
               </Chip>
             ))}
-          </ChipRow>
+          </div>
 
-          <ChipRow>
-            <RowLabel>호스트</RowLabel>
-            <Select
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-xs text-muted-foreground">호스트</span>
+            <select
               value={filter.host ?? ''}
               onChange={(e) => patchFilter({ host: e.target.value || undefined })}
               aria-label="호스트 필터"
+              className="rounded-md border border-input bg-transparent px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">전체</option>
               {hosts.map((h) => (
@@ -158,12 +115,12 @@ export function FilterBar({
                   {h}
                 </option>
               ))}
-            </Select>
-          </ChipRow>
+            </select>
+          </div>
 
           {tags.length > 0 && (
-            <ChipRow>
-              <RowLabel>태그</RowLabel>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-xs text-muted-foreground">태그</span>
               {tags.map((t) => (
                 <Chip
                   key={t}
@@ -173,10 +130,10 @@ export function FilterBar({
                   {t}
                 </Chip>
               ))}
-            </ChipRow>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </Wrap>
+    </div>
   );
 }

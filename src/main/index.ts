@@ -1,13 +1,24 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeTheme } from 'electron';
+import { existsSync } from 'node:fs';
+import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers';
 
 // 데스크탑 QA 도구는 다크모드를 기본으로 한다. OS 테마를 따라가되 다크를 선호.
 nativeTheme.themeSource = 'dark';
 
+/** 앱 아이콘 경로(빌드 산출물 기준 상대). dev/prod 모두 build/icon.png를 참조. */
+function resolveAppIcon(): string | undefined {
+  const candidates = [
+    join(__dirname, '../../build/icon.png'), // dev: out/main → 프로젝트 루트/build
+    join(process.resourcesPath ?? '', 'icon.png')
+  ];
+  return candidates.find((p) => p && existsSync(p));
+}
+
 let mainWindow: BrowserWindow | undefined;
 
 function createMainWindow(): BrowserWindow {
+  const iconPath = resolveAppIcon();
   const window = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -16,6 +27,7 @@ function createMainWindow(): BrowserWindow {
     show: false,
     backgroundColor: '#16181e',
     titleBarStyle: 'hiddenInset',
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -47,6 +59,12 @@ function createMainWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // macOS dock 아이콘(dev 포함). 패키징 시엔 icns가 우선하지만 dev 편의를 위해 설정.
+  const iconPath = resolveAppIcon();
+  if (iconPath && process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+
   registerIpcHandlers(() => mainWindow);
   createMainWindow();
 

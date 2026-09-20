@@ -1,30 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import styled from 'styled-components';
-
-const Container = styled.div<{ $leftWidth: number }>`
-  display: grid;
-  grid-template-columns: ${({ $leftWidth }) => `${$leftWidth}px 6px 1fr`};
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-`;
-
-const Pane = styled.div`
-  overflow: auto;
-  min-width: 0;
-  min-height: 0;
-`;
-
-const Divider = styled.div`
-  cursor: col-resize;
-  background: ${({ theme }) => theme.borderSubtle};
-  transition: background 0.1s ease;
-
-  &:hover {
-    background: ${({ theme }) => theme.accent};
-  }
-`;
 
 interface SplitPaneProps {
   left: ReactNode;
@@ -51,12 +26,12 @@ export function SplitPane({
       const startX = e.clientX;
       const startWidth = leftWidth;
 
-      const onMove = (moveEvent: MouseEvent) => {
+      const onMove = (moveEvent: MouseEvent): void => {
         const delta = moveEvent.clientX - startX;
         const next = Math.min(maxLeftWidth, Math.max(minLeftWidth, startWidth + delta));
         setLeftWidth(next);
       };
-      const onUp = () => {
+      const onUp = (): void => {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
@@ -67,10 +42,19 @@ export function SplitPane({
   );
 
   return (
-    <Container ref={containerRef} $leftWidth={leftWidth}>
-      <Pane>{left}</Pane>
-      <Divider role="separator" aria-orientation="vertical" onMouseDown={onMouseDown} />
-      <Pane>{right}</Pane>
-    </Container>
+    <div
+      ref={containerRef}
+      className="grid h-full w-full overflow-hidden"
+      style={{ gridTemplateColumns: `${leftWidth}px 6px 1fr` }}
+    >
+      <div className="min-h-0 min-w-0 overflow-auto">{left}</div>
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        onMouseDown={onMouseDown}
+        className="cursor-col-resize bg-border transition-colors hover:bg-primary"
+      />
+      <div className="min-h-0 min-w-0 overflow-auto">{right}</div>
+    </div>
   );
 }

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { AppThemeProvider } from './theme/ThemeProvider';
+import { toast } from 'sonner';
 import { AppModeProvider, useAppMode } from './state/app-mode';
+import { AppThemeProvider } from './theme/ThemeProvider';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
+import { Separator } from '@/components/ui/separator';
 import { TopBar } from './components/layout/TopBar';
 import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
@@ -17,59 +20,10 @@ import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
 import { ScenarioPanel } from './components/mock/ScenarioPanel';
 
-const Shell = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const Content = styled.div`
-  flex: 1;
-  min-height: 0;
-`;
-
-const LeftColumn = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const ListArea = styled.div`
-  flex: 1;
-  min-height: 0;
-`;
-
-const DeviceArea = styled.div`
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  border-bottom: 1px solid ${({ theme }) => theme.borderSubtle};
-  max-height: 40%;
-  overflow: auto;
-`;
-
-const RightColumn = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const DetailArea = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-`;
-
-const MockArea = styled.div`
-  border-top: 1px solid ${({ theme }) => theme.borderSubtle};
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  max-height: 50%;
-  overflow: auto;
-`;
-
-const ScenarioDivider = styled.hr`
-  border: none;
-  border-top: 1px dashed ${({ theme }) => theme.borderSubtle};
-  margin: ${({ theme }) => theme.space.md} 0;
-`;
+/** 에러 객체에서 사용자 표시용 메시지 추출. */
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
 
 function AppInner(): JSX.Element {
   const { exchanges, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
@@ -85,7 +39,7 @@ function AppInner(): JSX.Element {
   } = useProject();
   const { mocks, cloneFromExchange, updateMock, removeMock, saveScenario, loadScenario } =
     useMocks();
-  const { mode } = useAppMode();
+  const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -107,33 +61,60 @@ function AppInner(): JSX.Element {
     }
   }, [mode, mocks, blockUnmatched, status.running]);
 
+  const handleStartProxy = async (): Promise<void> => {
+    try {
+      const next = await startProxy();
+      toast.success('프록시 시작', { description: `포트 ${next?.port ?? ''} 수신 중` });
+    } catch (e) {
+      toast.error('프록시 시작 실패', { description: errMsg(e) });
+    }
+  };
+
+  const handleStopProxy = async (): Promise<void> => {
+    await stopProxy();
+    toast('프록시 중지됨');
+  };
+
   const handleLoadSession = async (name: string): Promise<void> => {
-    const loaded = await loadCapture(name);
-    replaceExchanges(loaded);
-    setSelectedId(undefined);
+    try {
+      const loaded = await loadCapture(name);
+      replaceExchanges(loaded);
+      setSelectedId(undefined);
+      toast.success('세션 로드됨', { description: `${name} · ${loaded.length}건` });
+    } catch (e) {
+      toast.error('세션 로드 실패', { description: errMsg(e) });
+    }
   };
 
   const handleSaveScenario = async (name: string): Promise<void> => {
-    const saved = await saveScenario(name);
-    addScenarioName(saved);
-    setActiveScenario(saved);
+    try {
+      const saved = await saveScenario(name);
+      addScenarioName(saved);
+      setActiveScenario(saved);
+      toast.success('시나리오 저장됨', { description: saved });
+    } catch (e) {
+      toast.error('시나리오 저장 실패', { description: errMsg(e) });
+    }
   };
 
   const handleActivateScenario = async (name: string): Promise<void> => {
-    // 시나리오를 목 목록으로 로드. 목킹 모드면 useEffect가 mocks 변경을 감지해 즉시 적용.
     await loadScenario(name);
     setActiveScenario(name);
+    toast.success('시나리오 활성화', {
+      description: mode === 'mock' ? `${name} 적용됨` : `${name} 로드됨 (목킹 모드에서 적용)`
+    });
   };
 
   const handleDeleteScenario = async (name: string): Promise<void> => {
     await window.mokerApi.project.deleteScenario(name);
     removeScenarioName(name);
     if (activeScenario === name) setActiveScenario(undefined);
+    toast('시나리오 삭제됨', { description: name });
   };
 
   const handleAddTag = (id: string, tag: string): void => {
     addTag(id, tag);
-    invalidateIndex(id); // 검색 인덱스 갱신(태그가 인덱스에 포함됨)
+    invalidateIndex(id);
   };
 
   const handleRemoveTag = (id: string, tag: string): void => {
@@ -141,34 +122,62 @@ function AppInner(): JSX.Element {
     invalidateIndex(id);
   };
 
+  const handleCreateProject = async (name: string): Promise<void> => {
+    try {
+      await createProject(name);
+    } catch (e) {
+      toast.error('프로젝트 생성 실패', { description: errMsg(e) });
+    }
+  };
+
+  const handleOpenProject = async (): Promise<void> => {
+    try {
+      await openProject();
+    } catch (e) {
+      toast.error('프로젝트 열기 실패', { description: errMsg(e) });
+    }
+  };
+
+  const handleSaveCapture = async (name: string): Promise<void> => {
+    try {
+      await saveCapture(name, exchanges);
+      toast.success('캡처 세션 저장됨', { description: `${name} · ${exchanges.length}건` });
+    } catch (e) {
+      toast.error('세션 저장 실패', { description: errMsg(e) });
+    }
+  };
+
   return (
-    <Shell>
-      <TopBar />
+    <div className="flex h-full flex-col bg-background text-foreground">
+      <TopBar
+        activeMockCount={mocks.filter((m) => m.enabled).length}
+        activeScenario={activeScenario}
+      />
       <ProjectBar
         project={project}
         exchanges={exchanges}
-        onCreate={(name) => void createProject(name)}
-        onOpen={() => void openProject()}
-        onSave={(name) => void saveCapture(name, exchanges)}
+        onCreate={(name) => void handleCreateProject(name)}
+        onOpen={() => void handleOpenProject()}
+        onSave={(name) => void handleSaveCapture(name)}
         onLoadSession={(name) => void handleLoadSession(name)}
       />
-      <Content>
+      <div className="min-h-0 flex-1">
         <SplitPane
           left={
-            <LeftColumn>
+            <div className="flex h-full flex-col">
               <ProxyControls
                 status={status}
                 count={exchanges.length}
-                onStart={() => void startProxy()}
-                onStop={() => void stopProxy()}
+                onStart={() => void handleStartProxy()}
+                onStop={() => void handleStopProxy()}
                 onClear={() => {
                   clear();
                   setSelectedId(undefined);
                 }}
               />
-              <DeviceArea>
+              <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
                 <DevicePanel />
-              </DeviceArea>
+              </div>
               <FilterBar
                 filter={filter}
                 patchFilter={patchFilter}
@@ -179,26 +188,43 @@ function AppInner(): JSX.Element {
                 total={exchanges.length}
                 shown={filtered.length}
               />
-              <ListArea>
+              <div className="min-h-0 flex-1">
                 <TrafficList
                   exchanges={filtered}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                 />
-              </ListArea>
-            </LeftColumn>
+              </div>
+            </div>
           }
           right={
-            <RightColumn>
-              <DetailArea>
+            <div className="flex h-full flex-col">
+              <div className="min-h-0 flex-1 overflow-auto">
                 <ExchangeDetail
                   exchange={selected}
-                  onCloneToMock={(exchange) => cloneFromExchange(exchange)}
+                  onCloneToMock={(exchange) => {
+                    cloneFromExchange(exchange);
+                    const desc = `${exchange.request.method} ${exchange.request.path}`;
+                    if (mode === 'mock') {
+                      toast.success('목으로 복제됨', {
+                        description: `${desc} · 목킹 모드에 즉시 반영됨`
+                      });
+                    } else {
+                      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
+                      toast.success('목으로 복제됨', {
+                        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
+                        action: {
+                          label: '목킹 모드로',
+                          onClick: () => setMode('mock')
+                        }
+                      });
+                    }
+                  }}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}
                 />
-              </DetailArea>
-              <MockArea>
+              </div>
+              <div className="max-h-[50%] overflow-auto border-t border-border px-4 py-2">
                 <MockPanel
                   mocks={mocks}
                   mode={mode}
@@ -208,28 +234,31 @@ function AppInner(): JSX.Element {
                   onRemove={removeMock}
                   onSaveScenario={(name) => void handleSaveScenario(name)}
                 />
-                <ScenarioDivider />
+                <Separator className="my-3" />
                 <ScenarioPanel
                   scenarios={project?.scenarios ?? []}
                   activeScenario={activeScenario}
                   onActivate={(name) => void handleActivateScenario(name)}
                   onDelete={(name) => void handleDeleteScenario(name)}
                 />
-              </MockArea>
-            </RightColumn>
+              </div>
+            </div>
           }
         />
-      </Content>
-    </Shell>
+      </div>
+      <Toaster />
+    </div>
   );
 }
 
 export function App(): JSX.Element {
   return (
     <AppThemeProvider>
-      <AppModeProvider>
-        <AppInner />
-      </AppModeProvider>
+      <TooltipProvider delayDuration={300}>
+        <AppModeProvider>
+          <AppInner />
+        </AppModeProvider>
+      </TooltipProvider>
     </AppThemeProvider>
   );
 }
