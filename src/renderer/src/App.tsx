@@ -39,7 +39,7 @@ function AppInner(): JSX.Element {
   } = useProject();
   const { mocks, cloneFromExchange, updateMock, removeMock, saveScenario, loadScenario } =
     useMocks();
-  const { mode } = useAppMode();
+  const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -149,7 +149,10 @@ function AppInner(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TopBar />
+      <TopBar
+        activeMockCount={mocks.filter((m) => m.enabled).length}
+        activeScenario={activeScenario}
+      />
       <ProjectBar
         project={project}
         exchanges={exchanges}
@@ -201,9 +204,21 @@ function AppInner(): JSX.Element {
                   exchange={selected}
                   onCloneToMock={(exchange) => {
                     cloneFromExchange(exchange);
-                    toast.success('목으로 복제됨', {
-                      description: `${exchange.request.method} ${exchange.request.path} · 아래 목 정의에서 편집`
-                    });
+                    const desc = `${exchange.request.method} ${exchange.request.path}`;
+                    if (mode === 'mock') {
+                      toast.success('목으로 복제됨', {
+                        description: `${desc} · 목킹 모드에 즉시 반영됨`
+                      });
+                    } else {
+                      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
+                      toast.success('목으로 복제됨', {
+                        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
+                        action: {
+                          label: '목킹 모드로',
+                          onClick: () => setMode('mock')
+                        }
+                      });
+                    }
                   }}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}

@@ -1,16 +1,25 @@
 import { useState } from 'react';
-import { ShieldCheck, Radio, FlaskConical } from 'lucide-react';
+import { ShieldCheck, Radio, FlaskConical, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LogoWordmark } from '../brand/Logo';
 import { CaExportModal } from '../cert/CaExportModal';
 import { useAppMode } from '../../state/app-mode';
 
+interface TopBarProps {
+  /** 활성(enabled) 목 개수. */
+  activeMockCount: number;
+  /** 현재 활성 시나리오명. */
+  activeScenario?: string;
+}
+
 /**
  * 상단 바. macOS 신호등 공간 확보 + 드래그 영역.
  * 현재 모드(캡처/목킹)를 색과 아이콘으로 강하게 구분해 QA가 착각하지 않도록 한다.
+ * 목킹 모드에서는 활성 목/시나리오를 상시 표시하고, 활성 목이 없으면 경고한다.
  */
-export function TopBar(): JSX.Element {
+export function TopBar({ activeMockCount, activeScenario }: TopBarProps): JSX.Element {
   const { mode, setMode } = useAppMode();
   const [caOpen, setCaOpen] = useState(false);
   const isMock = mode === 'mock';
@@ -55,6 +64,26 @@ export function TopBar(): JSX.Element {
           <FlaskConical className="size-3.5" /> 목킹
         </button>
       </div>
+
+      {/* 목킹 모드 상태 표시 */}
+      {isMock && (
+        <div
+          className="flex items-center gap-2"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          {activeMockCount > 0 ? (
+            <Badge variant="warning">
+              목 {activeMockCount}개 활성
+              {activeScenario ? ` · ${activeScenario}` : ''}
+            </Badge>
+          ) : (
+            <Badge variant="error">
+              <AlertTriangle className="mr-1 size-3" />
+              활성 목 없음 — 응답이 그대로 통과됩니다
+            </Badge>
+          )}
+        </div>
+      )}
 
       <div className="flex-1" />
 

@@ -1,6 +1,7 @@
-import { Trash2, Play, CheckCircle2 } from 'lucide-react';
+import { Trash2, Play, CheckCircle2, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '../common/EmptyState';
 import { cn } from '@/lib/utils';
 
 interface ScenarioPanelProps {
@@ -24,9 +25,12 @@ export function ScenarioPanel({
       </h3>
 
       {scenarios.length === 0 ? (
-        <div className="p-2 text-xs text-muted-foreground">
-          저장된 시나리오가 없습니다. 목 정의를 만든 뒤 "시나리오 저장"을 누르세요.
-        </div>
+        <EmptyState
+          compact
+          icon={Layers}
+          title="저장된 시나리오가 없습니다"
+          description='목 정의를 만든 뒤 "시나리오 저장"을 누르면 목 묶음을 저장·전환할 수 있습니다.'
+        />
       ) : (
         scenarios.map((name) => {
           const active = name === activeScenario;

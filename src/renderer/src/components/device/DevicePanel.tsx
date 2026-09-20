@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Smartphone, Apple, RefreshCw } from 'lucide-react';
+import { Smartphone, Apple, RefreshCw, SmartphoneNfc } from 'lucide-react';
 import type {
   AndroidInterceptionMode,
   DeviceInfo,
@@ -8,6 +8,7 @@ import type {
 } from '@shared/device';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '../common/EmptyState';
 import { useDevices } from '../../state/useDevices';
 import { IosSetupModal } from './IosSetupModal';
 
@@ -161,9 +162,12 @@ export function DevicePanel(): JSX.Element {
       </div>
 
       {devices.length === 0 ? (
-        <div className="p-2 text-xs text-muted-foreground">
-          연결된 기기가 없습니다. Android는 ADB로, iOS는 USB로 연결하세요.
-        </div>
+        <EmptyState
+          compact
+          icon={SmartphoneNfc}
+          title="연결된 기기가 없습니다"
+          description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동으로 감지됩니다."
+        />
       ) : (
         devices.map((device) => (
           <DeviceItem

@@ -1,6 +1,7 @@
-import { Copy } from 'lucide-react';
+import { Copy, MousePointerClick } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '../common/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { methodTone, statusTone } from '../primitives';
@@ -31,8 +32,12 @@ export function ExchangeDetail({
 }: ExchangeDetailProps): JSX.Element {
   if (!exchange) {
     return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        왼쪽에서 요청을 선택하면 상세가 표시됩니다.
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={MousePointerClick}
+          title="요청을 선택하세요"
+          description="왼쪽 트래픽 목록에서 항목을 선택하면 요청·응답 상세와 편집 옵션이 표시됩니다."
+        />
       </div>
     );
   }

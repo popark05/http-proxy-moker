@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Save } from 'lucide-react';
+import { Pencil, Trash2, Save, FileJson } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import type { AppMode } from '../../state/app-mode';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { MockEditor } from './MockEditor';
 
@@ -87,9 +88,12 @@ export function MockPanel({
       )}
 
       {mocks.length === 0 ? (
-        <div className="p-2 text-xs text-muted-foreground">
-          캡처된 응답에서 "목으로 복제"를 눌러 목 정의를 만드세요.
-        </div>
+        <EmptyState
+          compact
+          icon={FileJson}
+          title="목 정의가 없습니다"
+          description='왼쪽 트래픽에서 응답을 고른 뒤 "목으로 복제"를 누르면 여기에 추가됩니다.'
+        />
       ) : (
         mocks.map((mock) => (
           <div key={mock.id} className="flex items-center gap-2 rounded-md border border-border p-2">

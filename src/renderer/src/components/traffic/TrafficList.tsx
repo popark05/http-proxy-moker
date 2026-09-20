@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
 
@@ -33,9 +35,11 @@ export function TrafficList({ exchanges, selectedId, onSelect }: TrafficListProp
 
   if (exchanges.length === 0) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
-        아직 캡처된 요청이 없습니다. 프록시를 시작하고 트래픽을 보내보세요.
-      </div>
+      <EmptyState
+        icon={Radio}
+        title="아직 캡처된 요청이 없습니다"
+        description="프록시를 시작하고 기기 인터셉션을 켠 뒤, 앱에서 트래픽을 발생시키면 여기에 표시됩니다."
+      />
     );
   }
 
