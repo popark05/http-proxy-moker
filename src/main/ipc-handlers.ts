@@ -50,6 +50,9 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   const ca = new CaManager(path.join(app.getPath('userData'), 'ca'));
   const proxy = new ProxyService(emit, ca);
 
+  // 앱 종료 시 프록시 워커(자식 프로세스)를 정리한다.
+  app.on('will-quit', () => proxy.dispose());
+
   ipcMain.handle(IpcChannels.proxyStart, (_event, args: ProxyStartArgs | undefined) =>
     proxy.start(args?.port ?? DEFAULT_PROXY_PORT)
   );

@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach } from 'vitest';
 import * as http from 'node:http';
-import { ProxyService } from '../../src/main/proxy/proxy-service';
+import { ProxyEngine } from '../../src/main/proxy/proxy-engine';
 import type { CaptureEvent } from '../../src/shared/capture';
 
 // 실제 mockttp 프록시를 띄우는 통합 테스트(Node 환경).
+// ProxyEngine을 직접 테스트한다(런타임에는 ProxyService가 이 엔진을 워커에서 실행).
 
 let backend: http.Server | undefined;
-let service: ProxyService | undefined;
+let service: ProxyEngine | undefined;
 
 afterEach(async () => {
   if (service) await service.stop();
@@ -62,7 +63,7 @@ describe('ProxyService (통합)', () => {
     const backendPort = await startBackend();
 
     const events: CaptureEvent[] = [];
-    service = new ProxyService((e) => events.push(e));
+    service = new ProxyEngine((e) => events.push(e));
 
     const status = await service.start(0);
     expect(status.running).toBe(true);
@@ -91,7 +92,7 @@ describe('ProxyService (통합)', () => {
   }, 15_000);
 
   it('start는 idempotent하고 stop 후 상태가 초기화된다', async () => {
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const s1 = await service.start(0);
     const s2 = await service.start(0);
     expect(s2.port).toBe(s1.port);
@@ -141,7 +142,7 @@ describe('ProxyService 목킹 모드 (통합)', () => {
       });
     });
 
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const status = await service.start(0);
 
     await service.applyMocks(
@@ -165,7 +166,7 @@ describe('ProxyService 목킹 모드 (통합)', () => {
   }, 15_000);
 
   it('block 정책: 매칭 안 된 요청은 503 차단', async () => {
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const status = await service.start(0);
     await service.applyMocks([], 'block');
 
@@ -174,7 +175,7 @@ describe('ProxyService 목킹 모드 (통합)', () => {
   }, 15_000);
 
   it('지연(delayMs) 목: 응답이 지연 시간 이상 걸린다', async () => {
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const status = await service.start(0);
 
     await service.applyMocks(
@@ -202,7 +203,7 @@ describe('ProxyService 목킹 모드 (통합)', () => {
   }, 15_000);
 
   it('fault=reset 목: 연결이 리셋되어 요청이 실패한다', async () => {
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const status = await service.start(0);
 
     await service.applyMocks(
@@ -235,7 +236,7 @@ describe('ProxyService 목킹 모드 (통합)', () => {
       });
     });
 
-    service = new ProxyService(() => {});
+    service = new ProxyEngine(() => {});
     const status = await service.start(0);
     await service.applyMocks([], 'block');
     await service.clearMocks();

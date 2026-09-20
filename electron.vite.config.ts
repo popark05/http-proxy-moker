@@ -12,7 +12,12 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: { index: resolve('src/main/index.ts') }
+        input: {
+          index: resolve('src/main/index.ts'),
+          // 프록시 엔진은 순정 Node 자식 프로세스로 fork된다(Electron BoringSSL 회피).
+          // out/main/proxy-worker.js 로 빌드되어 ProxyService가 fork한다.
+          'proxy-worker': resolve('src/main/proxy/proxy-worker-entry.ts')
+        }
       }
     }
   },

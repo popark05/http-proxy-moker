@@ -23,6 +23,15 @@ export class CaManager {
     this.keyPath = path.join(dataDir, 'ca.key');
   }
 
+  /**
+   * CA를 디스크에 보장한 뒤 cert/key 파일 경로를 반환한다.
+   * 프록시 워커(자식 프로세스)에 CA를 넘길 때 사용(경로 전달 → 워커가 직접 로드).
+   */
+  async ensureCaPaths(): Promise<{ certPath: string; keyPath: string }> {
+    await this.ensureCa();
+    return { certPath: this.certPath, keyPath: this.keyPath };
+  }
+
   /** 저장된 CA를 로드하거나, 없으면 새로 생성해 저장한다. */
   async ensureCa(): Promise<CaKeyPair> {
     if (this.cached) return this.cached;

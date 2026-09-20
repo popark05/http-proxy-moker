@@ -5,14 +5,14 @@ import * as http from 'node:http';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ProxyService } from '../../src/main/proxy/proxy-service';
+import { ProxyEngine } from '../../src/main/proxy/proxy-engine';
 import { CaManager } from '../../src/main/cert/ca-manager';
 import type { CaptureEvent } from '../../src/shared/capture';
 
 // CA를 주입한 프록시가 HTTPS 트래픽을 복호화해 캡처하는지 검증(통합).
 
 let backend: https.Server | undefined;
-let service: ProxyService | undefined;
+let service: ProxyEngine | undefined;
 let caDir: string | undefined;
 
 afterEach(async () => {
@@ -83,10 +83,11 @@ describe('HTTPS 캡처 (통합)', () => {
   it('CA를 주입한 프록시가 HTTPS 본문을 복호화해 캡처한다', async () => {
     caDir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-ca-'));
     const ca = new CaManager(caDir);
+    const { cert, key } = await ca.ensureCa();
     const backendPort = await startHttpsBackend();
 
     const events: CaptureEvent[] = [];
-    service = new ProxyService((e) => events.push(e), ca);
+    service = new ProxyEngine((e) => events.push(e), { cert, key });
     const status = await service.start(0);
 
     await requestHttpsViaProxy(status.port!, 'localhost', backendPort);

@@ -4,12 +4,12 @@ import * as http from 'node:http';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ProxyService } from '../../src/main/proxy/proxy-service';
+import { ProxyEngine } from '../../src/main/proxy/proxy-engine';
 import { CaManager } from '../../src/main/cert/ca-manager';
 
 // companion VPN 앱이 요청하는 엔드포인트가 CA를 응답하는지 검증(통합).
 
-let service: ProxyService | undefined;
+let service: ProxyEngine | undefined;
 let caDir: string | undefined;
 
 afterEach(async () => {
@@ -50,9 +50,9 @@ describe('companion 엔드포인트 (통합)', () => {
   it('amiusing.httptoolkit.tech/certificate가 CA PEM을 반환한다', async () => {
     caDir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-ca-'));
     const ca = new CaManager(caDir);
-    const { cert } = await ca.ensureCa();
+    const { cert, key } = await ca.ensureCa();
 
-    service = new ProxyService(() => {}, ca);
+    service = new ProxyEngine(() => {}, { cert, key });
     const status = await service.start(0);
 
     const result = await getViaProxy(
@@ -67,9 +67,9 @@ describe('companion 엔드포인트 (통합)', () => {
   it('android.httptoolkit.tech/config가 certificate JSON을 반환한다', async () => {
     caDir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-ca-'));
     const ca = new CaManager(caDir);
-    const { cert } = await ca.ensureCa();
+    const { cert, key } = await ca.ensureCa();
 
-    service = new ProxyService(() => {}, ca);
+    service = new ProxyEngine(() => {}, { cert, key });
     const status = await service.start(0);
 
     const result = await getViaProxy(status.port!, 'http://android.httptoolkit.tech/config');
@@ -81,7 +81,8 @@ describe('companion 엔드포인트 (통합)', () => {
   it('목킹 모드에서도 companion 엔드포인트가 유지된다', async () => {
     caDir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-ca-'));
     const ca = new CaManager(caDir);
-    service = new ProxyService(() => {}, ca);
+    const caPair = await ca.ensureCa();
+    service = new ProxyEngine(() => {}, { cert: caPair.cert, key: caPair.key });
     const status = await service.start(0);
 
     await service.applyMocks(
