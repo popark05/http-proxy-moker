@@ -3,7 +3,7 @@ import { Badge as UiBadge } from '@/components/ui/badge';
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
 
-/** 기존 styled-components Badge API($tone)를 shadcn Badge로 매핑하는 어댑터. */
+/** 레거시 Badge API($tone)를 shadcn Badge로 매핑하는 어댑터. */
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   $tone?: BadgeTone;
 }

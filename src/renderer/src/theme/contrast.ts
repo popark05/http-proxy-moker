@@ -28,8 +28,40 @@ function channelLuminance(value: number): number {
   return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
-export function relativeLuminance(hex: string): number {
-  const { r, g, b } = parseHex(hex);
+/** "H S% L%" (공백 구분, CSS 변수 형식) → RGB. */
+export function parseHsl(hsl: string): { r: number; g: number; b: number } {
+  const m = hsl.trim().match(/^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+  if (!m) throw new Error(`Invalid hsl triplet: ${hsl}`);
+  const h = parseFloat(m[1]) / 360;
+  const s = parseFloat(m[2]) / 100;
+  const l = parseFloat(m[3]) / 100;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return { r: v, g: v, b: v };
+  }
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255)
+  };
+}
+
+function toRgb(color: string): { r: number; g: number; b: number } {
+  return color.includes('%') ? parseHsl(color) : parseHex(color);
+}
+
+export function relativeLuminance(color: string): number {
+  const { r, g, b } = toRgb(color);
   return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
 }
 
