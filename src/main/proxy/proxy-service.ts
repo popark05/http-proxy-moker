@@ -122,13 +122,17 @@ export class ProxyService {
     if (this.worker) return Promise.resolve(this.worker);
 
     // 워커 엔트리는 main 번들과 같은 디렉토리에 proxy-worker.js로 빌드된다.
-    const workerPath = path.join(__dirname, 'proxy-worker.js');
+    // 패키징 시 워커는 asar에서 unpack되므로, __dirname이 app.asar를 가리키면
+    // app.asar.unpacked 경로로 보정한다(외부 Node가 실제 파일을 실행하도록).
+    const workerPath = path
+      .join(__dirname, 'proxy-worker.js')
+      .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
     // 반드시 "시스템 Node"로 fork해야 한다.
     // Electron 바이너리는 ELECTRON_RUN_AS_NODE=1 로 실행해도 TLS 스택이 BoringSSL이라,
     // mockttp가 업스트림으로 나가는 HTTPS 소켓이 INVALID_COMMAND로 깨진다(HTTPS passthrough 500).
     // 시스템 Node(OpenSSL)로 fork하면 이 문제가 사라진다.
-    const nodePath = resolveSystemNode();
+    const nodePath = resolveNodeBinary();
     const worker = fork(workerPath, [], {
       execPath: nodePath,
       // Electron 바이너리를 fork할 때만 필요한 플래그지만, 시스템 Node에선 무해.
@@ -215,25 +219,32 @@ export class ProxyService {
 }
 
 /**
- * 프록시 워커를 실행할 "시스템 Node" 바이너리 경로를 찾는다.
+ * 프록시 워커를 실행할 OpenSSL Node 바이너리 경로를 찾는다.
  * Electron 바이너리(BoringSSL)로는 mockttp 업스트림 TLS가 깨지므로 OpenSSL Node가 필요하다.
  *
- * 탐색 순서: NODE_BINARY_PATH 환경변수 → 흔한 설치 경로 → PATH의 `node`.
- * 내부 QA 도구 전제상 개발/사용 환경에 Node가 설치돼 있다고 가정한다.
+ * 탐색 순서:
+ *  1. NODE_BINARY_PATH 환경변수(명시 지정)
+ *  2. 앱에 번들된 Node(resources/node/<arch>/node) — 패키징 배포 시 항상 존재
+ *  3. 시스템 Node(흔한 경로 + PATH) — dev 환경 폴백
  */
-function resolveSystemNode(): string {
-  const candidates = [
-    process.env.NODE_BINARY_PATH,
-    '/usr/local/bin/node',
-    '/opt/homebrew/bin/node',
-    '/usr/bin/node'
-  ].filter((p): p is string => !!p);
+function resolveNodeBinary(): string {
+  // 1. 명시 지정.
+  if (process.env.NODE_BINARY_PATH && existsSync(process.env.NODE_BINARY_PATH)) {
+    return process.env.NODE_BINARY_PATH;
+  }
 
+  // 2. 번들 Node(패키징 앱). process.resourcesPath는 패키징 시 .app/Contents/Resources.
+  const resourcesPath = process.resourcesPath;
+  if (resourcesPath) {
+    const bundled = path.join(resourcesPath, 'node', process.arch, 'node');
+    if (existsSync(bundled)) return bundled;
+  }
+
+  // 3. 시스템 Node(dev 폴백).
+  const candidates = ['/usr/local/bin/node', '/opt/homebrew/bin/node', '/usr/bin/node'];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
-
-  // PATH에서 node를 찾는다(nvm/asdf 등 사용자 환경 대응).
   try {
     const found = execFileSync(process.platform === 'win32' ? 'where' : 'which', ['node'], {
       encoding: 'utf-8'
@@ -242,11 +253,11 @@ function resolveSystemNode(): string {
       .trim();
     if (found && existsSync(found)) return found;
   } catch {
-    // 무시하고 아래에서 에러.
+    // 무시.
   }
 
   throw new Error(
-    '시스템 Node를 찾을 수 없습니다. 프록시 워커 실행에 Node가 필요합니다. ' +
+    'Node 바이너리를 찾을 수 없습니다. 프록시 워커 실행에 OpenSSL Node가 필요합니다. ' +
       'NODE_BINARY_PATH 환경변수로 경로를 지정하세요.'
   );
 }
