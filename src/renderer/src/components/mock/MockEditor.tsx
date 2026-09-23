@@ -16,12 +16,27 @@ interface MockEditorProps {
 const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
+/** content-type이 JSON이거나 본문이 JSON으로 파싱되면 보기 좋게 들여쓴다(편집 초기값용). */
+function prettifyJsonBody(mock: MockDefinition): MockDefinition {
+  const body = mock.response.body;
+  if (!body || !body.trim()) return mock;
+  try {
+    const formatted = JSON.stringify(JSON.parse(body), null, 2);
+    if (formatted === body) return mock;
+    return { ...mock, response: { ...mock.response, body: formatted } };
+  } catch {
+    // JSON이 아니면 원본 유지.
+    return mock;
+  }
+}
+
 /** 목 정의 편집 모달: method/path/status/헤더/본문(Monaco). */
 export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
 
+  // 모달이 열릴 때 본문 JSON을 들여쓰기해 구조가 보이게 한다.
   useEffect(() => {
-    setDraft(mock);
+    setDraft(mock ? prettifyJsonBody(mock) : mock);
   }, [mock]);
 
   if (!draft) {
