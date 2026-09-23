@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ThemeProvider } from 'styled-components';
 import { Badge, statusTone, methodTone } from '../../src/renderer/src/components/primitives';
-import { darkTheme } from '../../src/renderer/src/theme/theme';
 
 describe('statusTone', () => {
   it('2xx=success, 3xx=info, 4xx=warning, 5xx=error', () => {
@@ -26,11 +24,7 @@ describe('methodTone', () => {
 
 describe('Badge', () => {
   it('자식 텍스트를 렌더한다(색만이 아니라 텍스트 병기 - 접근성)', () => {
-    render(
-      <ThemeProvider theme={darkTheme}>
-        <Badge $tone="error">500</Badge>
-      </ThemeProvider>
-    );
+    render(<Badge $tone="error">500</Badge>);
     expect(screen.getByText('500')).toBeInTheDocument();
   });
 });

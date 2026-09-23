@@ -4,7 +4,7 @@ import { Button as UiButton, type ButtonProps as UiButtonProps } from '@/compone
 type LegacyVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type LegacySize = 'sm' | 'md';
 
-/** 기존 styled-components Button API($variant/$size)를 shadcn Button으로 매핑하는 어댑터. */
+/** 레거시 Button API($variant/$size)를 shadcn Button으로 매핑하는 어댑터. */
 export interface ButtonProps
   extends Omit<UiButtonProps, 'variant' | 'size'> {
   $variant?: LegacyVariant;

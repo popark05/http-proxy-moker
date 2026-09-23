@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppModeProvider, useAppMode } from './state/app-mode';
-import { AppThemeProvider } from './theme/ThemeProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { Separator } from '@/components/ui/separator';
@@ -253,12 +252,10 @@ function AppInner(): JSX.Element {
 
 export function App(): JSX.Element {
   return (
-    <AppThemeProvider>
-      <TooltipProvider delayDuration={300}>
-        <AppModeProvider>
-          <AppInner />
-        </AppModeProvider>
-      </TooltipProvider>
-    </AppThemeProvider>
+    <TooltipProvider delayDuration={300}>
+      <AppModeProvider>
+        <AppInner />
+      </AppModeProvider>
+    </TooltipProvider>
   );
 }
