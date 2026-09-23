@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { EmptyState } from '../common/EmptyState';
+import { isBodyModified } from '@shared/mock';
 import { methodTone, statusTone } from '../primitives';
 import { MockEditor } from './MockEditor';
 
@@ -101,6 +102,11 @@ export function MockPanel({
             <span className="min-w-0 flex-1 truncate font-mono text-sm" title={mock.path}>
               {mock.path}
             </span>
+            {isBodyModified(mock) && (
+              <Badge variant="info" title="원본 응답에서 본문이 수정됨">
+                수정됨
+              </Badge>
+            )}
             {mock.delayMs ? <Badge variant="warning">{mock.delayMs}ms</Badge> : null}
             {mock.fault && mock.fault !== 'none' ? (
               <Badge variant="error">{faultLabel(mock.fault)}</Badge>

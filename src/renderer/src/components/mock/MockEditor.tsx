@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { GitCompare, Pencil } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
+import { isBodyModified } from '@shared/mock';
 import { Modal } from '../primitives';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CodeView } from '../code/CodeView';
+import { CodeDiffView } from '../code/CodeDiffView';
 
 interface MockEditorProps {
   mock: MockDefinition | undefined;
@@ -16,27 +19,32 @@ interface MockEditorProps {
 const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-/** content-type이 JSON이거나 본문이 JSON으로 파싱되면 보기 좋게 들여쓴다(편집 초기값용). */
-function prettifyJsonBody(mock: MockDefinition): MockDefinition {
-  const body = mock.response.body;
-  if (!body || !body.trim()) return mock;
+/** JSON이면 보기 좋게 들여쓴다(아니면 원본 유지). */
+function prettifyJson(body: string): string {
+  if (!body || !body.trim()) return body;
   try {
-    const formatted = JSON.stringify(JSON.parse(body), null, 2);
-    if (formatted === body) return mock;
-    return { ...mock, response: { ...mock.response, body: formatted } };
+    return JSON.stringify(JSON.parse(body), null, 2);
   } catch {
-    // JSON이 아니면 원본 유지.
-    return mock;
+    return body;
   }
+}
+
+/** 편집 초기값용: 응답 본문을 들여쓰기한 목을 반환. */
+function prettifyJsonBody(mock: MockDefinition): MockDefinition {
+  const formatted = prettifyJson(mock.response.body);
+  if (formatted === mock.response.body) return mock;
+  return { ...mock, response: { ...mock.response, body: formatted } };
 }
 
 /** 목 정의 편집 모달: method/path/status/헤더/본문(Monaco). */
 export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
+  const [showDiff, setShowDiff] = useState(false);
 
-  // 모달이 열릴 때 본문 JSON을 들여쓰기해 구조가 보이게 한다.
+  // 모달이 열릴 때 본문 JSON을 들여쓰기해 구조가 보이게 한다. diff 토글은 초기화.
   useEffect(() => {
     setDraft(mock ? prettifyJsonBody(mock) : mock);
+    setShowDiff(false);
   }, [mock]);
 
   if (!draft) {
@@ -170,14 +178,47 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
 
           <div className="h-3" />
 
-          <div className="mb-1 text-xs text-muted-foreground">응답 본문</div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">응답 본문</span>
+            {draft.originalBody !== undefined && (
+              <div className="flex items-center gap-2">
+                {isBodyModified(draft) && (
+                  <span className="text-xs text-primary">원본에서 수정됨</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={() => setShowDiff((v) => !v)}
+                >
+                  {showDiff ? (
+                    <>
+                      <Pencil /> 편집으로
+                    </>
+                  ) : (
+                    <>
+                      <GitCompare /> 원본과 비교
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
           <div className="h-[42vh] min-h-[320px] overflow-hidden rounded-md border border-border">
-            <CodeView
-              value={draft.response.body}
-              language="json"
-              readOnly={false}
-              onChange={(body) => updateResponse({ body })}
-            />
+            {showDiff && draft.originalBody !== undefined ? (
+              <CodeDiffView
+                original={prettifyJson(draft.originalBody)}
+                modified={draft.response.body}
+                language="json"
+              />
+            ) : (
+              <CodeView
+                value={draft.response.body}
+                language="json"
+                readOnly={false}
+                onChange={(body) => updateResponse({ body })}
+              />
+            )}
           </div>
         </>
       )}
@@ -189,7 +230,11 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
         <Button
           size="sm"
           onClick={() => {
-            onSave(draft);
+            // 저장 시에도 JSON이면 pretty-print해 포맷을 일관되게 유지.
+            onSave({
+              ...draft,
+              response: { ...draft.response, body: prettifyJson(draft.response.body) }
+            });
             onOpenChange(false);
           }}
         >

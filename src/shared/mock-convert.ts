@@ -56,7 +56,9 @@ export function exchangeToMock(exchange: CapturedExchange, id: string): MockDefi
     method: request.method,
     path,
     response: mockResponse,
-    enabled: true
+    enabled: true,
+    // 원본 본문 보존(편집 후 diff/수정 여부 판단용).
+    originalBody: mockResponse.body
   };
 }
 
