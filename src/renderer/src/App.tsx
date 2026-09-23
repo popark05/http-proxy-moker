@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
@@ -146,6 +147,39 @@ function AppInner(): JSX.Element {
     }
   };
 
+  const handleCloneToMock = (exchange: CapturedExchange): void => {
+    cloneFromExchange(exchange);
+    const desc = `${exchange.request.method} ${exchange.request.path}`;
+    if (mode === 'mock') {
+      toast.success('목으로 복제됨', { description: `${desc} · 아래 목 정의에 추가됨` });
+    } else {
+      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
+      toast.success('목으로 복제됨', {
+        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
+        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
+      });
+    }
+  };
+
+  // 좌측 트래픽 패널(필터 + 리스트). 캡처/목킹 모드 공용.
+  const trafficPanel = (
+    <div className="flex h-full flex-col">
+      <FilterBar
+        filter={filter}
+        patchFilter={patchFilter}
+        clearFilter={clearFilter}
+        active={active}
+        hosts={hosts}
+        tags={tags}
+        total={exchanges.length}
+        shown={filtered.length}
+      />
+      <div className="min-h-0 flex-1">
+        <TrafficList exchanges={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <TopBar
@@ -160,91 +194,84 @@ function AppInner(): JSX.Element {
         onSave={(name) => void handleSaveCapture(name)}
         onLoadSession={(name) => void handleLoadSession(name)}
       />
-      <div className="min-h-0 flex-1">
-        <SplitPane
-          left={
-            <div className="flex h-full flex-col">
-              <ProxyControls
-                status={status}
-                count={exchanges.length}
-                onStart={() => void handleStartProxy()}
-                onStop={() => void handleStopProxy()}
-                onClear={() => {
-                  clear();
-                  setSelectedId(undefined);
-                }}
-              />
-              <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
-                <DevicePanel />
-              </div>
-              <FilterBar
-                filter={filter}
-                patchFilter={patchFilter}
-                clearFilter={clearFilter}
-                active={active}
-                hosts={hosts}
-                tags={tags}
-                total={exchanges.length}
-                shown={filtered.length}
-              />
-              <div className="min-h-0 flex-1">
-                <TrafficList
-                  exchanges={filtered}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
+
+      {mode === 'capture' ? (
+        /* 캡처 모드: 좌(프록시+기기+트래픽) | 우(상세 풀높이) */
+        <div className="min-h-0 flex-1">
+          <SplitPane
+            left={
+              <div className="flex h-full flex-col">
+                <ProxyControls
+                  status={status}
+                  count={exchanges.length}
+                  onStart={() => void handleStartProxy()}
+                  onStop={() => void handleStopProxy()}
+                  onClear={() => {
+                    clear();
+                    setSelectedId(undefined);
+                  }}
                 />
+                <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
+                  <DevicePanel />
+                </div>
+                {trafficPanel}
               </div>
-            </div>
-          }
-          right={
-            <div className="flex h-full flex-col">
-              <div className="min-h-0 flex-1 overflow-auto">
+            }
+            right={
+              <div className="h-full overflow-auto">
                 <ExchangeDetail
                   exchange={selected}
-                  onCloneToMock={(exchange) => {
-                    cloneFromExchange(exchange);
-                    const desc = `${exchange.request.method} ${exchange.request.path}`;
-                    if (mode === 'mock') {
-                      toast.success('목으로 복제됨', {
-                        description: `${desc} · 목킹 모드에 즉시 반영됨`
-                      });
-                    } else {
-                      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
-                      toast.success('목으로 복제됨', {
-                        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
-                        action: {
-                          label: '목킹 모드로',
-                          onClick: () => setMode('mock')
-                        }
-                      });
-                    }
-                  }}
+                  onCloneToMock={handleCloneToMock}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}
                 />
               </div>
-              <div className="max-h-[50%] overflow-auto border-t border-border px-4 py-2">
-                <MockPanel
-                  mocks={mocks}
-                  mode={mode}
-                  blockUnmatched={blockUnmatched}
-                  onBlockUnmatchedChange={setBlockUnmatched}
-                  onUpdate={updateMock}
-                  onRemove={removeMock}
-                  onSaveScenario={(name) => void handleSaveScenario(name)}
-                />
-                <Separator className="my-3" />
-                <ScenarioPanel
-                  scenarios={project?.scenarios ?? []}
-                  activeScenario={activeScenario}
-                  onActivate={(name) => void handleActivateScenario(name)}
-                  onDelete={(name) => void handleDeleteScenario(name)}
-                />
+            }
+          />
+        </div>
+      ) : (
+        /* 목킹 모드: 좌(트래픽 - 복제 소스) | 우(목 정의+편집 + 시나리오) */
+        <div className="min-h-0 flex-1">
+          <SplitPane
+            initialLeftWidth={360}
+            left={trafficPanel}
+            right={
+              <div className="flex h-full flex-col overflow-auto">
+                {/* 선택한 트래픽이 있으면 상세를 접이식으로 상단에 얇게 보여줘 복제 소스 확인 */}
+                {selected && (
+                  <div className="max-h-[38%] shrink-0 overflow-auto border-b border-border">
+                    <ExchangeDetail
+                      exchange={selected}
+                      onCloneToMock={handleCloneToMock}
+                      onAddTag={handleAddTag}
+                      onRemoveTag={handleRemoveTag}
+                    />
+                  </div>
+                )}
+                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                  <MockPanel
+                    mocks={mocks}
+                    mode={mode}
+                    blockUnmatched={blockUnmatched}
+                    onBlockUnmatchedChange={setBlockUnmatched}
+                    onUpdate={updateMock}
+                    onRemove={removeMock}
+                    onSaveScenario={(name) => void handleSaveScenario(name)}
+                  />
+                  <Separator className="my-3" />
+                  <ScenarioPanel
+                    scenarios={project?.scenarios ?? []}
+                    activeScenario={activeScenario}
+                    onActivate={(name) => void handleActivateScenario(name)}
+                    onDelete={(name) => void handleDeleteScenario(name)}
+                  />
+                </div>
               </div>
-            </div>
-          }
-        />
-      </div>
+            }
+          />
+        </div>
+      )}
+
       <Toaster />
     </div>
   );

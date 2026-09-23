@@ -25,7 +25,9 @@ export function useMocks(): UseMocksResult {
 
   const cloneFromExchange = useCallback((exchange: CapturedExchange): MockDefinition => {
     const mock = exchangeToMock(exchange, randomId());
-    setMocks((prev) => [...prev, mock]);
+    // 업데이터를 멱등하게: StrictMode(dev)에서 업데이터가 2번 호출돼도 같은 mock이
+    // 중복 추가되지 않도록 id 존재 여부를 가드한다.
+    setMocks((prev) => (prev.some((m) => m.id === mock.id) ? prev : [...prev, mock]));
     return mock;
   }, []);
 
