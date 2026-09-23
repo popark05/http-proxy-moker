@@ -84,7 +84,7 @@ export function ExchangeDetail({
           <SectionTitle>헤더</SectionTitle>
           <HeaderTable headers={request.headers} />
           <SectionTitle>본문</SectionTitle>
-          <div className="h-80">
+          <div className="h-[60vh] min-h-[420px]">
             <BodyView body={request.body} />
           </div>
         </TabsContent>
@@ -95,7 +95,7 @@ export function ExchangeDetail({
               <SectionTitle>헤더</SectionTitle>
               <HeaderTable headers={response.headers} />
               <SectionTitle>본문</SectionTitle>
-              <div className="h-80">
+              <div className="h-[60vh] min-h-[420px]">
                 <BodyView body={response.body} />
               </div>
             </>
