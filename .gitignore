@@ -14,3 +14,6 @@ reference/
 
 # electron-builder 패키징 산출물
 release/
+
+# 번들용 Node 바이너리(빌드 시 다운로드)
+resources/node/

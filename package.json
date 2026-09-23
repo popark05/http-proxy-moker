@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
-    "dist:mac": "npm run build && electron-builder --mac --config electron-builder.yml",
+    "fetch-node": "node scripts/fetch-node.mjs",
+    "dist:mac": "npm run fetch-node && npm run build && electron-builder --mac --config electron-builder.yml",
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",

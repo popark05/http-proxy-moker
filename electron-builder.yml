@@ -15,6 +15,18 @@ files:
 # electron-builder가 package.json dependencies를 기준으로 자동 포함한다.
 asarUnpack:
   - '**/*.node'
+  # 프록시 워커는 외부 Node 프로세스로 fork되므로 asar에서 풀어 실제 파일로 둔다.
+  # (외부 Node는 asar 가상 파일시스템을 이해하지 못함)
+  - out/main/proxy-worker.js
+
+# 프록시 워커용 OpenSSL Node 바이너리를 앱에 번들(시스템 Node 불필요).
+# 각 아키텍처 빌드에 해당 arch Node만 포함 → .app/Contents/Resources/node/<arch>/node.
+# 런타임(resolveNodeBinary)은 process.arch로 경로를 찾으므로 일치한다.
+extraResources:
+  - from: resources/node/${arch}
+    to: node/${arch}
+    filter:
+      - '**/*'
 
 mac:
   category: public.app-category.developer-tools
@@ -22,7 +34,8 @@ mac:
   target:
     - target: dmg
       arch:
-        - universal
+        - arm64
+        - x64
   # 내부 QA 전용: 코드 서명/공증 비활성(사내 배포). 필요 시 CSC_* 환경변수로 활성화.
   identity: null
   # 하드닝/entitlements는 서명 시에만 의미. 미서명 빌드에선 생략.
