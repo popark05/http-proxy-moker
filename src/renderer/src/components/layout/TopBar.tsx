@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, Radio, FlaskConical, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, restartAnimation } from '@/lib/utils';
 import { LogoWordmark } from '../brand/Logo';
 import { CaExportModal } from '../cert/CaExportModal';
 import { useAppMode } from '../../state/app-mode';
@@ -12,6 +12,8 @@ interface TopBarProps {
   activeMockCount: number;
   /** 현재 활성 시나리오명. */
   activeScenario?: string;
+  /** 마지막 mock-hit 시각(pulse 트리거). */
+  lastHitAt?: number;
 }
 
 /**
@@ -19,10 +21,20 @@ interface TopBarProps {
  * 현재 모드(캡처/목킹)를 색과 아이콘으로 강하게 구분해 QA가 착각하지 않도록 한다.
  * 목킹 모드에서는 활성 목/시나리오를 상시 표시하고, 활성 목이 없으면 경고한다.
  */
-export function TopBar({ activeMockCount, activeScenario }: TopBarProps): JSX.Element {
+export function TopBar({ activeMockCount, activeScenario, lastHitAt }: TopBarProps): JSX.Element {
   const { mode, setMode } = useAppMode();
   const [caOpen, setCaOpen] = useState(false);
   const isMock = mode === 'mock';
+
+  // mock-hit 발생 시 활성 목 배지를 잠깐 pulse.
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const prevHit = useRef(lastHitAt ?? 0);
+  useEffect(() => {
+    if (lastHitAt && lastHitAt !== prevHit.current) {
+      prevHit.current = lastHitAt;
+      restartAnimation(badgeRef.current, 'animate-mock-hit-pulse');
+    }
+  }, [lastHitAt]);
 
   return (
     <header
@@ -72,7 +84,7 @@ export function TopBar({ activeMockCount, activeScenario }: TopBarProps): JSX.El
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           {activeMockCount > 0 ? (
-            <Badge variant="warning">
+            <Badge ref={badgeRef} variant="warning" className="rounded-full">
               목 {activeMockCount}개 활성
               {activeScenario ? ` · ${activeScenario}` : ''}
             </Badge>

@@ -50,7 +50,9 @@ export interface CapturedExchange {
 export type CaptureEvent =
   | { type: 'request'; exchange: CapturedExchange }
   | { type: 'response'; id: string; response: CapturedResponse }
-  | { type: 'abort'; id: string };
+  | { type: 'abort'; id: string }
+  /** 목킹 모드에서 목 룰이 매칭되어 응답한 순간(실시간 강조용). */
+  | { type: 'mock-hit'; mockId: string; at: number };
 
 /** 프록시 상태. */
 export interface ProxyStatus {

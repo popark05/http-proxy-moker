@@ -1,4 +1,4 @@
-import { getLocal, type Mockttp } from 'mockttp';
+import { getLocal, type Mockttp, type MockedEndpoint } from 'mockttp';
 import type { CaptureEvent, CapturedExchange, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
 import { mapRequest, mapResponse } from './capture-mapper';
@@ -21,6 +21,8 @@ export interface EngineCa {
  */
 export class ProxyEngine {
   private server: Mockttp | undefined;
+  /** mockttp 룰 id → 목 id. 요청의 matchedRuleId로 어떤 목이 응답했는지 판별한다. */
+  private ruleToMock = new Map<string, string>();
 
   constructor(
     private readonly emit: EngineEmitter,
@@ -46,6 +48,7 @@ export class ProxyEngine {
     if (this.server) {
       await this.server.stop();
       this.server = undefined;
+      this.ruleToMock.clear();
     }
     return this.getStatus();
   }
@@ -54,6 +57,7 @@ export class ProxyEngine {
     if (!this.server) throw new Error('프록시가 실행 중이 아닙니다.');
     const server = this.server;
     await server.reset();
+    this.ruleToMock.clear();
     await this.subscribe(server);
     await this.registerCompanionEndpoints(server);
     await this.registerMocks(server, mocks);
@@ -63,6 +67,7 @@ export class ProxyEngine {
   async clearMocks(): Promise<void> {
     if (!this.server) return;
     await this.server.reset();
+    this.ruleToMock.clear();
     await this.subscribe(this.server);
     await this.registerCompanionEndpoints(this.server);
     await this.applyUnmatchedRule(this.server, 'passthrough');
@@ -114,26 +119,31 @@ export class ProxyEngine {
       if (mock.delayMs && mock.delayMs > 0) {
         builder = builder.delay(mock.delayMs);
       }
+      let endpoint: MockedEndpoint;
       switch (mock.fault) {
         case 'timeout':
-          await builder.thenTimeout();
+          endpoint = await builder.thenTimeout();
           break;
         case 'reset':
-          await builder.thenResetConnection();
+          endpoint = await builder.thenResetConnection();
           break;
         case 'close':
-          await builder.thenCloseConnection();
+          endpoint = await builder.thenCloseConnection();
           break;
         default: {
           const headers = Object.fromEntries(mock.response.headers);
-          await builder.thenReply(mock.response.status, mock.response.body || undefined, headers);
+          endpoint = await builder.thenReply(mock.response.status, mock.response.body || undefined, headers);
         }
       }
+      this.ruleToMock.set(endpoint.id, mock.id);
     }
   }
 
   private async subscribe(server: Mockttp): Promise<void> {
     await server.on('request', async (request) => {
+      // 목 룰이 매칭된 요청이면 mock-hit을 알린다(장애 주입 목 포함). 캡처 변환 실패와 무관하게 먼저 emit.
+      const mockId = request.matchedRuleId ? this.ruleToMock.get(request.matchedRuleId) : undefined;
+      if (mockId) this.emit({ type: 'mock-hit', mockId, at: Date.now() });
       try {
         const mapped = await mapRequest(request);
         const exchange: CapturedExchange = {
