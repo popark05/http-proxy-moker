@@ -11,6 +11,7 @@ import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
 import { useTrafficFilter } from './state/useTrafficFilter';
+import { useMockHits } from './state/useMockHits';
 import { ProxyControls } from './components/traffic/ProxyControls';
 import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
@@ -42,6 +43,7 @@ function AppInner(): JSX.Element {
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
+  const mockHits = useMockHits();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [blockUnmatched, setBlockUnmatched] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | undefined>(undefined);
@@ -185,6 +187,7 @@ function AppInner(): JSX.Element {
       <TopBar
         activeMockCount={mocks.filter((m) => m.enabled).length}
         activeScenario={activeScenario}
+        lastHitAt={mockHits.lastHitOverall}
       />
       <ProjectBar
         project={project}
@@ -208,6 +211,7 @@ function AppInner(): JSX.Element {
                   onStop={() => void handleStopProxy()}
                   onClear={() => {
                     clear();
+                    mockHits.reset();
                     setSelectedId(undefined);
                   }}
                 />
@@ -257,6 +261,9 @@ function AppInner(): JSX.Element {
                     onUpdate={updateMock}
                     onRemove={removeMock}
                     onSaveScenario={(name) => void handleSaveScenario(name)}
+                    hitCounts={mockHits.counts}
+                    lastHitAt={mockHits.lastHitAt}
+                    onResetHits={mockHits.reset}
                   />
                   <Separator className="my-3" />
                   <ScenarioPanel

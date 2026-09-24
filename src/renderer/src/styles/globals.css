@@ -110,6 +110,62 @@
   --text-lg--line-height: 1.6rem;
 }
 
+/* 목킹 히트 강조 애니메이션. 히트 배지(success)와 색을 맞춰 "이 목이 방금 응답함"을 연결한다. */
+@keyframes mock-hit-flash {
+  0% {
+    background-color: hsl(var(--success) / 0.3);
+    border-color: hsl(var(--success) / 0.8);
+    box-shadow: inset 3px 0 0 0 hsl(var(--success));
+  }
+  60% {
+    background-color: hsl(var(--success) / 0.1);
+    box-shadow: inset 3px 0 0 0 hsl(var(--success) / 0.6);
+  }
+  100% {
+    background-color: transparent;
+    border-color: hsl(var(--border));
+    box-shadow: inset 3px 0 0 0 hsl(var(--success) / 0);
+  }
+}
+@keyframes mock-hit-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes mock-hit-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.5);
+  }
+}
+
+.animate-mock-hit-flash {
+  animation: mock-hit-flash 1.4s ease-out;
+}
+.animate-mock-hit-pop {
+  animation: mock-hit-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.animate-mock-hit-pulse {
+  animation: mock-hit-pulse 0.7s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mock-hit-flash,
+  .animate-mock-hit-pop,
+  .animate-mock-hit-pulse {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));
