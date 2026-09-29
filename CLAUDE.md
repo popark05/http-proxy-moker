@@ -19,6 +19,7 @@ npx vitest run test/main/proxy-service.test.ts   # single file
 npx vitest run -t "test name substring"          # single test by name
 npm run dist:mac       # fetch-node + build + electron-builder DMG (arm64/x64) → release/
 node scripts/verify-vpn.mjs <deviceId>           # real-device Android VPN capture check
+ADB_TEST_USB=1 npx vitest run test/main/adb/usb-device.test.ts   # real-device direct-USB ADB check (run `adb kill-server` first)
 ```
 
 Tests live in `test/{main,renderer,shared}` and mirror `src/`. The default environment is jsdom. Tests that use real sockets or mockttp (for example `https-capture`) start with `// @vitest-environment node`.
