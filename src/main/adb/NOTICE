@@ -28,3 +28,4 @@ limitations under the License.
 - root/unroot: adbd 재시작 후 재연결해 상태 변경을 확인할 때까지 폴링(기한 있음)
 - tcpForward: 모든 인터페이스가 아닌 127.0.0.1에만 바인딩
 - 확장(dadb에 없음): adb reverse(기기가 여는 스트림 처리, 재연결 시 규칙 재설치)
+- 확장(dadb에 없음): USB 직접 전송(node-usb WebUSB, adb server 불필요) + USB 기기 탐색

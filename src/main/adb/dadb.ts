@@ -7,7 +7,10 @@
  */
 
 import type { AdbTransport } from './transport/transport';
+import * as net from 'node:net';
 import { TcpTransport } from './transport/tcp';
+import { UsbTransport, type UsbTransportOptions } from './transport/usb';
+import { findUsbAdbDevice, listUsbAdbDevices, type UsbBackend } from './transport/usb-discovery';
 import { AdbConnection } from './protocol/connection';
 import { AdbKeyPair } from './protocol/key-pair';
 import type { AdbStream } from './protocol/stream';
@@ -29,6 +32,7 @@ import {
   type ReverseRule
 } from './services/reverse';
 import { AdbOperationFailedException } from './results';
+import { AdbConnectException } from './errors';
 
 export interface DadbOptions {
   /**
@@ -45,7 +49,21 @@ export interface DadbOptions {
   /** 사용자의 "USB 디버깅 허용"을 기다리는 시간(ms). */
   authTimeoutMs?: number;
   keepAlive?: boolean;
+  /** USB 전송 세부 설정(fromUsb/list에서 사용). */
+  usb?: Omit<UsbTransportOptions, 'writeTimeoutMs'>;
 }
+
+export interface DadbListOptions extends DadbOptions {
+  /** USB 기기 포함(기본 true). */
+  includeUsb?: boolean;
+  /** localhost의 에뮬레이터 adb 포트(5555~5585 홀수) 포함(기본 true). */
+  includeEmulators?: boolean;
+  /** USB 백엔드(테스트용). 생략하면 `usb` 패키지. */
+  usbBackend?: UsbBackend;
+}
+
+const MIN_EMULATOR_PORT = 5555;
+const MAX_EMULATOR_PORT = 5585;
 
 /** 설치된 reverse 규칙 핸들. */
 export interface AdbReverse {
@@ -89,6 +107,53 @@ export class Dadb implements AdbOpener {
         }),
       options
     );
+  }
+
+  /**
+   * USB로 직접 연결하는 Dadb(adb server 불필요). 연결할 때마다 시리얼로 기기를 다시 찾으므로
+   * 케이블을 뽑았다 꽂아도 다음 작업에서 재연결된다.
+   */
+  static fromUsb(serial: string, options: DadbOptions & { usbBackend?: UsbBackend } = {}): Dadb {
+    return new Dadb(
+      serial,
+      async () => {
+        const device = await findUsbAdbDevice(serial, options.usbBackend);
+        if (!device) throw new AdbConnectException(`USB 기기를 찾을 수 없습니다(serial=${serial}).`);
+        return UsbTransport.open(device, { ...options.usb, writeTimeoutMs: options.writeTimeoutMs });
+      },
+      options
+    );
+  }
+
+  /**
+   * 연결 가능한 기기 목록: USB ADB 기기 + localhost 에뮬레이터 포트(열려 있는 것).
+   * 연결(인증)은 하지 않는다 — 첫 작업에서 연결한다. USB 백엔드를 못 불러오면 USB는 건너뛴다.
+   */
+  static async list(options: DadbListOptions = {}): Promise<Dadb[]> {
+    const result: Dadb[] = [];
+    if (options.includeUsb ?? true) {
+      try {
+        for (const info of await listUsbAdbDevices(options.usbBackend)) {
+          result.push(Dadb.fromUsb(info.serial, options));
+        }
+      } catch {
+        // USB 네이티브 모듈을 쓸 수 없는 환경: USB 기기 없이 진행.
+      }
+    }
+    if (options.includeEmulators ?? true) {
+      const ports: number[] = [];
+      for (let port = MIN_EMULATOR_PORT; port <= MAX_EMULATOR_PORT; port += 2) ports.push(port);
+      const open = await Promise.all(ports.map((port) => isPortOpen('localhost', port, 300)));
+      ports.forEach((port, i) => {
+        if (open[i]) result.push(Dadb.create('localhost', port, options));
+      });
+    }
+    return result;
+  }
+
+  /** 첫 번째 기기(없으면 undefined). */
+  static async discover(options: DadbListOptions = {}): Promise<Dadb | undefined> {
+    return (await Dadb.list(options))[0];
   }
 
   async open(destination: string): Promise<AdbStream> {
@@ -277,4 +342,17 @@ export class Dadb implements AdbOpener {
     }
     return this.keyPair;
   }
+}
+
+function isPortOpen(host: string, port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const done = (open: boolean): void => {
+      socket.destroy();
+      resolve(open);
+    };
+    socket.setTimeout(timeoutMs, () => done(false));
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+  });
 }

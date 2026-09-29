@@ -12,7 +12,8 @@
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "fetch-node": "node scripts/fetch-node.mjs",
-    "dist:mac": "npm run fetch-node && npm run build && electron-builder --mac --config electron-builder.yml",
+    "fetch-usb": "node scripts/fetch-usb-binaries.mjs",
+    "dist:mac": "npm run fetch-node && npm run fetch-usb && npm run build && electron-builder --mac --config electron-builder.yml",
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
@@ -34,6 +35,7 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "tailwindcss-animate": "^1.0.7",
+    "usb": "^3.1.0",
     "usbmux-client": "^0.2.1"
   },
   "devDependencies": {
