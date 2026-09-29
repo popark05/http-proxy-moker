@@ -5,13 +5,17 @@
  * 공개키를 보낸 뒤에는 사용자가 기기에서 "USB 디버깅 허용"을 누를 때까지 응답이 오지 않으므로
  * 별도 타임아웃(authTimeoutMs)을 두고 AdbAuthException으로 알린다(dadb는 소켓 타임아웃에 의존).
  *
- * 스트림 다중화(open)는 다음 단계(A-2)에서 이 클래스 위에 추가한다.
+ * 연결 후에는 디스패치 루프가 수신 메시지를 localId(arg1)로 스트림에 라우팅한다.
+ * 이 루프가 실패(연결 끊김/잘못된 패킷)하면 연결은 죽고, 모든 스트림의 대기 작업이 그 오류로 깨어난다.
+ * 죽은 연결은 재사용하지 않는다 — 상위(Dadb)가 다음 작업에서 새로 연결한다(dadb DadbImpl과 동일).
  */
 
 import type { AdbTransport } from '../transport/transport';
 import {
   AdbAuthException,
   AdbConnectException,
+  AdbConnectionClosedException,
+  AdbException,
   AdbProtocolException,
   AdbTimeoutException
 } from '../errors';
@@ -20,12 +24,17 @@ import {
   AUTH_TYPE_SIGNATURE,
   AUTH_TYPE_TOKEN,
   CMD_AUTH,
+  CMD_CLSE,
   CMD_CNXN,
-  CMD_STLS
+  CMD_OKAY,
+  CMD_OPEN,
+  CMD_STLS,
+  CMD_WRTE
 } from './constants';
 import { describeMessage, type AdbMessage } from './message';
 import { AdbPacketReader, AdbPacketWriter } from './packet-io';
 import type { AdbKeyPair } from './key-pair';
+import { AdbStream, type StreamHost } from './stream';
 
 export interface ConnectOptions {
   /** 인증 키. 없고 기기가 인증을 요구하면 AdbAuthException. */
@@ -34,6 +43,8 @@ export interface ConnectOptions {
   handshakeTimeoutMs?: number;
   /** 공개키 전송 후 사용자의 허용을 기다리는 시간(ms). 기본 60초. */
   authTimeoutMs?: number;
+  /** 스트림 열기/읽기/쓰기 응답의 기본 대기 시간(ms). 0이면 무제한(기본, dadb socketTimeout=0과 동일). */
+  readTimeoutMs?: number;
 }
 
 const DEFAULT_HANDSHAKE_TIMEOUT = 10_000;
@@ -48,8 +59,15 @@ export interface AdbBanner {
   features: Set<string>;
 }
 
-export class AdbConnection {
+export class AdbConnection implements StreamHost {
   private closed = false;
+  /** localId → 스트림. */
+  private readonly streams = new Map<number, AdbStream>();
+  /**
+   * localId는 순차 발급(AOSP adb 클라이언트와 동일). dadb 주석대로 무작위 ID는 사용 중인 ID와 충돌해
+   * 살아 있는 스트림을 파괴할 수 있다. 0은 "원격 ID 없음"을 뜻하므로 1부터 시작한다.
+   */
+  private nextLocalId = 0;
 
   private constructor(
     readonly transport: AdbTransport,
@@ -59,17 +77,97 @@ export class AdbConnection {
     /** adbd 프로토콜 버전(CNXN arg0). */
     readonly version: number,
     /** adbd가 받을 수 있는 최대 payload(CNXN arg1). WRTE 분할 크기로 쓴다. */
-    readonly maxPayloadSize: number
+    readonly maxPayloadSize: number,
+    readonly readTimeoutMs: number
   ) {}
+
+  get isClosed(): boolean {
+    return this.closed;
+  }
 
   supportsFeature(feature: string): boolean {
     return this.banner.features.has(feature);
   }
 
+  /**
+   * 서비스 스트림을 연다(예: "shell,v2,raw:id", "sync:").
+   * adbd가 거부하면 AdbStreamOpenException(연결은 계속 사용 가능).
+   */
+  async open(destination: string, timeoutMs: number = this.readTimeoutMs): Promise<AdbStream> {
+    if (this.closed) throw new AdbConnectionClosedException('ADB 연결이 이미 닫혔습니다.');
+    const localId = ++this.nextLocalId;
+    const stream = new AdbStream(this, localId, destination);
+    this.streams.set(localId, stream);
+    const opened = stream.waitOpened(timeoutMs);
+    // writeOpen이 실패하면 아래에서 stream.fail()로 정리하므로 여기선 unhandled만 막는다.
+    opened.catch(() => undefined);
+    try {
+      await this.writer.writeOpen(localId, destination);
+    } catch (e) {
+      stream.fail(e as AdbException);
+      throw e;
+    }
+    await opened;
+    return stream;
+  }
+
+  unregister(localId: number): void {
+    this.streams.delete(localId);
+  }
+
   async close(): Promise<void> {
     if (this.closed) return;
-    this.closed = true;
+    this.failAll(new AdbConnectionClosedException('ADB 연결을 닫았습니다.'));
     await this.transport.close().catch(() => undefined);
+  }
+
+  /** 디스패치 루프: 연결이 죽을 때까지 메시지를 스트림으로 라우팅한다. */
+  private async dispatchLoop(): Promise<void> {
+    for (;;) {
+      let message: AdbMessage;
+      try {
+        message = await this.reader.read();
+      } catch (e) {
+        this.failAll(
+          e instanceof AdbException ? e : new AdbConnectionClosedException('ADB 연결이 끊겼습니다.', e)
+        );
+        await this.transport.close().catch(() => undefined);
+        return;
+      }
+      if (this.closed) return;
+      this.dispatch(message);
+    }
+  }
+
+  private dispatch(message: AdbMessage): void {
+    // 기기가 보내는 메시지: arg0 = 기기 쪽 ID, arg1 = 우리 localId.
+    const stream = this.streams.get(message.arg1);
+    switch (message.command) {
+      case CMD_OKAY:
+        stream?.onOkay(message.arg0);
+        return;
+      case CMD_WRTE:
+        stream?.onWrite(message.payload);
+        return;
+      case CMD_CLSE:
+        stream?.onRemoteClose();
+        return;
+      case CMD_OPEN:
+        // 기기가 여는 스트림(adb reverse). 아직 미지원이므로 거부한다(B 단계에서 구현).
+        void this.writer.writeClose(0, message.arg0).catch(() => undefined);
+        return;
+      default:
+        // 연결 중 CNXN/AUTH 등은 기기 재시작 등으로 세션이 깨진 것. 재동기화할 수 없으므로 연결을 끊는다.
+        this.failAll(new AdbProtocolException(`연결 중 예상치 못한 메시지: ${describeMessage(message)}`));
+        void this.transport.close().catch(() => undefined);
+    }
+  }
+
+  private failAll(error: AdbException): void {
+    this.closed = true;
+    const streams = [...this.streams.values()];
+    this.streams.clear();
+    for (const stream of streams) stream.fail(error);
   }
 
   /**
@@ -81,7 +179,17 @@ export class AdbConnection {
     try {
       const message = await handshake(reader, writer, options);
       const banner = parseBanner(message.payload.toString('utf-8'));
-      return new AdbConnection(transport, reader, writer, banner, message.arg0, message.arg1);
+      const connection = new AdbConnection(
+        transport,
+        reader,
+        writer,
+        banner,
+        message.arg0,
+        message.arg1,
+        options.readTimeoutMs ?? 0
+      );
+      void connection.dispatchLoop();
+      return connection;
     } catch (e) {
       await transport.close().catch(() => undefined);
       // 인증/프로토콜/연결 오류는 그대로, 그 외(연결 끊김·타임아웃 등)는 연결 실패로 감싼다.
