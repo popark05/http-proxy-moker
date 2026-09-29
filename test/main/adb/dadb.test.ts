@@ -110,4 +110,22 @@ describe.skipIf(!process.env.ADB_TEST_HOST)('Dadb (실제 adbd)', () => {
     await dadb.shell(`rm -f ${remote}`);
     expect(await dadb.pull(() => {}, remote)).toMatchObject({ success: false });
   });
+
+  it('reverse: 기기의 nc가 호스트 로컬 서버에 닿음', async () => {
+    const local = net.createServer((socket) => socket.on('data', (d) => socket.end(d.toString().toUpperCase())));
+    await new Promise<void>((r) => local.listen(0, '127.0.0.1', r));
+    const localPort = (local.address() as net.AddressInfo).port;
+    dadb = Dadb.create(process.env.ADB_TEST_HOST!, Number(process.env.ADB_TEST_PORT ?? 5555), {
+      connectTimeoutMs: 5000,
+      readTimeoutMs: 10_000
+    });
+    try {
+      const rule = await dadb.reverse('tcp:0', `tcp:${localPort}`);
+      const response = await dadb.shell(`echo ping | toybox nc -w 2 127.0.0.1 ${rule.devicePort}`);
+      expect(response.output.trim()).toBe('PING');
+      await rule.close();
+    } finally {
+      await new Promise<void>((r) => local.close(() => r()));
+    }
+  });
 });

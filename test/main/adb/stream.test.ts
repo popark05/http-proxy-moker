@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { AdbConnection } from '../../../src/main/adb/protocol/connection';
+import { AdbConnection, type IncomingOpen } from '../../../src/main/adb/protocol/connection';
+import type { AdbStream } from '../../../src/main/adb/protocol/stream';
 import {
   CMD_CLSE,
   CMD_CNXN,
@@ -281,14 +282,66 @@ describe('연결 실패 계약', () => {
     transport.deliver(encodeMessage(msg(CMD_CNXN, 0x01000001, 4096, DEVICE_BANNER)));
     await expect(pending).rejects.toBeInstanceOf(AdbProtocolException);
   });
+});
 
-  it('기기가 여는 스트림(reverse)은 아직 거부(CLSE)', async () => {
+describe('기기가 여는 스트림(OPEN from device)', () => {
+  it('핸들러가 없으면 CLSE(0, 기기 ID)로 거부', async () => {
     const { conn, device } = await setup();
-    const id = device.openFromDevice('tcp:8080');
-    await tick();
-    await tick();
-    const reply = device.received.find((m) => m.command === CMD_CLSE && m.arg1 === id);
-    expect(reply?.arg0).toBe(0);
+    expect(await device.openFromDevice('tcp:8080')).toBeNull();
+    const reject = device.received.find((m) => m.command === CMD_CLSE);
+    expect(reject?.arg0).toBe(0);
     expect(conn.isClosed).toBe(false);
   });
+
+  it('accept하면 OKAY로 응답하고 양방향 데이터가 흐름', async () => {
+    const { conn, device } = await setup();
+    const accepted = new Promise<AdbStream>((resolve) =>
+      conn.setOpenHandler((request) => {
+        expect(request.destination).toBe('tcp:8080');
+        resolve(request.accept());
+      })
+    );
+    const devStream = (await device.openFromDevice('tcp:8080'))!;
+    const hostStream = await accepted;
+    expect(devStream.hostId).toBe(hostStream.localId);
+    expect(hostStream.remoteId).toBe(devStream.deviceId);
+
+    void devStream.send('from device');
+    expect((await hostStream.read())?.toString()).toBe('from device');
+    await hostStream.write(Buffer.from('from host'));
+    expect(devStream.received.map(String)).toEqual(['from host']);
+  });
+
+  it('호스트가 여는 스트림과 localId가 겹치지 않음', async () => {
+    const { conn, device } = await setup();
+    const own = await conn.open('svc:a');
+    let incoming: AdbStream | undefined;
+    conn.setOpenHandler((request) => (incoming = request.accept()));
+    await device.openFromDevice('tcp:1');
+    const own2 = await conn.open('svc:b');
+    expect(new Set([own.localId, incoming!.localId, own2.localId]).size).toBe(3);
+  });
+
+  it('reject하거나 핸들러가 throw하면 거부', async () => {
+    const { conn, device } = await setup();
+    conn.setOpenHandler((request) => request.reject());
+    expect(await device.openFromDevice('tcp:1')).toBeNull();
+    conn.setOpenHandler(() => {
+      throw new Error('boom');
+    });
+    expect(await device.openFromDevice('tcp:1')).toBeNull();
+  });
+
+  it('두 번 처리할 수 없고, 닫힌 연결에서는 accept가 실패', async () => {
+    const { conn, device } = await setup();
+    let request: IncomingOpen | undefined;
+    conn.setOpenHandler((r) => (request = r));
+    void device.openFromDevice('tcp:1');
+    await tick();
+    await tick();
+    await conn.close();
+    expect(() => request!.accept()).toThrow(AdbConnectionClosedException);
+    expect(() => request!.accept()).toThrow(/이미 처리/);
+  });
 });
+

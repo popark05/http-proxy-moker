@@ -50,6 +50,19 @@ export interface ConnectOptions {
 const DEFAULT_HANDSHAKE_TIMEOUT = 10_000;
 const DEFAULT_AUTH_TIMEOUT = 60_000;
 
+/**
+ * 기기가 여는 스트림(adb reverse로 설정한 포트에 기기 앱이 접속할 때) 요청.
+ * 핸들러는 반드시 accept()나 reject() 중 하나를 호출해야 한다(기기가 응답을 기다림).
+ */
+export interface IncomingOpen {
+  /** 기기가 요청한 목적지(reverse의 local 사양, 예: "tcp:8080"). */
+  readonly destination: string;
+  /** 수락: 스트림을 만들고 OKAY로 응답한다. 연결이 이미 닫혔으면 AdbConnectionClosedException. */
+  accept(): AdbStream;
+  /** 거부: CLSE로 응답한다. */
+  reject(): void;
+}
+
 /** CNXN 배너("device::ro.product.name=...;features=...")에서 얻은 기기 정보. */
 export interface AdbBanner {
   /** 연결 상태: device | recovery | sideload | bootloader ... */
@@ -68,6 +81,7 @@ export class AdbConnection implements StreamHost {
    * 살아 있는 스트림을 파괴할 수 있다. 0은 "원격 ID 없음"을 뜻하므로 1부터 시작한다.
    */
   private nextLocalId = 0;
+  private openHandler: ((request: IncomingOpen) => void) | undefined;
 
   private constructor(
     readonly transport: AdbTransport,
@@ -109,6 +123,14 @@ export class AdbConnection implements StreamHost {
     }
     await opened;
     return stream;
+  }
+
+  /**
+   * 기기가 여는 스트림의 처리기를 설정한다(adb reverse). 없으면 모두 거부한다.
+   * reverse 규칙은 이 연결(adbd 전송 세션)에 묶여 있어, 연결이 끊기면 기기에서도 사라진다.
+   */
+  setOpenHandler(handler: ((request: IncomingOpen) => void) | undefined): void {
+    this.openHandler = handler;
   }
 
   unregister(localId: number): void {
@@ -153,13 +175,49 @@ export class AdbConnection implements StreamHost {
         stream?.onRemoteClose();
         return;
       case CMD_OPEN:
-        // 기기가 여는 스트림(adb reverse). 아직 미지원이므로 거부한다(B 단계에서 구현).
-        void this.writer.writeClose(0, message.arg0).catch(() => undefined);
+        this.onIncomingOpen(message);
         return;
       default:
         // 연결 중 CNXN/AUTH 등은 기기 재시작 등으로 세션이 깨진 것. 재동기화할 수 없으므로 연결을 끊는다.
         this.failAll(new AdbProtocolException(`연결 중 예상치 못한 메시지: ${describeMessage(message)}`));
         void this.transport.close().catch(() => undefined);
+    }
+  }
+
+  /** 기기가 연 스트림: arg0 = 기기 쪽 ID, payload = 목적지 + NUL. */
+  private onIncomingOpen(message: AdbMessage): void {
+    const remoteId = message.arg0;
+    const destination = message.payload.toString('utf-8').replace(/\0$/, '');
+    const reject = (): void => void this.writer.writeClose(0, remoteId).catch(() => undefined);
+
+    const handler = this.openHandler;
+    if (!handler) {
+      reject();
+      return;
+    }
+    let settled = false;
+    const request: IncomingOpen = {
+      destination,
+      accept: () => {
+        if (settled) throw new Error('이미 처리한 OPEN 요청입니다.');
+        settled = true;
+        if (this.closed) throw new AdbConnectionClosedException('ADB 연결이 이미 닫혔습니다.');
+        const stream = new AdbStream(this, ++this.nextLocalId, destination);
+        stream.acceptRemote(remoteId);
+        this.streams.set(stream.localId, stream);
+        void this.writer.writeOkay(stream.localId, remoteId).catch(() => undefined);
+        return stream;
+      },
+      reject: () => {
+        if (settled) return;
+        settled = true;
+        reject();
+      }
+    };
+    try {
+      handler(request);
+    } catch {
+      request.reject();
     }
   }
 

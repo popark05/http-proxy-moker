@@ -18,6 +18,17 @@ import { openSync, pull, push, type AdbSyncStream, type ByteSink, type ByteSourc
 import { install, installMultiple, installStream, uninstall } from './services/install';
 import { root, unroot, type RestartOptions } from './services/root';
 import { tcpForward, type AdbTunnel } from './services/forward';
+import {
+  createReverseOpenHandler,
+  killAllReverse,
+  killReverse,
+  listReverse,
+  parseLocalTcpPort,
+  reverseForward,
+  type ReverseOptions,
+  type ReverseRule
+} from './services/reverse';
+import { AdbOperationFailedException } from './results';
 
 export interface DadbOptions {
   /**
@@ -36,11 +47,27 @@ export interface DadbOptions {
   keepAlive?: boolean;
 }
 
+/** 설치된 reverse 규칙 핸들. */
+export interface AdbReverse {
+  /** 기기 쪽 사양(remote가 tcp:0이었다면 기기가 고른 실제 포트). */
+  readonly remote: string;
+  readonly local: string;
+  /** 기기 쪽 포트. */
+  readonly devicePort: number;
+  /** 규칙 제거(멱등, 이미 사라졌어도 성공). */
+  close(): Promise<void>;
+}
+
 export class Dadb implements AdbOpener {
   private connection: AdbConnection | undefined;
   /** 동시 호출이 연결을 두 번 만들지 않도록 진행 중인 연결 시도를 공유한다. */
   private connecting: Promise<AdbConnection> | undefined;
   private keyPair: Promise<AdbKeyPair | undefined> | undefined;
+  /**
+   * 우리가 설치한 reverse 규칙(remote → local). adbd는 연결이 끊기면 규칙을 지우므로,
+   * 새 연결을 만들 때 다시 설치한다. 기기가 여는 스트림도 여기 있는 local 사양만 허용한다.
+   */
+  private readonly reverses = new Map<string, string>();
 
   constructor(
     /** 기기 식별자(TCP는 host:port, USB는 serial). */
@@ -135,6 +162,50 @@ export class Dadb implements AdbOpener {
     return tcpForward(this, hostPort, targetPort);
   }
 
+  /**
+   * 기기 remote 포트 → 호스트 local 포트(adb reverse). 예: reverse('tcp:8080', 'tcp:8080').
+   * remote에 tcp:0을 주면 기기가 포트를 고른다. adbd가 거부하면 AdbOperationFailedException.
+   *
+   * 규칙은 ADB 연결에 묶여 있다. 연결이 끊기면 다음 작업에서 재연결할 때 다시 설치한다
+   * (연결이 끊긴 뒤 아무 작업도 없으면 그동안은 동작하지 않는다).
+   */
+  async reverse(remote: string, local: string, options?: ReverseOptions): Promise<AdbReverse> {
+    parseLocalTcpPort(local);
+    const { devicePort } = await reverseForward(this, remote, local, options);
+    const effectiveRemote = devicePort !== undefined ? `tcp:${devicePort}` : remote;
+    this.reverses.set(effectiveRemote, local);
+    let closed = false;
+    return {
+      remote: effectiveRemote,
+      local,
+      devicePort: devicePort ?? Number(/^tcp:(\d+)$/.exec(remote)?.[1] ?? NaN),
+      close: async () => {
+        if (closed) return;
+        closed = true;
+        await this.killReverse(effectiveRemote).catch((e) => {
+          // 연결이 바뀌어 기기에서 이미 사라졌으면 성공으로 본다.
+          if (!(e instanceof AdbOperationFailedException)) throw e;
+        });
+      }
+    };
+  }
+
+  /** remote 규칙 하나를 제거한다(기기에 없으면 AdbOperationFailedException). */
+  async killReverse(remote: string): Promise<void> {
+    this.reverses.delete(remote);
+    await killReverse(this, remote);
+  }
+
+  async killAllReverse(): Promise<void> {
+    this.reverses.clear();
+    await killAllReverse(this);
+  }
+
+  /** 기기에 설치된 reverse 규칙(다른 클라이언트가 만든 것 포함). */
+  listReverse(): Promise<ReverseRule[]> {
+    return listReverse(this);
+  }
+
   // ---- 연결 ----
 
   /** 현재 연결(없거나 죽었으면 새로 만든다). */
@@ -166,8 +237,28 @@ export class Dadb implements AdbOpener {
       authTimeoutMs: this.options.authTimeoutMs,
       readTimeoutMs: this.options.readTimeoutMs
     });
+    connection.setOpenHandler(
+      createReverseOpenHandler((destination) => [...this.reverses.values()].includes(destination))
+    );
+    await this.reapplyReverses(connection);
     this.connection = connection;
     return connection;
+  }
+
+  /**
+   * 재연결 시 기존 reverse 규칙을 새 연결에 다시 설치한다.
+   * this.connect()를 거치면 진행 중인 연결을 기다리며 교착되므로 연결을 직접 쓴다.
+   * 실패한 규칙(기기 포트 사용 중 등)은 목록에 남겨 다음 재연결에서 다시 시도한다.
+   */
+  private async reapplyReverses(connection: AdbConnection): Promise<void> {
+    if (this.reverses.size === 0) return;
+    const opener: AdbOpener = {
+      open: (destination) => connection.open(destination),
+      supportsFeature: async (feature) => connection.supportsFeature(feature)
+    };
+    for (const [remote, local] of this.reverses) {
+      await reverseForward(opener, remote, local).catch(() => undefined);
+    }
   }
 
   private resolveKeyPair(): Promise<AdbKeyPair | undefined> {

@@ -27,3 +27,4 @@ limitations under the License.
 - install: pm 설치가 APK를 끝까지 읽기 전에 거부해도 응답을 돌려줌, pm 경로의 임시 파일 삭제
 - root/unroot: adbd 재시작 후 재연결해 상태 변경을 확인할 때까지 폴링(기한 있음)
 - tcpForward: 모든 인터페이스가 아닌 127.0.0.1에만 바인딩
+- 확장(dadb에 없음): adb reverse(기기가 여는 스트림 처리, 재연결 시 규칙 재설치)

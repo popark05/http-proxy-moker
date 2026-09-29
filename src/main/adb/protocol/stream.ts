@@ -146,6 +146,12 @@ export class AdbStream {
 
   // ---- AdbConnection 디스패치 루프가 호출 ----
 
+  /** 기기가 연 스트림을 수락: 원격 ID를 알고 있으므로 바로 open 상태가 된다. */
+  acceptRemote(remoteId: number): void {
+    this.remote = remoteId;
+    this.state = 'open';
+  }
+
   /** OPEN 요청을 보낸 뒤 OKAY/CLSE를 기다린다. */
   waitOpened(timeoutMs: number = this.host.readTimeoutMs): Promise<void> {
     return new Promise<void>((resolve, reject) => {

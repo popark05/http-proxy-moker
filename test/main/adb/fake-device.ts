@@ -24,7 +24,7 @@ export class FakeDeviceStream {
   private readonly unackedHostWrites: number[] = [];
 
   constructor(
-    private readonly device: FakeDevice,
+    readonly device: FakeDevice,
     readonly deviceId: number,
     readonly hostId: number,
     readonly destination: string
@@ -105,6 +105,8 @@ export class FakeDevice {
   banner = DEVICE_BANNER;
   private readonly decoder = new MessageDecoder();
   private nextId = 1000;
+  /** 기기가 연 스트림 중 호스트 응답(OKAY/CLSE)을 기다리는 것. */
+  private readonly pendingOpens = new Map<number, { destination: string; resolve: (s: FakeDeviceStream | null) => void }>();
 
   constructor(
     private readonly out: (bytes: Uint8Array) => void,
@@ -123,11 +125,13 @@ export class FakeDevice {
     this.out(encodeMessage(message));
   }
 
-  /** 기기가 먼저 스트림을 연다(adb reverse 흉내). */
-  openFromDevice(destination: string): number {
+  /** 기기가 먼저 스트림을 연다(adb reverse 흉내). 호스트가 OKAY면 스트림, CLSE면 null. */
+  openFromDevice(destination: string): Promise<FakeDeviceStream | null> {
     const id = this.nextId++;
-    this.send(msg(CMD_OPEN, id, 0, `${destination}\0`));
-    return id;
+    return new Promise((resolve) => {
+      this.pendingOpens.set(id, { destination, resolve });
+      this.send(msg(CMD_OPEN, id, 0, `${destination}\0`));
+    });
   }
 
   private handle(message: AdbMessage): void {
@@ -151,10 +155,25 @@ export class FakeDevice {
       case CMD_WRTE:
         this.streams.get(message.arg1)?.onHostWrite(message.payload, this.autoAck);
         return;
-      case CMD_OKAY:
+      case CMD_OKAY: {
+        const pending = this.pendingOpens.get(message.arg1);
+        if (pending) {
+          this.pendingOpens.delete(message.arg1);
+          const stream = new FakeDeviceStream(this, message.arg1, message.arg0, pending.destination);
+          this.streams.set(stream.deviceId, stream);
+          pending.resolve(stream);
+          return;
+        }
         this.streams.get(message.arg1)?.onHostOkay();
         return;
+      }
       case CMD_CLSE: {
+        const pending = this.pendingOpens.get(message.arg1);
+        if (pending) {
+          this.pendingOpens.delete(message.arg1);
+          pending.resolve(null);
+          return;
+        }
         const stream = this.streams.get(message.arg1);
         if (stream) {
           stream.markHostClosed();

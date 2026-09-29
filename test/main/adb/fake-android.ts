@@ -1,4 +1,4 @@
-import type { FakeDeviceStream, ServiceHandler } from './fake-device';
+import type { FakeDevice, FakeDeviceStream, ServiceHandler } from './fake-device';
 
 /**
  * 서비스 계층 테스트용 가짜 Android. 실제 adbd의 서비스 프로토콜(shell v2, sync, exec:cmd,
@@ -16,6 +16,15 @@ export class FakeAndroid {
   /** true면 pm이 APK를 끝까지 읽기 전에 거부하고 스트림을 닫는다. */
   rejectInstallEarly = false;
   private sessions = new Map<string, Buffer[]>();
+  /**
+   * 연결(FakeDevice)별 reverse 규칙(remote → local). 실제 adbd처럼 연결이 끊기면 규칙도 사라진다
+   * (새 연결은 새 FakeDevice이므로 빈 규칙으로 시작).
+   */
+  readonly reverses = new Map<FakeDevice, Map<string, string>>();
+  /** tcp:0 요청 시 할당할 기기 포트. */
+  nextDevicePort = 40000;
+  /** 설정하면 이 remote에 대한 reverse를 FAIL로 거부(포트 사용 중 흉내). */
+  busyRemote: string | undefined;
 
   readonly services: ServiceHandler = (destination) => {
     if (destination.startsWith('shell,v2,raw:')) {
@@ -28,6 +37,9 @@ export class FakeAndroid {
       return (s) => void this.cmdPackage(s, args);
     }
     if (destination === 'root:') return (s) => void this.root(s);
+    if (destination.startsWith('reverse:')) {
+      return (s) => void this.reverse(s, destination.slice('reverse:'.length));
+    }
     const tcp = /^tcp:(\d+)$/.exec(destination);
     if (tcp) return (s) => void this.upperEcho(s);
     return undefined;
@@ -179,6 +191,62 @@ export class FakeAndroid {
     }
     if (verb === 'install-abandon') return reply('Success\n');
     return reply(`Unknown command: ${verb}\n`);
+  }
+
+  // ---- reverse: ----
+
+  /** 기기 앱이 reverse 포트에 접속하는 상황 흉내: 해당 규칙의 local로 호스트에 OPEN을 보낸다. */
+  connectReverse(devicePort: number): Promise<FakeDeviceStream | null> {
+    const entries = [...this.reverses.entries()];
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const [device, rules] = entries[i];
+      const local = rules.get(`tcp:${devicePort}`);
+      if (local) return device.openFromDevice(local);
+    }
+    throw new Error(`기기 포트 ${devicePort}에 reverse 규칙이 없습니다.`);
+  }
+
+  /** 현재(가장 최근 연결) 규칙들. */
+  currentReverses(): Map<string, string> {
+    const all = [...this.reverses.values()];
+    return all[all.length - 1] ?? new Map();
+  }
+
+  private async reverse(s: FakeDeviceStream, command: string): Promise<void> {
+    let rules = this.reverses.get(s.device);
+    if (!rules) this.reverses.set(s.device, (rules = new Map()));
+    const reply = async (body: string): Promise<void> => {
+      if (body) await s.send(body);
+      s.close();
+    };
+    const protocolString = (v: string): string => v.length.toString(16).padStart(4, '0') + v;
+
+    let m: RegExpExecArray | null;
+    if ((m = /^forward(:norebind)?:(tcp:\d+);(.+)$/.exec(command))) {
+      let remote = m[2];
+      if (remote === this.busyRemote) return reply(`FAIL${protocolString('cannot bind listener: Address already in use')}`);
+      if (m[1] && rules.has(remote)) return reply(`FAIL${protocolString('cannot rebind existing socket')}`);
+      let port = '';
+      if (remote === 'tcp:0') {
+        port = String(this.nextDevicePort++);
+        remote = `tcp:${port}`;
+      }
+      rules.set(remote, m[3]);
+      return reply(`OKAY${port ? protocolString(port) : ''}`);
+    }
+    if ((m = /^killforward:(.+)$/.exec(command))) {
+      if (!rules.delete(m[1])) return reply(`FAIL${protocolString(`listener '${m[1]}' not found`)}`);
+      return reply('OKAY');
+    }
+    if (command === 'killforward-all') {
+      rules.clear();
+      return reply('OKAY');
+    }
+    if (command === 'list-forward') {
+      const lines = [...rules].map(([remote, local]) => `host-19 ${remote} ${local}\n`).join('');
+      return reply(protocolString(lines));
+    }
+    return reply(`FAIL${protocolString('not a reverse forwarding command')}`);
   }
 
   // ---- root: / tcp: ----
