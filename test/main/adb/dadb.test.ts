@@ -92,4 +92,22 @@ describe.skipIf(!process.env.ADB_TEST_HOST)('Dadb (실제 adbd)', () => {
     });
     expect(await shellEcho(dadb, 'hello')).toBe('hello\n');
   });
+
+  it('shell v2 / push·pull 왕복', async () => {
+    dadb = Dadb.create(process.env.ADB_TEST_HOST!, Number(process.env.ADB_TEST_PORT ?? 5555), {
+      connectTimeoutMs: 5000,
+      readTimeoutMs: 10_000
+    });
+    const response = await dadb.shell('echo bénéficiaire; echo err >&2; exit 3');
+    expect(response).toMatchObject({ output: 'bénéficiaire\n', errorOutput: 'err\n', exitCode: 3 });
+
+    const remote = '/data/local/tmp/dadb-ts-test';
+    const content = Buffer.from(`hello ${Math.random()}`);
+    expect(await dadb.push(content, remote)).toEqual({ success: true });
+    const chunks: Buffer[] = [];
+    expect(await dadb.pull((c) => void chunks.push(c), remote)).toEqual({ success: true });
+    expect(Buffer.concat(chunks)).toEqual(content);
+    await dadb.shell(`rm -f ${remote}`);
+    expect(await dadb.pull(() => {}, remote)).toMatchObject({ success: false });
+  });
 });

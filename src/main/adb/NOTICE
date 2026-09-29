@@ -22,3 +22,8 @@ limitations under the License.
 - 인증 대기 타임아웃, A_STLS 응답 감지, 헤더 magic/payload 길이 검증 추가
 - 스레드 공유 큐(MessageQueue) 대신 단일 디스패치 루프가 localId로 스트림에 라우팅
 - 송신 WRTE마다 기기의 OKAY를 기다리도록 흐름 제어 준수(dadb는 기다리지 않음)
+- shell: 종료 코드를 부호 없는 바이트로 읽고, 출력은 모았다가 한 번에 디코딩(멀티바이트 문자 보존)
+- sync/install: 작은 쓰기를 maxPayload 단위로 모아 WRTE 왕복 수를 줄임
+- install: pm 설치가 APK를 끝까지 읽기 전에 거부해도 응답을 돌려줌, pm 경로의 임시 파일 삭제
+- root/unroot: adbd 재시작 후 재연결해 상태 변경을 확인할 때까지 폴링(기한 있음)
+- tcpForward: 모든 인터페이스가 아닌 127.0.0.1에만 바인딩

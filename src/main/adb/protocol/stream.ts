@@ -64,6 +64,11 @@ export class AdbStream {
     return this.state === 'closed';
   }
 
+  /** 한 WRTE에 담을 수 있는 최대 바이트(기기가 CNXN에서 알려준 값). */
+  get maxPayloadSize(): number {
+    return this.host.maxPayloadSize;
+  }
+
   /**
    * 다음 WRTE payload를 읽는다. 원격이 닫았고 남은 데이터가 없으면 null(EOF).
    * 타임아웃은 이 호출만 실패시키고 스트림은 계속 쓸 수 있다.

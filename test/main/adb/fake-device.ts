@@ -18,6 +18,9 @@ export class FakeDeviceStream {
   readonly received: Buffer[] = [];
   hostClosed = false;
   private pendingAck: (() => void) | undefined;
+  /** readBytes()용 누적 버퍼. */
+  private inbox: Buffer = Buffer.alloc(0);
+  private inboxWaiter: (() => void) | undefined;
   private readonly unackedHostWrites: number[] = [];
 
   constructor(
@@ -39,6 +42,29 @@ export class FakeDeviceStream {
     this.device.send(msg(CMD_CLSE, this.deviceId, this.hostId));
   }
 
+  /** 호스트가 보낸 바이트를 정확히 n바이트 읽는다(WRTE 경계와 무관). 호스트가 닫으면 null. */
+  async readBytes(n: number): Promise<Buffer | null> {
+    while (this.inbox.length < n) {
+      if (this.hostClosed) return null;
+      await new Promise<void>((resolve) => (this.inboxWaiter = resolve));
+    }
+    const out = this.inbox.subarray(0, n);
+    this.inbox = this.inbox.subarray(n);
+    return Buffer.from(out);
+  }
+
+  /** 호스트가 스트림을 닫았음을 알린다(FakeDevice가 호출). */
+  markHostClosed(): void {
+    this.hostClosed = true;
+    this.wakeInbox();
+  }
+
+  private wakeInbox(): void {
+    const w = this.inboxWaiter;
+    this.inboxWaiter = undefined;
+    w?.();
+  }
+
   /** autoAck=false일 때 받은 호스트 WRTE 하나에 OKAY 응답. */
   ackOne(): void {
     if (this.unackedHostWrites.shift() !== undefined) {
@@ -53,6 +79,8 @@ export class FakeDeviceStream {
   // FakeDevice가 호출
   onHostWrite(payload: Buffer, autoAck: boolean): void {
     this.received.push(payload);
+    this.inbox = Buffer.concat([this.inbox, payload]);
+    this.wakeInbox();
     if (autoAck) this.device.send(msg(CMD_OKAY, this.deviceId, this.hostId));
     else this.unackedHostWrites.push(this.deviceId);
   }
@@ -73,6 +101,8 @@ export class FakeDevice {
   autoAck = true;
   /** 연결(CNXN)을 받으면 응답할 maxPayload. */
   maxPayload = 256 * 1024;
+  /** CNXN 배너(features 조정용). */
+  banner = DEVICE_BANNER;
   private readonly decoder = new MessageDecoder();
   private nextId = 1000;
 
@@ -103,7 +133,7 @@ export class FakeDevice {
   private handle(message: AdbMessage): void {
     switch (message.command) {
       case CMD_CNXN:
-        this.send(msg(CMD_CNXN, 0x01000001, this.maxPayload, DEVICE_BANNER));
+        this.send(msg(CMD_CNXN, 0x01000001, this.maxPayload, this.banner));
         return;
       case CMD_OPEN: {
         const destination = message.payload.subarray(0, -1).toString('utf-8');
@@ -127,7 +157,7 @@ export class FakeDevice {
       case CMD_CLSE: {
         const stream = this.streams.get(message.arg1);
         if (stream) {
-          stream.hostClosed = true;
+          stream.markHostClosed();
           this.streams.delete(message.arg1);
         }
         return;
@@ -145,7 +175,10 @@ export function memoryDevice(services: ServiceHandler): { device: FakeDevice; tr
 }
 
 /** 실제 TCP 포트에서 가짜 adbd를 띄운다. 연결마다 새 FakeDevice. */
-export async function tcpDevice(services: ServiceHandler): Promise<{
+export async function tcpDevice(
+  services: ServiceHandler,
+  configure?: (device: FakeDevice) => void
+): Promise<{
   port: number;
   devices: FakeDevice[];
   sockets: net.Socket[];
@@ -158,6 +191,7 @@ export async function tcpDevice(services: ServiceHandler): Promise<{
     const device = new FakeDevice((bytes) => {
       if (!socket.destroyed) socket.write(bytes);
     }, services);
+    configure?.(device);
     devices.push(device);
     socket.on('data', (chunk) => device.feed(chunk));
     socket.on('error', () => {});

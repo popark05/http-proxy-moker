@@ -2,7 +2,8 @@
  * Dadb 퍼사드: 기기 하나에 대한 ADB 연결을 필요할 때 만들고, 죽으면 다음 작업에서 다시 만든다.
  * dadb Dadb/DadbImpl 이식(Apache-2.0, NOTICE 참고).
  *
- * 셸/sync/설치 같은 서비스는 이 클래스 위에 추가한다(A-3).
+ * 서비스(셸/sync/설치/root/포워딩)는 services/에 AdbOpener 기반 함수로 두고, 여기서는 위임만 한다.
+ * 결과 규약: 전송 실패는 AdbException throw, 작업 결과는 *Result 값으로 반환(results.ts).
  */
 
 import type { AdbTransport } from './transport/transport';
@@ -10,6 +11,13 @@ import { TcpTransport } from './transport/tcp';
 import { AdbConnection } from './protocol/connection';
 import { AdbKeyPair } from './protocol/key-pair';
 import type { AdbStream } from './protocol/stream';
+import type { InstallResult, RootResult, SyncResult, UninstallResult } from './results';
+import { abbExec, execCmd, type AdbOpener } from './services/opener';
+import { openShell, shell, type AdbShellResponse, type AdbShellStream } from './services/shell';
+import { openSync, pull, push, type AdbSyncStream, type ByteSink, type ByteSource } from './services/sync';
+import { install, installMultiple, installStream, uninstall } from './services/install';
+import { root, unroot, type RestartOptions } from './services/root';
+import { tcpForward, type AdbTunnel } from './services/forward';
 
 export interface DadbOptions {
   /**
@@ -28,7 +36,7 @@ export interface DadbOptions {
   keepAlive?: boolean;
 }
 
-export class Dadb {
+export class Dadb implements AdbOpener {
   private connection: AdbConnection | undefined;
   /** 동시 호출이 연결을 두 번 만들지 않도록 진행 중인 연결 시도를 공유한다. */
   private connecting: Promise<AdbConnection> | undefined;
@@ -63,6 +71,71 @@ export class Dadb {
   async supportsFeature(feature: string): Promise<boolean> {
     return (await this.connect()).supportsFeature(feature);
   }
+
+  // ---- 서비스 ----
+
+  /** 명령 실행 → 출력/종료 코드. 0이 아닌 종료 코드도 값으로 돌려준다. */
+  shell(command: string): Promise<AdbShellResponse> {
+    return shell(this, command);
+  }
+
+  /** 셸 스트림(명령을 비우면 대화형). */
+  openShell(command = ''): Promise<AdbShellStream> {
+    return openShell(this, command);
+  }
+
+  /** 파일 경로 또는 바이트를 기기로. 경로면 파일 권한/수정 시각을 쓴다. */
+  push(src: string | ByteSource, remotePath: string, mode?: number, lastModifiedMs?: number): Promise<SyncResult> {
+    return push(this, src, remotePath, mode, lastModifiedMs);
+  }
+
+  /** 기기 파일을 로컬 경로 또는 청크 함수로. */
+  pull(dst: string | ByteSink, remotePath: string): Promise<SyncResult> {
+    return pull(this, dst, remotePath);
+  }
+
+  openSync(): Promise<AdbSyncStream> {
+    return openSync(this);
+  }
+
+  install(apk: string | Uint8Array, ...options: string[]): Promise<InstallResult> {
+    return install(this, apk, ...options);
+  }
+
+  installStream(source: ByteSource, size: number, ...options: string[]): Promise<InstallResult> {
+    return installStream(this, source, size, ...options);
+  }
+
+  installMultiple(apks: string[], ...options: string[]): Promise<InstallResult> {
+    return installMultiple(this, apks, ...options);
+  }
+
+  uninstall(packageName: string): Promise<UninstallResult> {
+    return uninstall(this, packageName);
+  }
+
+  execCmd(...command: string[]): Promise<AdbStream> {
+    return execCmd(this, ...command);
+  }
+
+  abbExec(...command: string[]): Promise<AdbStream> {
+    return abbExec(this, ...command);
+  }
+
+  root(options?: RestartOptions): Promise<RootResult> {
+    return root(this, options);
+  }
+
+  unroot(options?: RestartOptions): Promise<RootResult> {
+    return unroot(this, options);
+  }
+
+  /** 호스트 127.0.0.1:hostPort → 기기 tcp:targetPort. hostPort 0이면 임의 포트. */
+  tcpForward(hostPort: number, targetPort: number): Promise<AdbTunnel> {
+    return tcpForward(this, hostPort, targetPort);
+  }
+
+  // ---- 연결 ----
 
   /** 현재 연결(없거나 죽었으면 새로 만든다). */
   async connect(): Promise<AdbConnection> {
