@@ -16,6 +16,7 @@ import { ProxyControls } from './components/traffic/ProxyControls';
 import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
+import { CloneSourceBar } from './components/mock/CloneSourceBar';
 import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
@@ -242,16 +243,14 @@ function AppInner(): JSX.Element {
             left={trafficPanel}
             right={
               <div className="flex h-full flex-col overflow-auto">
-                {/* 선택한 트래픽이 있으면 상세를 접이식으로 상단에 얇게 보여줘 복제 소스 확인 */}
+                {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
                 {selected && (
-                  <div className="max-h-[38%] shrink-0 overflow-auto border-b border-border">
-                    <ExchangeDetail
-                      exchange={selected}
-                      onCloneToMock={handleCloneToMock}
-                      onAddTag={handleAddTag}
-                      onRemoveTag={handleRemoveTag}
-                    />
-                  </div>
+                  <CloneSourceBar
+                    exchange={selected}
+                    onCloneToMock={handleCloneToMock}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                  />
                 )}
                 <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
                   <MockPanel
