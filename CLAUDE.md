@@ -17,7 +17,10 @@ npm run typecheck      # tsconfig.node.json (main/preload/shared) + tsconfig.web
 npm test               # vitest run (all tests)
 npx vitest run test/main/proxy-service.test.ts   # single file
 npx vitest run -t "test name substring"          # single test by name
-npm run dist:mac       # fetch-node + build + electron-builder DMG (arm64/x64) → release/
+npm run dist:mac       # fetch-node + fetch-usb + build + electron-builder DMG (arm64/x64) → release/
+npm run fetch-node     # pinned Node for the proxy worker → resources/node/<mac|win>-<arch>/ (`-- --targets all` for cross builds)
+npm run verify:worker  # bundle the worker outside the repo, fork it with the pinned Node, check capture + gzip/br/zstd decoding
+node scripts/verify-worker-bundle.mjs --resources <installed app resources dir>   # same check against a packaged/installed app
 node scripts/verify-vpn.mjs <deviceId>           # real-device Android VPN capture check
 ADB_TEST_USB=1 npx vitest run test/main/adb/usb-device.test.ts   # real-device direct-USB ADB check (run `adb kill-server` first)
 ```
@@ -38,9 +41,10 @@ It's a three-process Electron app plus a separate **proxy worker** process:
 mockttp's upstream TLS breaks under Electron's BoringSSL (`INVALID_COMMAND`, which makes HTTPS passthrough return 500). The proxy therefore runs in a **separate plain-Node (OpenSSL) child process**:
 
 - `main/proxy/proxy-engine.ts` (`ProxyEngine`): the actual mockttp logic, covering start/stop, mock rule injection, capture subscription and the companion-VPN verification endpoints. Tests instantiate it directly.
-- `main/proxy/proxy-worker-entry.ts`: the worker entry point. It's built as a second main input to `out/main/proxy-worker.js`.
+- `main/proxy/proxy-worker-entry.ts`: the worker entry point. `scripts/build-proxy-worker.mjs` (run by a plugin in `electron.vite.config.ts` after the main build, watched in dev) bundles it with esbuild into **one self-contained CommonJS file, `out/main/proxy-worker.cjs`, including `mockttp` and all its dependencies**. This is required because plain Node can't read `app.asar`: an external `import 'mockttp'` only appeared to work from `release/` inside the repo. The build copies the one runtime file asset (`brotli_wasm_bg.wasm`, a fallback only) next to it and fails if a new dependency reads files via `__dirname`. `test/main/proxy-worker-bundle.test.ts` guards this.
 - `main/proxy/proxy-service.ts` (`ProxyService`): runs in main. It forks the worker with a real Node binary and talks to it over the `WorkerCommand`/`WorkerMessage` protocol (`shared/proxy-worker.ts`, matched by requestId, with plain structured-cloneable data only). It then relays capture events to the renderer.
-- Node binary resolution order: `NODE_BINARY_PATH` env → bundled `resources/node/<arch>/node` (from `npm run fetch-node`, packaged via `extraResources`) → system node. In packaged builds the worker is `asarUnpack`ed, and the path is rewritten to `app.asar.unpacked`.
+- The worker's Node is **pinned** (`NODE_VERSION` in `scripts/fetch-node.mjs`, SHA-256 verified, LICENSE included), stored per target in `resources/node/<mac|win>-<arch>/` and packaged via `extraResources` (`${os}-${arch}` → `<resources>/node/<arch>/node(.exe)`). Resolution: `NODE_BINARY_PATH` → bundled Node (an installed app errors out if it's missing rather than using the user's Node) → dev only: the repo's pinned Node, then system node. In packaged builds the worker and `*.wasm` are `asarUnpack`ed, and the path is rewritten to `app.asar.unpacked`.
+- Every change must keep **installed macOS and Windows builds** working, not just dev. Verify packaging-sensitive changes against a packaged app copied outside the repo.
 
 Applying or clearing mocks calls `server.reset()` and then re-registers the subscriptions, the companion endpoints, the mock rules and the unmatched rule, in that order. Mock hits are tracked through the rule id → mock id map (`ruleToMock`).
 

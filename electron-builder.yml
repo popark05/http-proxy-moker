@@ -20,18 +20,22 @@ npmRebuild: false
 # electron-builder가 package.json dependencies를 기준으로 자동 포함한다.
 asarUnpack:
   - '**/*.node'
-  # 프록시 워커는 외부 Node 프로세스로 fork되므로 asar에서 풀어 실제 파일로 둔다.
-  # (외부 Node는 asar 가상 파일시스템을 이해하지 못함)
-  - out/main/proxy-worker.js
+  # 프록시 워커는 외부 Node 프로세스로 fork되므로 asar에서 풀어 실제 파일로 둔다
+  # (외부 Node는 asar를 읽지 못함). 워커는 의존성을 모두 포함한 단일 CJS 파일이라 node_modules가
+  # 필요 없고, 옆에 두는 런타임 자산(wasm)만 함께 푼다. scripts/build-proxy-worker.mjs 참고.
+  - out/main/proxy-worker.cjs
+  - out/main/*.wasm
 
-# 프록시 워커용 OpenSSL Node 바이너리를 앱에 번들(시스템 Node 불필요).
-# 각 아키텍처 빌드에 해당 arch Node만 포함 → .app/Contents/Resources/node/<arch>/node.
-# 런타임(resolveNodeBinary)은 process.arch로 경로를 찾으므로 일치한다.
+# 프록시 워커용 OpenSSL Node 바이너리를 앱에 번들(사용자 PC의 Node에 의존하지 않음).
+# scripts/fetch-node.mjs가 대상별로 resources/node/<mac|win>-<arch>/ 에 고정 버전을 받아 둔다.
+# ${os}는 빌드 "대상" 플랫폼(mac/win)이라 macOS에서 Windows를 빌드해도 올바른 바이너리가 들어간다.
+# 설치 위치: <resources>/node/<arch>/node(.exe) — 런타임(resolveNodeBinary)은 process.arch로 찾는다.
 extraResources:
-  - from: resources/node/${arch}
+  - from: resources/node/${os}-${arch}
     to: node/${arch}
     filter:
       - '**/*'
+      - '!.node-version'
 
 mac:
   category: public.app-category.developer-tools
