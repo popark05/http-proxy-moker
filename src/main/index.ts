@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron';
+import { app, BrowserWindow, Menu, nativeImage, nativeTheme } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers';
 
 // 데스크탑 QA 도구는 다크모드를 기본으로 한다. OS 테마를 따라가되 다크를 선호.
@@ -85,6 +85,16 @@ app.whenReady().then(() => {
   const iconPath = resolveAppIcon();
   if (iconPath && process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+
+  // 배포본에서는 Cmd/Ctrl+R 새로고침·DevTools 단축키가 든 기본 메뉴를 쓰지 않는다(새로고침하면 캡처 상태가 날아간다).
+  // macOS는 복사/붙여넣기 등 편집 단축키가 메뉴 role에 의존하므로 최소 메뉴를 둔다.
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(
+      process.platform === 'darwin'
+        ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
+        : null
+    );
   }
 
   registerIpcHandlers(() => mainWindow);

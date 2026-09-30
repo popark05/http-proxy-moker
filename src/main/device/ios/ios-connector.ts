@@ -63,10 +63,21 @@ export class IosConnector implements DeviceConnector {
 
   getSetupInstructions(options: InterceptionOptions): SetupStep[] {
     const proxyValue = `${options.proxyHost}:${options.proxyPort}`;
+    const winNote =
+      process.platform === 'win32'
+        ? [
+            {
+              title: '0. Apple 기기 드라이버 확인 (Windows)',
+              detail:
+                'iPhone/iPad를 USB로 감지하려면 Apple Mobile Device Service가 필요합니다. iTunes 또는 Apple Devices 앱(Microsoft Store)을 설치하세요.'
+            }
+          ]
+        : [];
     return [
+      ...winNote,
       {
         title: '1. 같은 WiFi에 연결',
-        detail: 'iPhone/iPad를 이 맥과 동일한 WiFi 네트워크에 연결하세요.'
+        detail: 'iPhone/iPad를 이 컴퓨터와 동일한 WiFi 네트워크에 연결하세요.'
       },
       {
         title: '2. WiFi 프록시 수동 설정',

@@ -36,6 +36,9 @@ extraResources:
     filter:
       - '**/*'
       - '!.node-version'
+  # 창 아이콘(main/index.ts resolveAppIcon이 <resources>/icon.png를 찾는다).
+  - from: build/icon.png
+    to: icon.png
 
 # 두 아키텍처 DMG/설치 파일이 같은 이름으로 덮어써지지 않게 arch를 넣는다.
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}

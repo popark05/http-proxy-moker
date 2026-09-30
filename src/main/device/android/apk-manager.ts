@@ -75,7 +75,7 @@ export class ApkManager {
     const tmpPath = `${this.cachePath}.tmp`;
     // web ReadableStream → Node stream 파이프.
     await pipeline(Readable.fromWeb(response.body as never), createWriteStream(tmpPath));
-    await fs.rename(tmpPath, this.cachePath);
+    await renameWithRetry(tmpPath, this.cachePath);
     return this.cachePath;
   }
 
@@ -96,5 +96,19 @@ export class ApkManager {
   /** 캐시된 APK 삭제(설치 실패 재시도용). */
   async clearCache(): Promise<void> {
     await fs.rm(this.cachePath, { force: true });
+  }
+}
+
+/** Windows에서 백신/인덱서가 방금 쓴 파일을 잠깐 잡고 있으면 rename이 EPERM/EBUSY로 실패한다. 짧게 재시도. */
+async function renameWithRetry(from: string, to: string, attempts = 5): Promise<void> {
+  for (let i = 0; ; i++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (i >= attempts - 1 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw err;
+      await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+    }
   }
 }
