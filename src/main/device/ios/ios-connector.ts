@@ -61,13 +61,15 @@ export class IosConnector implements DeviceConnector {
     // iOS는 프록시를 자동 해제할 수 없다. 사용자가 기기에서 직접 해제해야 함.
   }
 
+  /** 번호는 화면에서 순서대로 붙인다. 각 단계에 수행 위치(pc/device)를 명시한다. */
   getSetupInstructions(options: InterceptionOptions): SetupStep[] {
     const proxyValue = `${options.proxyHost}:${options.proxyPort}`;
-    const winNote =
+    const winNote: SetupStep[] =
       process.platform === 'win32'
         ? [
             {
-              title: '0. Apple 기기 드라이버 확인 (Windows)',
+              where: 'pc',
+              title: 'Apple 기기 드라이버 설치',
               detail:
                 'iPhone/iPad를 USB로 감지하려면 Apple Mobile Device Service가 필요합니다. iTunes 또는 Apple Devices 앱(Microsoft Store)을 설치하세요.'
             }
@@ -76,22 +78,32 @@ export class IosConnector implements DeviceConnector {
     return [
       ...winNote,
       {
-        title: '1. 같은 WiFi에 연결',
+        where: 'device',
+        title: '같은 WiFi에 연결',
         detail: 'iPhone/iPad를 이 컴퓨터와 동일한 WiFi 네트워크에 연결하세요.'
       },
       {
-        title: '2. WiFi 프록시 수동 설정',
+        where: 'device',
+        title: 'WiFi 프록시를 수동으로 설정',
         detail:
-          '설정 > Wi-Fi > (연결된 네트워크) > 프록시 구성 > 수동. 서버와 포트를 아래 값으로 입력하세요.',
+          '설정 > Wi-Fi > (연결된 네트워크) ⓘ > 프록시 구성 > 수동. 서버와 포트를 아래 값으로 입력하세요.',
         value: proxyValue
       },
       {
-        title: '3. CA 프로파일 설치',
+        where: 'pc',
+        action: 'exportCa',
+        title: 'CA 프로파일을 내보내 기기로 전송',
         detail:
-          'CA 내보내기에서 .mobileconfig를 받아 기기로 전송(AirDrop/이메일)한 뒤 설정에서 프로파일을 설치하세요.'
+          '아래 버튼으로 .mobileconfig 파일을 저장한 뒤 AirDrop이나 이메일로 iPhone/iPad에 보내세요.'
       },
       {
-        title: '4. 인증서 신뢰 활성화',
+        where: 'device',
+        title: 'CA 프로파일 설치',
+        detail: '받은 파일을 열고 설정 > 일반 > VPN 및 기기 관리(프로파일)에서 설치하세요.'
+      },
+      {
+        where: 'device',
+        title: '인증서 신뢰 활성화',
         detail:
           '설정 > 일반 > 정보 > 인증서 신뢰 설정에서 EverMock CA의 신뢰를 활성화하세요. (이 단계 없이는 HTTPS가 복호화되지 않습니다)'
       }
