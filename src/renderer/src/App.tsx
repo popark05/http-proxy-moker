@@ -215,10 +215,11 @@ function AppInner(): JSX.Element {
                     setSelectedId(undefined);
                   }}
                 />
-                <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
+                {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
+                <div className="max-h-[40%] shrink-0 overflow-auto border-b border-border px-4 py-2">
                   <DevicePanel />
                 </div>
-                {trafficPanel}
+                <div className="min-h-0 flex-1">{trafficPanel}</div>
               </div>
             }
             right={

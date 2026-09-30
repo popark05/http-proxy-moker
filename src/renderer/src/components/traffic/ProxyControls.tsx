@@ -19,7 +19,7 @@ export function ProxyControls({
   onClear
 }: ProxyControlsProps): JSX.Element {
   return (
-    <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+    <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
       {status.running ? (
         <Button variant="destructive" size="sm" onClick={onStop}>
           <Square className="fill-current" /> 중지
