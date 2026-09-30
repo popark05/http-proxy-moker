@@ -1,0 +1,33 @@
+이 디렉토리(src/main/adb)는 dadb의 ADB 프로토콜 구현을 TypeScript로 이식한 코드를 포함한다.
+
+dadb
+Copyright (c) 2021 mobile.dev inc.
+https://github.com/mobile-dev-inc/dadb
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+이식 과정의 주요 변경:
+- okio 블로킹 I/O → Node 비동기(Promise) + 청크 단위 메시지 디코더
+- 공개키 파일이 없을 때 개인키에서 ADB 공개키 형식을 유도
+- 인증 대기 타임아웃, A_STLS 응답 감지, 헤더 magic/payload 길이 검증 추가
+- 스레드 공유 큐(MessageQueue) 대신 단일 디스패치 루프가 localId로 스트림에 라우팅
+- 송신 WRTE마다 기기의 OKAY를 기다리도록 흐름 제어 준수(dadb는 기다리지 않음)
+- shell: 종료 코드를 부호 없는 바이트로 읽고, 출력은 모았다가 한 번에 디코딩(멀티바이트 문자 보존)
+- sync/install: 작은 쓰기를 maxPayload 단위로 모아 WRTE 왕복 수를 줄임
+- install: pm 설치가 APK를 끝까지 읽기 전에 거부해도 응답을 돌려줌, pm 경로의 임시 파일 삭제
+- root/unroot: adbd 재시작 후 재연결해 상태 변경을 확인할 때까지 폴링(기한 있음)
+- tcpForward: 모든 인터페이스가 아닌 127.0.0.1에만 바인딩
+- 확장(dadb에 없음): adb reverse(기기가 여는 스트림 처리, 재연결 시 규칙 재설치)
+- 확장(dadb에 없음): USB 직접 전송(node-usb WebUSB, adb server 불필요) + USB 기기 탐색
+- adb server 경유(dadb adbserver/AdbServer 이식): USB를 직접 열 수 없을 때(adb server/Android Studio 점유) 대체 경로
+- 호스트 OS 대응: adb와 같은 키 경로(<홈>/.android), Windows WinUSB 안내·점유 재시도, macOS 미선택 USB 구성 처리

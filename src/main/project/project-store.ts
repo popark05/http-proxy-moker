@@ -12,11 +12,21 @@ import { exchangesToHar, harToExchanges, type Har } from '@shared/har';
 import type { MockScenario } from '@shared/mock';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 
-/** 경로 탈출/특수문자를 제거해 안전한 파일명만 남긴다. */
+/** Windows 예약 장치 이름(확장자가 있어도 예약됨). */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
+/**
+ * 경로 탈출/특수문자를 제거해 안전한 파일명만 남긴다.
+ * 한글 등 유니코드 글자·숫자는 보존한다(전부 `_`로 뭉개져 충돌하던 문제 방지).
+ * 대소문자만 다른 이름은 macOS/Windows 파일시스템에서 같은 파일이 된다는 점은 그대로다.
+ */
 function sanitizeName(name: string): string {
-  const cleaned = name
+  let cleaned = name
+    .normalize('NFC') // macOS(NFD)와 Windows(NFC)에서 같은 한글 이름이 같은 파일이 되게
+    .replace(/[. ]+$/, '') // Windows는 끝의 점/공백을 떼어 버린다(공백이 `_`로 바뀌기 전에 처리)
     .replace(/\.\.+/g, '_') // 연속된 점(경로 탈출) 제거
-    .replace(/[^a-zA-Z0-9._-]/g, '_'); // 허용 문자 외 치환
+    .replace(/[^\p{L}\p{N}._-]/gu, '_'); // 허용 문자 외 치환
+  if (WINDOWS_RESERVED.test(cleaned)) cleaned = `_${cleaned}`;
   return cleaned || 'untitled';
 }
 

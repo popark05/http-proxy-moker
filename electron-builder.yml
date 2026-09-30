@@ -11,25 +11,43 @@ files:
   - out/**/*
   - package.json
 
+# 네이티브 모듈 재빌드 안 함: `usb`(node-usb 3.x)는 N-API 사전 빌드 바이너리를 아키텍처별 패키지로
+# 배포하며 재컴파일하지 말라고 안내한다. binding.gyp 기반 모듈은 없다. 두 아키텍처 바이너리는
+# `npm run fetch-usb`가 node_modules에 배치한다(dist:mac에 포함).
+npmRebuild: false
+
 # node_modules 중 런타임에 필요한 것만 포함(mockttp/adbkit 등은 main에서 require).
 # electron-builder가 package.json dependencies를 기준으로 자동 포함한다.
 asarUnpack:
   - '**/*.node'
-  # 프록시 워커는 외부 Node 프로세스로 fork되므로 asar에서 풀어 실제 파일로 둔다.
-  # (외부 Node는 asar 가상 파일시스템을 이해하지 못함)
-  - out/main/proxy-worker.js
+  # 프록시 워커는 외부 Node 프로세스로 fork되므로 asar에서 풀어 실제 파일로 둔다
+  # (외부 Node는 asar를 읽지 못함). 워커는 의존성을 모두 포함한 단일 CJS 파일이라 node_modules가
+  # 필요 없고, 옆에 두는 런타임 자산(wasm)만 함께 푼다. scripts/build-proxy-worker.mjs 참고.
+  - out/main/proxy-worker.cjs
+  - out/main/*.wasm
 
-# 프록시 워커용 OpenSSL Node 바이너리를 앱에 번들(시스템 Node 불필요).
-# 각 아키텍처 빌드에 해당 arch Node만 포함 → .app/Contents/Resources/node/<arch>/node.
-# 런타임(resolveNodeBinary)은 process.arch로 경로를 찾으므로 일치한다.
+# 프록시 워커용 OpenSSL Node 바이너리를 앱에 번들(사용자 PC의 Node에 의존하지 않음).
+# scripts/fetch-node.mjs가 대상별로 resources/node/<mac|win>-<arch>/ 에 고정 버전을 받아 둔다.
+# ${os}는 빌드 "대상" 플랫폼(mac/win)이라 macOS에서 Windows를 빌드해도 올바른 바이너리가 들어간다.
+# 설치 위치: <resources>/node/<arch>/node(.exe) — 런타임(resolveNodeBinary)은 process.arch로 찾는다.
 extraResources:
-  - from: resources/node/${arch}
+  - from: resources/node/${os}-${arch}
     to: node/${arch}
     filter:
       - '**/*'
+      - '!.node-version'
+  # 창 아이콘(main/index.ts resolveAppIcon이 <resources>/icon.png를 찾는다).
+  - from: build/icon.png
+    to: icon.png
+
+# 두 아키텍처 DMG/설치 파일이 같은 이름으로 덮어써지지 않게 arch를 넣는다.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 mac:
   category: public.app-category.developer-tools
+  # 다른 OS용 node-usb 바이너리 제외(fetch-usb --targets all로 함께 받아 둔 경우).
+  files:
+    - '!node_modules/@node-usb/usb-win32-*/**'
   icon: build/icon.icns
   target:
     - target: dmg
@@ -51,3 +69,23 @@ dmg:
       y: 220
       type: link
       path: /Applications
+
+win:
+  icon: build/icon.png
+  # 다른 OS용 node-usb 바이너리 제외(fetch-usb --targets all로 함께 받아 둔 경우).
+  files:
+    - '!node_modules/@node-usb/usb-darwin-*/**'
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+  # 내부 QA 전용: Authenticode 서명 없음(SmartScreen 경고 발생). 필요 시 CSC_LINK/CSC_KEY_PASSWORD로 활성화.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  # x64/arm64를 합친 통합 설치 파일(용량 2배)은 만들지 않고 아키텍처별로만 만든다.
+  buildUniversalInstaller: false
+  allowToChangeInstallationDirectory: true
+  # 앱 삭제/업데이트 시 실행 중인 프로세스(프록시 워커 node.exe 포함) 정리는 NSIS 기본 동작에 맡긴다.

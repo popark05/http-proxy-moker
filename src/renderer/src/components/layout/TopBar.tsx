@@ -39,7 +39,7 @@ export function TopBar({ activeMockCount, activeScenario, lastHitAt }: TopBarPro
   return (
     <header
       className={cn(
-        'flex items-center gap-4 border-b border-b-2 bg-card/80 pl-[84px] pr-4 backdrop-blur',
+        'flex items-center gap-4 border-b border-b-2 bg-card/80 pl-4 pr-4 [[data-platform=darwin]_&]:pl-[84px] [[data-platform=win32]_&]:pr-[150px] backdrop-blur',
         isMock ? 'border-b-[hsl(var(--warning))]' : 'border-b-primary'
       )}
       style={{ height: 52, WebkitAppRegion: 'drag' } as React.CSSProperties}

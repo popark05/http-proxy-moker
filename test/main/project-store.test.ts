@@ -89,6 +89,17 @@ describe('ProjectStore', () => {
     expect(reopened.captureSessions).toEqual(['alpha', 'beta']);
   });
 
+  it('한글 이름은 보존하고 Windows 예약어/끝의 점은 안전하게 바꾼다', async () => {
+    const store = new ProjectStore();
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-name-'));
+    await store.create(dir, 'p');
+    expect(await store.saveCaptureSession(dir, '로그인 시나리오', [])).toBe('로그인_시나리오');
+    expect(await store.saveCaptureSession(dir, 'CON', [])).toBe('_CON');
+    expect(await store.saveCaptureSession(dir, 'nul.txt', [])).toBe('_nul.txt');
+    expect(await store.saveCaptureSession(dir, 'abc. ', [])).toBe('abc');
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
   it('위험한 세션 이름은 살균된다', async () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-proj-'));
     const store = new ProjectStore();

@@ -50,13 +50,16 @@ describe('IosConnector.startInterception', () => {
 });
 
 describe('IosConnector.getSetupInstructions', () => {
-  it('프록시 주소를 포함한 4단계 가이드를 제공', () => {
+  it('프록시 주소를 포함한 단계별 가이드를 제공(PC/기기 구분)', () => {
     const usbmux: UsbmuxClientLike = {
       getDevices: vi.fn(),
       queryAllDeviceValues: vi.fn()
     };
     const steps = new IosConnector(usbmux).getSetupInstructions(options);
-    expect(steps.length).toBe(4);
+    expect(steps.length).toBeGreaterThanOrEqual(5);
+    // 프록시 입력·프로파일 설치·신뢰는 기기, CA 내보내기는 PC에서 한다.
+    expect(steps.find((s) => s.action === 'exportCa')?.where).toBe('pc');
+    expect(steps.find((s) => s.value)?.where).toBe('device');
     const proxyStep = steps.find((s) => s.value === '192.168.0.10:8080');
     expect(proxyStep).toBeDefined();
     // 인증서 신뢰 활성화 단계가 포함돼야 함(iOS 핵심).

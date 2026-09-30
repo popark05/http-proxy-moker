@@ -121,11 +121,11 @@ export class ProxyService {
   private ensureWorker(): Promise<ChildProcess> {
     if (this.worker) return Promise.resolve(this.worker);
 
-    // 워커 엔트리는 main 번들과 같은 디렉토리에 proxy-worker.js로 빌드된다.
-    // 패키징 시 워커는 asar에서 unpack되므로, __dirname이 app.asar를 가리키면
-    // app.asar.unpacked 경로로 보정한다(외부 Node가 실제 파일을 실행하도록).
+    // 워커는 main 번들과 같은 디렉토리에 의존성까지 모두 포함한 단일 파일(proxy-worker.cjs)로 번들된다
+    // (scripts/build-proxy-worker.mjs). 외부 Node는 asar를 못 읽으므로 워커는 asar에서 unpack되고,
+    // __dirname이 app.asar를 가리키면 app.asar.unpacked 경로로 보정한다.
     const workerPath = path
-      .join(__dirname, 'proxy-worker.js')
+      .join(__dirname, 'proxy-worker.cjs')
       .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
     // 반드시 "시스템 Node"로 fork해야 한다.
@@ -137,10 +137,17 @@ export class ProxyService {
       execPath: nodePath,
       // Electron 바이너리를 fork할 때만 필요한 플래그지만, 시스템 Node에선 무해.
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+      stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+      // Windows에서 워커용 node.exe가 콘솔 창을 띄우지 않게 한다.
+      windowsHide: true
     });
 
     worker.on('message', (msg: WorkerMessage) => this.onWorkerMessage(msg));
+    // spawn 실패(Node 실행 파일 없음/백신 차단 등)는 'error'로 온다. 리스너가 없으면 main이 죽는다.
+    let spawnError: Error | undefined;
+    worker.on('error', (e) => {
+      spawnError = e;
+    });
     worker.on('exit', () => {
       this.worker = undefined;
       this.lastStatus = { running: false };
@@ -169,14 +176,22 @@ export class ProxyService {
         cleanup();
         reject(new Error('프록시 워커가 시작 전에 종료되었습니다.'));
       };
+      const onError = (e: Error): void => {
+        cleanup();
+        this.worker = undefined;
+        reject(new Error(`프록시 워커를 실행하지 못했습니다(${nodePath}): ${e.message}`));
+      };
       const cleanup = (): void => {
         clearTimeout(timer);
         worker.off('message', onReady);
         worker.off('exit', onExit);
+        worker.off('error', onError);
       };
 
       worker.on('message', onReady);
       worker.on('exit', onExit);
+      worker.on('error', onError);
+      if (spawnError) onError(spawnError);
     });
   }
 
@@ -218,14 +233,19 @@ export class ProxyService {
   }
 }
 
+/** 번들 Node 실행 파일 이름(scripts/fetch-node.mjs가 플랫폼별로 배치). */
+const NODE_EXECUTABLE = process.platform === 'win32' ? 'node.exe' : 'node';
+
 /**
  * 프록시 워커를 실행할 OpenSSL Node 바이너리 경로를 찾는다.
  * Electron 바이너리(BoringSSL)로는 mockttp 업스트림 TLS가 깨지므로 OpenSSL Node가 필요하다.
  *
  * 탐색 순서:
  *  1. NODE_BINARY_PATH 환경변수(명시 지정)
- *  2. 앱에 번들된 Node(resources/node/<arch>/node) — 패키징 배포 시 항상 존재
- *  3. 시스템 Node(흔한 경로 + PATH) — dev 환경 폴백
+ *  2. 앱에 번들된 Node(<resources>/node/<arch>/node, Windows는 node.exe) — 설치된 앱은 여기서 끝난다.
+ *     없으면 사용자 PC의 임의 Node(버전 불명/없음)로 대체하지 않고 오류를 낸다.
+ *  3. (개발) repo의 resources/node/<mac|win>-<arch>/ — 배포본과 같은 고정 버전(npm run fetch-node)
+ *  4. (개발) 시스템 Node(흔한 경로 + PATH)
  */
 function resolveNodeBinary(): string {
   // 1. 명시 지정.
@@ -233,14 +253,25 @@ function resolveNodeBinary(): string {
     return process.env.NODE_BINARY_PATH;
   }
 
-  // 2. 번들 Node(패키징 앱). process.resourcesPath는 패키징 시 .app/Contents/Resources.
+  // 2. 번들 Node(설치된 앱). process.resourcesPath: macOS .app/Contents/Resources, Windows <설치 폴더>/resources.
   const resourcesPath = process.resourcesPath;
   if (resourcesPath) {
-    const bundled = path.join(resourcesPath, 'node', process.arch, 'node');
+    const bundled = path.join(resourcesPath, 'node', process.arch, NODE_EXECUTABLE);
     if (existsSync(bundled)) return bundled;
   }
+  if (isPackaged()) {
+    throw new Error(
+      `앱에 포함된 Node 실행 파일을 찾을 수 없습니다(${path.join(resourcesPath ?? '', 'node', process.arch, NODE_EXECUTABLE)}). ` +
+        '앱을 다시 설치하세요.'
+    );
+  }
 
-  // 3. 시스템 Node(dev 폴백).
+  // 3. 개발: repo에 받아 둔 고정 버전 Node(out/main → repo 루트).
+  const osName = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : process.platform;
+  const repoNode = path.join(__dirname, '..', '..', 'resources', 'node', `${osName}-${process.arch}`, NODE_EXECUTABLE);
+  if (existsSync(repoNode)) return repoNode;
+
+  // 4. 개발: 시스템 Node.
   const candidates = ['/usr/local/bin/node', '/opt/homebrew/bin/node', '/usr/bin/node'];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
@@ -260,4 +291,9 @@ function resolveNodeBinary(): string {
     'Node 바이너리를 찾을 수 없습니다. 프록시 워커 실행에 OpenSSL Node가 필요합니다. ' +
       'NODE_BINARY_PATH 환경변수로 경로를 지정하세요.'
   );
+}
+
+/** 설치된(패키징된) 앱에서 실행 중인가. main 번들이 app.asar 안에 있으면 패키징된 것이다. */
+function isPackaged(): boolean {
+  return __dirname.includes(`app.asar${path.sep}`) || __dirname.endsWith('app.asar');
 }

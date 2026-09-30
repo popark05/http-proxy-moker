@@ -40,6 +40,10 @@ export interface InterceptionResult {
  * 각 단계는 사용자가 기기에서 직접 수행한다.
  */
 export interface SetupStep {
+  /** 이 단계를 수행하는 곳: PC(EverMock이 실행 중인 컴퓨터) 또는 기기(iPhone/iPad). */
+  where: 'pc' | 'device';
+  /** 단계 안에서 바로 실행할 수 있는 동작(예: CA 프로파일 내보내기 버튼). */
+  action?: 'exportCa';
   title: string;
   detail: string;
   /** 이 단계와 관련된 값(예: 프록시 주소). */

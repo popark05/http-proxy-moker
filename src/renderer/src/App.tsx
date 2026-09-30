@@ -16,6 +16,8 @@ import { ProxyControls } from './components/traffic/ProxyControls';
 import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
+import { CloneSourceBar } from './components/mock/CloneSourceBar';
+import { SelectionBar } from './components/traffic/SelectionBar';
 import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
@@ -38,13 +40,14 @@ function AppInner(): JSX.Element {
     addScenarioName,
     removeScenarioName
   } = useProject();
-  const { mocks, cloneFromExchange, updateMock, removeMock, saveScenario, loadScenario } =
+  const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, saveScenario, loadScenario } =
     useMocks();
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | undefined>(undefined);
 
@@ -149,6 +152,28 @@ function AppInner(): JSX.Element {
     }
   };
 
+  /** 체크된 요청들을 한 번에 목으로 복제. */
+  const handleCloneChecked = (): void => {
+    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+    const { added, skipped } = cloneMany(targets);
+    setCheckedIds(new Set());
+    const detail = skipped > 0 ? ` (같은 method+path ${skipped}개는 건너뜀)` : '';
+    if (added === 0) {
+      toast.info('새로 복제할 목이 없습니다', {
+        description: `이미 목이 있는 요청이거나 중복입니다${detail}`
+      });
+      return;
+    }
+    if (mode === 'mock') {
+      toast.success(`${added}개 목으로 복제됨`, { description: `목 정의에 추가됨${detail}` });
+    } else {
+      toast.success(`${added}개 목으로 복제됨`, {
+        description: `목킹 모드로 전환하면 반영됩니다${detail}`,
+        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
+      });
+    }
+  };
+
   const handleCloneToMock = (exchange: CapturedExchange): void => {
     cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
@@ -163,6 +188,10 @@ function AppInner(): JSX.Element {
     }
   };
 
+  // 삭제(전체 비우기 등)로 사라진 id는 세지 않는다.
+  const checkedTotal = exchanges.filter((e) => checkedIds.has(e.id)).length;
+  const checkedShown = filtered.filter((e) => checkedIds.has(e.id)).length;
+
   // 좌측 트래픽 패널(필터 + 리스트). 캡처/목킹 모드 공용.
   const trafficPanel = (
     <div className="flex h-full flex-col">
@@ -176,10 +205,55 @@ function AppInner(): JSX.Element {
         total={exchanges.length}
         shown={filtered.length}
       />
+      <SelectionBar
+        shownCount={filtered.length}
+        checkedShownCount={checkedShown}
+        checkedCount={checkedTotal}
+        onToggleAllShown={() =>
+          setCheckedIds((prev) => {
+            const next = new Set(prev);
+            for (const e of filtered) {
+              if (checkedShown === filtered.length) next.delete(e.id);
+              else next.add(e.id);
+            }
+            return next;
+          })
+        }
+        onClear={() => setCheckedIds(new Set())}
+        onCloneChecked={handleCloneChecked}
+      />
       <div className="min-h-0 flex-1">
-        <TrafficList exchanges={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+        <TrafficList
+          exchanges={filtered}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          checkedIds={checkedIds}
+          onCheckedChange={setCheckedIds}
+        />
       </div>
     </div>
+  );
+
+  // 좌측 컬럼(프록시 컨트롤 + 기기 + 트래픽). 캡처/목킹 모드 공용: 목킹에서도 프록시 시작과 기기 연결이 필요하다.
+  const leftColumn = (
+      <div className="flex h-full flex-col">
+        <ProxyControls
+          status={status}
+          count={exchanges.length}
+          onStart={() => void handleStartProxy()}
+          onStop={() => void handleStopProxy()}
+          onClear={() => {
+            clear();
+            mockHits.reset();
+            setSelectedId(undefined);
+          }}
+        />
+        {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
+        <div className="max-h-[40%] shrink-0 overflow-auto border-b border-border px-4 py-2">
+          <DevicePanel />
+        </div>
+        <div className="min-h-0 flex-1">{trafficPanel}</div>
+      </div>
   );
 
   return (
@@ -203,23 +277,7 @@ function AppInner(): JSX.Element {
         <div className="min-h-0 flex-1">
           <SplitPane
             left={
-              <div className="flex h-full flex-col">
-                <ProxyControls
-                  status={status}
-                  count={exchanges.length}
-                  onStart={() => void handleStartProxy()}
-                  onStop={() => void handleStopProxy()}
-                  onClear={() => {
-                    clear();
-                    mockHits.reset();
-                    setSelectedId(undefined);
-                  }}
-                />
-                <div className="max-h-[40%] overflow-auto border-b border-border px-4 py-2">
-                  <DevicePanel />
-                </div>
-                {trafficPanel}
-              </div>
+              leftColumn
             }
             right={
               <div className="h-full overflow-auto">
@@ -238,19 +296,17 @@ function AppInner(): JSX.Element {
         <div className="min-h-0 flex-1">
           <SplitPane
             initialLeftWidth={360}
-            left={trafficPanel}
+            left={leftColumn}
             right={
               <div className="flex h-full flex-col overflow-auto">
-                {/* 선택한 트래픽이 있으면 상세를 접이식으로 상단에 얇게 보여줘 복제 소스 확인 */}
+                {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
                 {selected && (
-                  <div className="max-h-[38%] shrink-0 overflow-auto border-b border-border">
-                    <ExchangeDetail
-                      exchange={selected}
-                      onCloneToMock={handleCloneToMock}
-                      onAddTag={handleAddTag}
-                      onRemoveTag={handleRemoveTag}
-                    />
-                  </div>
+                  <CloneSourceBar
+                    exchange={selected}
+                    onCloneToMock={handleCloneToMock}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                  />
                 )}
                 <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
                   <MockPanel

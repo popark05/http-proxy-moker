@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   exchangeToMock,
   mockToSerializedRule,
-  pathWithoutQuery
+  pathWithoutQuery,
+  pickExchangesToClone
 } from '../../src/shared/mock-convert';
 import { methodToEnum, enumToMethod } from '../../src/shared/mock';
 import type { CapturedExchange } from '../../src/shared/capture';
@@ -102,5 +103,31 @@ describe('mockToSerializedRule', () => {
     const rule = mockToSerializedRule(mock);
     expect(rule.steps[0].data).toBeUndefined();
     expect(rule.steps[0].headers).toBeUndefined();
+  });
+});
+
+describe('pickExchangesToClone', () => {
+  const ex = (id: string, method: string, url: string) => {
+    const base = makeExchange({ id });
+    return { ...base, request: { ...base.request, method, url } };
+  };
+
+  it('같은 method+path는 최신 하나만 남기고 나머지는 건너뛴다', () => {
+    const a = ex('a', 'GET', 'https://h.com/u?page=1');
+    const b = ex('b', 'GET', 'https://h.com/u?page=2');
+    const c = ex('c', 'POST', 'https://h.com/u');
+    const { targets, skipped } = pickExchangesToClone([a, b, c], []);
+    expect(targets.map((t) => t.id)).toEqual(['b', 'c']);
+    expect(skipped).toBe(1);
+  });
+
+  it('이미 목이 있는 method+path는 건너뛴다', () => {
+    const existing = [exchangeToMock(ex('x', 'GET', 'https://h.com/u'), 'm1')];
+    const { targets, skipped } = pickExchangesToClone(
+      [ex('a', 'GET', 'https://h.com/u?q=1'), ex('b', 'GET', 'https://h.com/v')],
+      existing
+    );
+    expect(targets.map((t) => t.id)).toEqual(['b']);
+    expect(skipped).toBe(1);
   });
 });

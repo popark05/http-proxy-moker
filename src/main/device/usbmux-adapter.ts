@@ -11,7 +11,7 @@ interface RealUsbmuxClient {
 
 /**
  * 실제 usbmux-client 기반 구현.
- * usbmuxd(맥 기본 데몬)와 통신해 USB로 연결된 iOS 기기를 감지한다.
+ * usbmuxd(macOS 기본 데몬, Windows는 Apple Mobile Device Service)와 통신해 USB로 연결된 iOS 기기를 감지한다.
  * usbmux-client 로드 실패 시(미설치 등) getDevices가 빈 결과를 반환하도록 감싼다.
  */
 export function createUsbmuxClient(): UsbmuxClientLike {
