@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
 import type { CapturedExchange } from '@shared/capture';
 import type { MockDefinition, MockScenario } from '@shared/mock';
-import { exchangeToMock } from '@shared/mock-convert';
+import { exchangeToMock, pickExchangesToClone } from '@shared/mock-convert';
 
 interface UseMocksResult {
   mocks: MockDefinition[];
   /** 캡처 exchange를 목으로 복제해 추가. 생성된 목 반환. */
   cloneFromExchange: (exchange: CapturedExchange) => MockDefinition;
+  /** 여러 exchange를 한 번에 복제(같은 method+path 중복은 건너뜀). */
+  cloneMany: (exchanges: CapturedExchange[]) => { added: number; skipped: number };
   updateMock: (mock: MockDefinition) => void;
   removeMock: (id: string) => void;
   /** 현재 목들을 시나리오로 저장. 저장된 시나리오명 반환. */
@@ -30,6 +32,18 @@ export function useMocks(): UseMocksResult {
     setMocks((prev) => (prev.some((m) => m.id === mock.id) ? prev : [...prev, mock]));
     return mock;
   }, []);
+
+  const cloneMany = useCallback(
+    (exchanges: CapturedExchange[]): { added: number; skipped: number } => {
+      const { targets, skipped } = pickExchangesToClone(exchanges, mocks);
+      if (targets.length > 0) {
+        const created = targets.map((ex) => exchangeToMock(ex, randomId()));
+        setMocks((prev) => [...prev, ...created]);
+      }
+      return { added: targets.length, skipped };
+    },
+    [mocks]
+  );
 
   const updateMock = useCallback((mock: MockDefinition) => {
     setMocks((prev) => prev.map((m) => (m.id === mock.id ? mock : m)));
@@ -58,5 +72,5 @@ export function useMocks(): UseMocksResult {
     setMocks(scenario.mocks);
   }, []);
 
-  return { mocks, cloneFromExchange, updateMock, removeMock, saveScenario, loadScenario };
+  return { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, saveScenario, loadScenario };
 }

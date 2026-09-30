@@ -17,6 +17,7 @@ import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { CloneSourceBar } from './components/mock/CloneSourceBar';
+import { SelectionBar } from './components/traffic/SelectionBar';
 import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
@@ -39,13 +40,14 @@ function AppInner(): JSX.Element {
     addScenarioName,
     removeScenarioName
   } = useProject();
-  const { mocks, cloneFromExchange, updateMock, removeMock, saveScenario, loadScenario } =
+  const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, saveScenario, loadScenario } =
     useMocks();
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | undefined>(undefined);
 
@@ -150,6 +152,28 @@ function AppInner(): JSX.Element {
     }
   };
 
+  /** 체크된 요청들을 한 번에 목으로 복제. */
+  const handleCloneChecked = (): void => {
+    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+    const { added, skipped } = cloneMany(targets);
+    setCheckedIds(new Set());
+    const detail = skipped > 0 ? ` (같은 method+path ${skipped}개는 건너뜀)` : '';
+    if (added === 0) {
+      toast.info('새로 복제할 목이 없습니다', {
+        description: `이미 목이 있는 요청이거나 중복입니다${detail}`
+      });
+      return;
+    }
+    if (mode === 'mock') {
+      toast.success(`${added}개 목으로 복제됨`, { description: `목 정의에 추가됨${detail}` });
+    } else {
+      toast.success(`${added}개 목으로 복제됨`, {
+        description: `목킹 모드로 전환하면 반영됩니다${detail}`,
+        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
+      });
+    }
+  };
+
   const handleCloneToMock = (exchange: CapturedExchange): void => {
     cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
@@ -164,6 +188,10 @@ function AppInner(): JSX.Element {
     }
   };
 
+  // 삭제(전체 비우기 등)로 사라진 id는 세지 않는다.
+  const checkedTotal = exchanges.filter((e) => checkedIds.has(e.id)).length;
+  const checkedShown = filtered.filter((e) => checkedIds.has(e.id)).length;
+
   // 좌측 트래픽 패널(필터 + 리스트). 캡처/목킹 모드 공용.
   const trafficPanel = (
     <div className="flex h-full flex-col">
@@ -177,8 +205,31 @@ function AppInner(): JSX.Element {
         total={exchanges.length}
         shown={filtered.length}
       />
+      <SelectionBar
+        shownCount={filtered.length}
+        checkedShownCount={checkedShown}
+        checkedCount={checkedTotal}
+        onToggleAllShown={() =>
+          setCheckedIds((prev) => {
+            const next = new Set(prev);
+            for (const e of filtered) {
+              if (checkedShown === filtered.length) next.delete(e.id);
+              else next.add(e.id);
+            }
+            return next;
+          })
+        }
+        onClear={() => setCheckedIds(new Set())}
+        onCloneChecked={handleCloneChecked}
+      />
       <div className="min-h-0 flex-1">
-        <TrafficList exchanges={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+        <TrafficList
+          exchanges={filtered}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          checkedIds={checkedIds}
+          onCheckedChange={setCheckedIds}
+        />
       </div>
     </div>
   );

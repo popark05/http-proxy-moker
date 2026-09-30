@@ -63,6 +63,32 @@ export function exchangeToMock(exchange: CapturedExchange, id: string): MockDefi
 }
 
 /**
+ * 여러 exchange를 목으로 복제할 대상만 추린다.
+ * 같은 method+path는 목이 하나만 의미 있으므로: 이미 목에 있는 조합은 건너뛰고(skipped),
+ * 선택 안에서 겹치면 가장 나중(최신) 캡처를 남긴다. 결과 순서는 입력(선택) 순서를 유지한다.
+ */
+export function pickExchangesToClone(
+  exchanges: CapturedExchange[],
+  existing: MockDefinition[]
+): { targets: CapturedExchange[]; skipped: number } {
+  const key = (method: string, path: string): string => `${method.toUpperCase()} ${path}`;
+  const taken = new Set(existing.map((m) => key(m.method, m.path)));
+  const latest = new Map<string, CapturedExchange>();
+  let skipped = 0;
+  for (const ex of exchanges) {
+    const k = key(ex.request.method, pathWithoutQuery(ex.request.url));
+    if (taken.has(k)) {
+      skipped++;
+      continue;
+    }
+    if (latest.has(k)) skipped++;
+    latest.set(k, ex);
+  }
+  // Map은 삽입 순서를 유지하지만, 같은 키를 덮어써도 처음 위치에 남는다(선택 순서 기준으로 충분).
+  return { targets: [...latest.values()], skipped };
+}
+
+/**
  * 목 정의를 mockttp Serialized<RequestRuleData>로 변환한다.
  * matcher: MethodMatcher(method) + FlexiblePathMatcher(path).
  * step: FixedResponseStep(type:'simple') — 완전 목킹(업스트림 호출 없음).
