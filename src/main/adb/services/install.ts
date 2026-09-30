@@ -9,7 +9,7 @@
 import { createReadStream, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import { StreamReader, StreamWriter } from '../protocol/stream-io';
 import { SUCCESS, failure, type InstallResult, type UninstallResult } from '../results';
 import { execCmd, type AdbOpener } from './opener';
@@ -143,7 +143,7 @@ async function pmInstall(
  * 바이트를 모두 쓰고 응답을 읽는다. pm이 APK를 끝까지 읽기 전에 거부하고 스트림을 닫으면
  * 쓰기가 실패하지만, 그 전에 온 응답("Failure [...]")은 읽을 수 있으므로 응답을 우선한다.
  */
-async function writeThenReadResponse(stream: AdbStream, source: ByteSource): Promise<string> {
+async function writeThenReadResponse(stream: AdbStreamLike, source: ByteSource): Promise<string> {
   const writer = new StreamWriter(stream);
   let writeError: unknown;
   try {
@@ -165,7 +165,7 @@ async function writeThenReadResponse(stream: AdbStream, source: ByteSource): Pro
   }
 }
 
-async function readAllText(stream: AdbStream): Promise<string> {
+async function readAllText(stream: AdbStreamLike): Promise<string> {
   try {
     return (await new StreamReader(stream).readToEnd()).toString('utf-8');
   } finally {

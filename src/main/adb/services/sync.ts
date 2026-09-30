@@ -8,7 +8,7 @@
  */
 
 import { createReadStream, promises as fs } from 'node:fs';
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import { StreamReader, StreamWriter } from '../protocol/stream-io';
 import { AdbProtocolException } from '../errors';
 import { SUCCESS, failure, type SyncResult } from '../results';
@@ -39,7 +39,7 @@ export class AdbSyncStream {
   private readonly reader: StreamReader;
   private readonly writer: StreamWriter;
 
-  constructor(private readonly stream: AdbStream) {
+  constructor(private readonly stream: AdbStreamLike) {
     this.reader = new StreamReader(stream);
     this.writer = new StreamWriter(stream);
   }
@@ -121,7 +121,7 @@ export async function push(
   if (typeof src === 'string') {
     const stat = await fs.stat(src);
     source = createReadStream(src, { highWaterMark: SYNC_DATA_MAX });
-    mode ??= stat.mode;
+    mode ??= localFileMode(stat.mode);
     lastModifiedMs ??= stat.mtimeMs;
   } else {
     source = src;
@@ -170,6 +170,14 @@ async function pullTo(adb: AdbOpener, sink: ByteSink, remotePath: string): Promi
   } finally {
     await sync.close();
   }
+}
+
+/**
+ * 로컬 파일 권한을 기기 쪽 권한으로. Windows에는 Unix 권한이 없어 stat.mode가 0o666(읽기 전용이면 0o444)이라
+ * 그대로 보내면 기기에 모두 쓰기 가능한 파일이 생기므로 기본값(0o644)을 쓴다.
+ */
+export function localFileMode(statMode: number, platform: NodeJS.Platform = process.platform): number {
+  return platform === 'win32' ? DEFAULT_PUSH_MODE : statMode;
 }
 
 /** 임의 크기 청크를 SYNC_DATA_MAX 이하로 나눈다. */

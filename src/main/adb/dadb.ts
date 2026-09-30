@@ -13,7 +13,8 @@ import { UsbTransport, type UsbTransportOptions } from './transport/usb';
 import { findUsbAdbDevice, listUsbAdbDevices, type UsbBackend } from './transport/usb-discovery';
 import { AdbConnection } from './protocol/connection';
 import { AdbKeyPair } from './protocol/key-pair';
-import type { AdbStream } from './protocol/stream';
+import type { AdbSession, AdbStreamLike } from './protocol/session';
+import { AdbServerSession, listAdbServerDevices, type AdbServerOptions } from './transport/adb-server';
 import type { InstallResult, RootResult, SyncResult, UninstallResult } from './results';
 import { abbExec, execCmd, type AdbOpener } from './services/opener';
 import { openShell, shell, type AdbShellResponse, type AdbShellStream } from './services/shell';
@@ -32,7 +33,7 @@ import {
   type ReverseRule
 } from './services/reverse';
 import { AdbOperationFailedException } from './results';
-import { AdbConnectException } from './errors';
+import { AdbConnectException, AdbUsbAccessException } from './errors';
 
 export interface DadbOptions {
   /**
@@ -51,13 +52,22 @@ export interface DadbOptions {
   keepAlive?: boolean;
   /** USB 전송 세부 설정(fromUsb/list에서 사용). */
   usb?: Omit<UsbTransportOptions, 'writeTimeoutMs'>;
+  /**
+   * USB를 직접 열 수 없을 때(adb server/Android Studio가 점유 등) 실행 중인 adb server를 경유할지.
+   * 기본 true. 매 재연결마다 직접 연결을 먼저 시도한다.
+   */
+  adbServerFallback?: boolean;
+  /** adb server 주소/포트(기본 127.0.0.1:ANDROID_ADB_SERVER_PORT|5037). */
+  adbServer?: Omit<AdbServerOptions, 'readTimeoutMs' | 'writeTimeoutMs'>;
 }
 
 export interface DadbListOptions extends DadbOptions {
   /** USB 기기 포함(기본 true). */
   includeUsb?: boolean;
-  /** localhost의 에뮬레이터 adb 포트(5555~5585 홀수) 포함(기본 true). */
+  /** 127.0.0.1의 에뮬레이터 adb 포트(5555~5585 홀수) 포함(기본 true). */
   includeEmulators?: boolean;
+  /** 실행 중인 adb server에만 보이는 기기(adb connect한 무선 기기 등) 포함(기본 true). */
+  includeAdbServer?: boolean;
   /** USB 백엔드(테스트용). 생략하면 `usb` 패키지. */
   usbBackend?: UsbBackend;
 }
@@ -77,9 +87,9 @@ export interface AdbReverse {
 }
 
 export class Dadb implements AdbOpener {
-  private connection: AdbConnection | undefined;
+  private connection: AdbSession | undefined;
   /** 동시 호출이 연결을 두 번 만들지 않도록 진행 중인 연결 시도를 공유한다. */
-  private connecting: Promise<AdbConnection> | undefined;
+  private connecting: Promise<AdbSession> | undefined;
   private keyPair: Promise<AdbKeyPair | undefined> | undefined;
   /**
    * 우리가 설치한 reverse 규칙(remote → local). adbd는 연결이 끊기면 규칙을 지우므로,
@@ -88,10 +98,13 @@ export class Dadb implements AdbOpener {
   private readonly reverses = new Map<string, string>();
 
   constructor(
-    /** 기기 식별자(TCP는 host:port, USB는 serial). */
+    /** 기기 식별자(USB/adb server는 serial, 에뮬레이터는 emulator-<콘솔 포트>, TCP는 host:port). */
     readonly serial: string,
-    private readonly openTransport: () => Promise<AdbTransport>,
-    private readonly options: DadbOptions = {}
+    /** 직접 연결 전송. 없으면 adb server 경유만 쓴다. */
+    private readonly openTransport: (() => Promise<AdbTransport>) | undefined,
+    private readonly options: DadbOptions = {},
+    /** adb server에서 이 기기를 부르는 시리얼(대체/서버 전용 경로). */
+    private readonly serverSerial?: string
   ) {}
 
   /** TCP로 adbd에 연결하는 Dadb(에뮬레이터는 콘솔 포트가 아니라 홀수 adb 포트, 예: 5555). */
@@ -121,13 +134,34 @@ export class Dadb implements AdbOpener {
         if (!device) throw new AdbConnectException(`USB 기기를 찾을 수 없습니다(serial=${serial}).`);
         return UsbTransport.open(device, { ...options.usb, writeTimeoutMs: options.writeTimeoutMs });
       },
+      options,
+      options.adbServerFallback === false ? undefined : serial
+    );
+  }
+
+  /** 실행 중인 adb server를 경유하는 Dadb(adb connect한 무선 기기 등 서버에만 보이는 기기). */
+  static fromAdbServer(serial: string, options: DadbOptions = {}): Dadb {
+    return new Dadb(serial, undefined, options, serial);
+  }
+
+  /** 로컬 에뮬레이터(adb 포트 = 콘솔 포트 + 1). adb와 같은 이름 emulator-<콘솔 포트>를 쓴다. */
+  static fromEmulator(adbPort: number, options: DadbOptions = {}): Dadb {
+    return new Dadb(
+      `emulator-${adbPort - 1}`,
+      () =>
+        TcpTransport.connect('127.0.0.1', adbPort, {
+          connectTimeoutMs: options.connectTimeoutMs,
+          writeTimeoutMs: options.writeTimeoutMs,
+          keepAlive: options.keepAlive
+        }),
       options
     );
   }
 
   /**
-   * 연결 가능한 기기 목록: USB ADB 기기 + localhost 에뮬레이터 포트(열려 있는 것).
-   * 연결(인증)은 하지 않는다 — 첫 작업에서 연결한다. USB 백엔드를 못 불러오면 USB는 건너뛴다.
+   * 연결 가능한 기기 목록: USB ADB 기기 + 로컬 에뮬레이터 + (실행 중이면) adb server에만 보이는 기기.
+   * 연결(인증)은 하지 않는다 — 첫 작업에서 연결한다. USB 백엔드를 못 불러오거나 서버가 없으면 건너뛴다.
+   * 같은 시리얼은 한 번만(USB 직접 > 에뮬레이터 > adb server 순으로 우선).
    */
   static async list(options: DadbListOptions = {}): Promise<Dadb[]> {
     const result: Dadb[] = [];
@@ -143,10 +177,21 @@ export class Dadb implements AdbOpener {
     if (options.includeEmulators ?? true) {
       const ports: number[] = [];
       for (let port = MIN_EMULATOR_PORT; port <= MAX_EMULATOR_PORT; port += 2) ports.push(port);
-      const open = await Promise.all(ports.map((port) => isPortOpen('localhost', port, 300)));
+      // localhost는 ::1을 먼저 시도할 수 있고, Windows는 닫힌 포트 거부가 느리므로 127.0.0.1로 직접 확인.
+      const open = await Promise.all(ports.map((port) => isPortOpen('127.0.0.1', port, 1_000)));
       ports.forEach((port, i) => {
-        if (open[i]) result.push(Dadb.create('localhost', port, options));
+        if (open[i]) result.push(Dadb.fromEmulator(port, options));
       });
+    }
+    if (options.includeAdbServer ?? true) {
+      try {
+        const known = new Set(result.map((d) => d.serial));
+        for (const device of await listAdbServerDevices(options.adbServer)) {
+          if (!known.has(device.serial)) result.push(Dadb.fromAdbServer(device.serial, options));
+        }
+      } catch {
+        // adb server가 실행 중이 아님.
+      }
     }
     return result;
   }
@@ -156,7 +201,7 @@ export class Dadb implements AdbOpener {
     return (await Dadb.list(options))[0];
   }
 
-  async open(destination: string): Promise<AdbStream> {
+  async open(destination: string): Promise<AdbStreamLike> {
     return (await this.connect()).open(destination);
   }
 
@@ -206,11 +251,11 @@ export class Dadb implements AdbOpener {
     return uninstall(this, packageName);
   }
 
-  execCmd(...command: string[]): Promise<AdbStream> {
+  execCmd(...command: string[]): Promise<AdbStreamLike> {
     return execCmd(this, ...command);
   }
 
-  abbExec(...command: string[]): Promise<AdbStream> {
+  abbExec(...command: string[]): Promise<AdbStreamLike> {
     return abbExec(this, ...command);
   }
 
@@ -273,8 +318,13 @@ export class Dadb implements AdbOpener {
 
   // ---- 연결 ----
 
+  /** 현재 연결 방식(연결 전이면 undefined): direct = 우리가 직접 USB/TCP, server = adb server 경유. */
+  get connectionKind(): 'direct' | 'server' | undefined {
+    return this.connection && !this.connection.isClosed ? this.connection.kind : undefined;
+  }
+
   /** 현재 연결(없거나 죽었으면 새로 만든다). */
-  async connect(): Promise<AdbConnection> {
+  async connect(): Promise<AdbSession> {
     if (this.connection && !this.connection.isClosed) return this.connection;
     if (!this.connecting) {
       this.connecting = this.newConnection().finally(() => {
@@ -294,20 +344,46 @@ export class Dadb implements AdbOpener {
     return this.serial;
   }
 
-  private async newConnection(): Promise<AdbConnection> {
-    const keyPair = await this.resolveKeyPair();
-    const transport = await this.openTransport();
-    const connection = await AdbConnection.connect(transport, {
-      keyPair,
-      authTimeoutMs: this.options.authTimeoutMs,
-      readTimeoutMs: this.options.readTimeoutMs
+  private async newConnection(): Promise<AdbSession> {
+    const session = await this.openSession();
+    await this.reapplyReverses(session);
+    this.connection = session;
+    return session;
+  }
+
+  /** 직접 연결을 먼저 시도하고, USB 점유 실패면 adb server 경유로 대체한다. */
+  private async openSession(): Promise<AdbSession> {
+    if (!this.openTransport) return this.openServerSession();
+    try {
+      const keyPair = await this.resolveKeyPair();
+      const transport = await this.openTransport();
+      const connection = await AdbConnection.connect(transport, {
+        keyPair,
+        authTimeoutMs: this.options.authTimeoutMs,
+        readTimeoutMs: this.options.readTimeoutMs
+      });
+      // 기기가 여는 스트림(reverse)은 우리가 설치한 규칙의 목적지만 받는다.
+      // (adb server 경유일 때는 서버가 직접 처리한다.)
+      connection.setOpenHandler(
+        createReverseOpenHandler((destination) => [...this.reverses.values()].includes(destination))
+      );
+      return connection;
+    } catch (e) {
+      if (!(e instanceof AdbUsbAccessException) || !this.serverSerial) throw e;
+      // 서버가 없거나 서버에도 이 기기가 없으면 원래 오류(플랫폼별 안내 포함)를 알린다.
+      return this.openServerSession().catch(() => {
+        throw e;
+      });
+    }
+  }
+
+  private openServerSession(): Promise<AdbSession> {
+    if (!this.serverSerial) throw new AdbConnectException('adb server 경로가 없는 기기입니다.');
+    return AdbServerSession.connect(this.serverSerial, {
+      ...this.options.adbServer,
+      readTimeoutMs: this.options.readTimeoutMs,
+      writeTimeoutMs: this.options.writeTimeoutMs
     });
-    connection.setOpenHandler(
-      createReverseOpenHandler((destination) => [...this.reverses.values()].includes(destination))
-    );
-    await this.reapplyReverses(connection);
-    this.connection = connection;
-    return connection;
   }
 
   /**
@@ -315,7 +391,7 @@ export class Dadb implements AdbOpener {
    * this.connect()를 거치면 진행 중인 연결을 기다리며 교착되므로 연결을 직접 쓴다.
    * 실패한 규칙(기기 포트 사용 중 등)은 목록에 남겨 다음 재연결에서 다시 시도한다.
    */
-  private async reapplyReverses(connection: AdbConnection): Promise<void> {
+  private async reapplyReverses(connection: AdbSession): Promise<void> {
     if (this.reverses.size === 0) return;
     const opener: AdbOpener = {
       open: (destination) => connection.open(destination),

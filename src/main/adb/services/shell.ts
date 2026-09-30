@@ -6,7 +6,7 @@
  * v1 `shell:`과 달리 stdout/stderr가 분리되고 종료 코드를 받을 수 있다.
  */
 
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import { StreamReader } from '../protocol/stream-io';
 import { AdbProtocolException } from '../errors';
 import { AdbUnsupportedFeatureException } from '../results';
@@ -34,7 +34,7 @@ export interface AdbShellResponse {
 export class AdbShellStream {
   private readonly reader: StreamReader;
 
-  constructor(private readonly stream: AdbStream) {
+  constructor(private readonly stream: AdbStreamLike) {
     this.reader = new StreamReader(stream);
   }
 

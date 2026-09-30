@@ -15,6 +15,13 @@ export abstract class AdbException extends Error {
 /** 연결 수립 실패(TCP/USB 연결, CNXN 핸드셰이크). 아무것도 실행되지 않았으므로 재연결로 재시도 가능. */
 export class AdbConnectException extends AdbException {}
 
+/**
+ * USB 기기의 ADB 인터페이스를 열거나 점유하지 못함. 흔한 원인: adb server(Android Studio 포함)가
+ * 이미 점유, Windows에서 ADB 인터페이스에 WinUSB가 아닌 드라이버가 붙음. Dadb는 이 오류일 때
+ * 실행 중인 adb server를 경유하는 방식으로 대체할 수 있다.
+ */
+export class AdbUsbAccessException extends AdbConnectException {}
+
 /** 인증 거부(키 없음, 기기에서 허용 안 함). 같은 키로 재연결해도 소용없음 — 기기에서 허용해야 한다. */
 export class AdbAuthException extends AdbException {}
 

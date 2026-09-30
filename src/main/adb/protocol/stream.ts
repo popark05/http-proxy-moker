@@ -12,6 +12,7 @@
  */
 
 import type { AdbPacketWriter } from './packet-io';
+import type { AdbStreamLike } from './session';
 import {
   AdbConnectionClosedException,
   AdbException,
@@ -36,7 +37,7 @@ interface Waiter<T> {
   timer?: ReturnType<typeof setTimeout>;
 }
 
-export class AdbStream {
+export class AdbStream implements AdbStreamLike {
   private state: State = 'opening';
   private remote = 0;
   /** 받았지만 아직 소비(OKAY)하지 않은 payload. */

@@ -7,7 +7,7 @@
 
 import * as net from 'node:net';
 import { once } from 'node:events';
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import type { AdbOpener } from './opener';
 
 export interface AdbTunnel {
@@ -49,7 +49,7 @@ export async function tcpForward(adb: AdbOpener, hostPort: number, targetPort: n
  * (ADB 스트림은 half-close가 없으므로 소켓이 end하면 스트림을 닫는다).
  * 역압: 스트림 쓰기(OKAY 대기) 동안 소켓 읽기를 멈추고, 소켓 버퍼가 차면 drain까지 스트림 읽기를 멈춘다.
  */
-export function pipeSocketAndStream(socket: net.Socket, stream: AdbStream): void {
+export function pipeSocketAndStream(socket: net.Socket, stream: AdbStreamLike): void {
   let done = false;
   const shutdown = (): void => {
     if (done) return;

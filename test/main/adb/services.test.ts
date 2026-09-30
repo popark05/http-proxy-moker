@@ -13,6 +13,7 @@ import {
   AdbUnsupportedFeatureException,
   orThrow
 } from '../../../src/main/adb/results';
+import { localFileMode } from '../../../src/main/adb/services/sync';
 import { FakeAndroid } from './fake-android';
 import { memoryDevice, tcpDevice, type FakeDevice, type ServiceHandler } from './fake-device';
 
@@ -211,11 +212,18 @@ describe('push / pull', () => {
     const content = crypto.randomBytes(100_000);
     const src = await tmpFile(content);
     expect((await dadb.push(src, '/data/local/tmp/f')).success).toBe(true);
-    expect(phone.files.get('/data/local/tmp/f')!.mode & 0o777).toBe(0o640);
+    // Windows는 Unix 권한이 없어 기본값(0o644)을 보낸다(localFileMode 테스트 참고).
+    expect(phone.files.get('/data/local/tmp/f')!.mode & 0o777).toBe(process.platform === 'win32' ? 0o644 : 0o640);
 
     const dst = path.join(path.dirname(src), 'pulled.bin');
     expect((await dadb.pull(dst, '/data/local/tmp/f')).success).toBe(true);
     expect((await fs.readFile(dst)).equals(content)).toBe(true);
+  });
+
+  it('localFileMode: Windows는 stat.mode(0o666/0o444) 대신 0o644, 그 외는 파일 권한 그대로', () => {
+    expect(localFileMode(0o100666, 'win32')).toBe(0o644);
+    expect(localFileMode(0o100444, 'win32')).toBe(0o644);
+    expect(localFileMode(0o100640, 'darwin')).toBe(0o100640);
   });
 
   // dadb DadbResultTest.pullMissingFileReturnsSyncFailure

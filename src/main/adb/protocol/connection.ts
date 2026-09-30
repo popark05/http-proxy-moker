@@ -35,6 +35,7 @@ import { describeMessage, type AdbMessage } from './message';
 import { AdbPacketReader, AdbPacketWriter } from './packet-io';
 import type { AdbKeyPair } from './key-pair';
 import { AdbStream, type StreamHost } from './stream';
+import type { AdbSession } from './session';
 
 export interface ConnectOptions {
   /** 인증 키. 없고 기기가 인증을 요구하면 AdbAuthException. */
@@ -72,7 +73,8 @@ export interface AdbBanner {
   features: Set<string>;
 }
 
-export class AdbConnection implements StreamHost {
+export class AdbConnection implements StreamHost, AdbSession {
+  readonly kind = 'direct' as const;
   private closed = false;
   /** localId → 스트림. */
   private readonly streams = new Map<number, AdbStream>();

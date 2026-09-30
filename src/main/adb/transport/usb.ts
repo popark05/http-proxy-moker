@@ -18,7 +18,12 @@
  */
 
 import type { AdbTransport } from './transport';
-import { AdbConnectException, AdbConnectionClosedException, AdbTimeoutException } from '../errors';
+import {
+  AdbConnectException,
+  AdbConnectionClosedException,
+  AdbTimeoutException,
+  AdbUsbAccessException
+} from '../errors';
 import { HEADER_LENGTH } from '../protocol/constants';
 
 /** ADB 인터페이스 식별자(AOSP adb: ADB_CLASS/ADB_SUBCLASS/ADB_PROTOCOL). */
@@ -49,6 +54,7 @@ export interface UsbInterfaceLike {
 }
 
 export interface UsbConfigurationLike {
+  configurationValue: number;
   interfaces: UsbInterfaceLike[];
 }
 
@@ -59,10 +65,14 @@ export interface UsbDeviceLike {
   readonly productName?: string | null;
   readonly manufacturerName?: string | null;
   readonly opened: boolean;
-  /** node-usb는 열려 있지 않으면 내부적으로 열어서 읽는다(실패 시 throw). */
+  /** 현재 선택된 구성. node-usb는 열려 있지 않으면 내부적으로 열어서 읽는다(실패/미선택 시 throw). */
   readonly configuration?: UsbConfigurationLike | null;
+  /** 기기가 가진 모든 구성(선택 여부와 무관). */
+  readonly configurations?: UsbConfigurationLike[];
   open(): Promise<void>;
   close(): Promise<void>;
+  /** Windows에서는 no-op(WebUSB 규약). */
+  selectConfiguration(configurationValue: number): Promise<void>;
   claimInterface(interfaceNumber: number): Promise<void>;
   releaseInterface(interfaceNumber: number): Promise<void>;
   selectAlternateInterface(interfaceNumber: number, alternateSetting: number): Promise<void>;
@@ -77,6 +87,13 @@ export interface UsbDeviceLike {
 }
 
 export interface AdbUsbInterface {
+  /**
+   * ADB 인터페이스가 있는 구성. 아직 선택되지 않은 구성이면 selectConfiguration이 필요하다.
+   * macOS(nusb)는 기기 클래스가 0x00(composite)이거나 알려진 드라이버가 있을 때만 구성을 자동 선택한다.
+   * USB 테더링 등으로 0xEF(IAD)를 보고하는 Android 기기는 구성이 선택되지 않은 상태일 수 있다.
+   */
+  configurationValue: number;
+  needsConfiguration: boolean;
   interfaceNumber: number;
   alternateSetting: number;
   inEndpoint: number;
@@ -85,15 +102,37 @@ export interface AdbUsbInterface {
   packetSize: number;
 }
 
-/** 기기에서 ADB 인터페이스(0xff/0x42/0x01 + bulk IN/OUT)를 찾는다. 없거나 읽을 수 없으면 undefined. */
+/**
+ * 기기에서 ADB 인터페이스(0xff/0x42/0x01 + bulk IN/OUT)를 찾는다. 없거나 읽을 수 없으면 undefined.
+ * 현재 구성을 먼저 보고, 선택된 구성이 없거나 읽을 수 없으면 전체 구성 목록에서 찾는다.
+ */
 export function findAdbInterface(device: UsbDeviceLike): AdbUsbInterface | undefined {
-  let configuration: UsbConfigurationLike | null | undefined;
+  let active: UsbConfigurationLike | undefined;
   try {
-    configuration = device.configuration;
+    active = device.configuration ?? undefined;
   } catch {
-    return undefined;
+    active = undefined;
   }
-  for (const iface of configuration?.interfaces ?? []) {
+  if (active) {
+    const found = findInConfiguration(active);
+    if (found) return { ...found, needsConfiguration: false };
+  }
+  let all: UsbConfigurationLike[] = [];
+  try {
+    all = device.configurations ?? [];
+  } catch {
+    all = [];
+  }
+  for (const configuration of all) {
+    if (active && configuration.configurationValue === active.configurationValue) continue;
+    const found = findInConfiguration(configuration);
+    if (found) return { ...found, needsConfiguration: true };
+  }
+  return undefined;
+}
+
+function findInConfiguration(configuration: UsbConfigurationLike): Omit<AdbUsbInterface, 'needsConfiguration'> | undefined {
+  for (const iface of configuration.interfaces ?? []) {
     for (const alt of iface.alternates) {
       if (
         alt.interfaceClass !== ADB_CLASS ||
@@ -106,6 +145,7 @@ export function findAdbInterface(device: UsbDeviceLike): AdbUsbInterface | undef
       const bulkOut = alt.endpoints.find((e) => e.type === 'bulk' && e.direction === 'out');
       if (!bulkIn || !bulkOut) continue;
       return {
+        configurationValue: configuration.configurationValue,
         interfaceNumber: iface.interfaceNumber,
         alternateSetting: alt.alternateSetting,
         inEndpoint: bulkIn.endpointNumber,
@@ -124,11 +164,17 @@ export interface UsbTransportOptions {
   idlePollMs?: number;
   /** 헤더를 받은 뒤 payload를 모두 받기까지의 기한(ms). 기본 30초. */
   payloadTimeoutMs?: number;
+  /**
+   * 열기/점유 실패 시 재시도 횟수. 기본: Windows 2, 그 외 0.
+   * nusb 문서: Windows에서는 연결 직후 composite 기기의 인터페이스가 아직 준비되지 않았을 수 있다.
+   */
+  claimRetries?: number;
 }
 
 const DEFAULT_WRITE_TIMEOUT = 10_000;
 const DEFAULT_IDLE_POLL = 1_000;
 const DEFAULT_PAYLOAD_TIMEOUT = 30_000;
+const CLAIM_RETRY_DELAY = 300;
 
 export class UsbTransport implements AdbTransport {
   private readonly dataListeners: Array<(chunk: Uint8Array) => void> = [];
@@ -155,19 +201,27 @@ export class UsbTransport implements AdbTransport {
         `ADB 인터페이스를 찾을 수 없습니다(${describeDevice(device)}). 기기에서 USB 디버깅이 켜져 있는지 확인하세요.`
       );
     }
-    try {
-      if (!device.opened) await device.open();
-      await device.claimInterface(adbInterface.interfaceNumber);
-      if (adbInterface.alternateSetting !== 0) {
-        await device.selectAlternateInterface(adbInterface.interfaceNumber, adbInterface.alternateSetting);
+    const retries = options.claimRetries ?? (process.platform === 'win32' ? 2 : 0);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        if (!device.opened) await device.open();
+        if (adbInterface.needsConfiguration) await device.selectConfiguration(adbInterface.configurationValue);
+        await device.claimInterface(adbInterface.interfaceNumber);
+        if (adbInterface.alternateSetting !== 0) {
+          await device.selectAlternateInterface(adbInterface.interfaceNumber, adbInterface.alternateSetting);
+        }
+        break;
+      } catch (e) {
+        await device.close().catch(() => undefined);
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, CLAIM_RETRY_DELAY));
+          continue;
+        }
+        throw new AdbUsbAccessException(
+          `USB 기기의 ADB 인터페이스를 열지 못했습니다(${describeDevice(device)}). ${accessHint()}`,
+          e
+        );
       }
-    } catch (e) {
-      await device.close().catch(() => undefined);
-      throw new AdbConnectException(
-        `USB 기기의 ADB 인터페이스를 점유하지 못했습니다(${describeDevice(device)}). ` +
-          'adb server 등 다른 프로그램이 기기를 사용 중일 수 있습니다(`adb kill-server`로 종료).',
-        e
-      );
     }
     // 이전 세션이 남긴 halt 상태를 지운다(AOSP도 연결 시 clear_halt). 실패는 무시.
     await device.clearHalt('in', adbInterface.inEndpoint).catch(() => undefined);
@@ -176,7 +230,8 @@ export class UsbTransport implements AdbTransport {
     const transport = new UsbTransport(device, adbInterface, {
       writeTimeoutMs: options.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT,
       idlePollMs: options.idlePollMs ?? DEFAULT_IDLE_POLL,
-      payloadTimeoutMs: options.payloadTimeoutMs ?? DEFAULT_PAYLOAD_TIMEOUT
+      payloadTimeoutMs: options.payloadTimeoutMs ?? DEFAULT_PAYLOAD_TIMEOUT,
+      claimRetries: retries
     });
     transport.readLoop = transport.runReadLoop();
     return transport;
@@ -297,6 +352,20 @@ export class UsbTransport implements AdbTransport {
     })();
     return this.releasing;
   }
+}
+
+/** 점유 실패 시 사용자 안내(플랫폼별). */
+export function accessHint(platform: NodeJS.Platform = process.platform): string {
+  const common =
+    '다른 프로그램(adb server, Android Studio 등)이 기기를 사용 중일 수 있습니다. 해당 프로그램을 끄거나 `adb kill-server`로 종료하세요.';
+  if (platform === 'win32') {
+    return (
+      `${common} Windows에서는 기기의 ADB 인터페이스에 WinUSB 드라이버가 필요합니다. 최신 Android는 자동으로 ` +
+      'WinUSB가 설치되지만, 제조사 드라이버가 다른 드라이버로 바꿨다면 장치 관리자에서 ' +
+      '"Android ADB Interface"를 Google USB Driver(WinUSB)로 변경하세요.'
+    );
+  }
+  return common;
 }
 
 /** node-usb는 timeout 만료를 전송 취소(Cancelled)로 보고한다. */

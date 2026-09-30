@@ -6,7 +6,7 @@
  *   sync 패킷 헤더(8바이트)와 데이터를 따로 보내면 왕복이 두 배가 된다.
  */
 
-import type { AdbStream } from './stream';
+import type { AdbStreamLike } from './session';
 import { AdbProtocolException } from '../errors';
 
 export class StreamReader {
@@ -15,7 +15,7 @@ export class StreamReader {
 
   /** timeoutMs: 청크 하나를 기다리는 시간. 생략하면 연결의 기본값. */
   constructor(
-    private readonly stream: AdbStream,
+    private readonly stream: AdbStreamLike,
     private readonly timeoutMs?: number
   ) {}
 
@@ -54,6 +54,13 @@ export class StreamReader {
     }
   }
 
+  /** 아직 소비하지 않은 버퍼 바이트를 꺼낸다(다른 소비자에게 스트림을 넘길 때). */
+  takeBuffered(): Buffer {
+    const rest = this.buffer;
+    this.buffer = Buffer.alloc(0);
+    return rest;
+  }
+
   /** EOF까지 전부. */
   async readToEnd(): Promise<Buffer> {
     while (await this.fill());
@@ -79,7 +86,7 @@ export class StreamWriter {
   private size = 0;
 
   constructor(
-    private readonly stream: AdbStream,
+    private readonly stream: AdbStreamLike,
     private readonly timeoutMs?: number
   ) {}
 

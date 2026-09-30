@@ -29,8 +29,16 @@ export class FakeUsbDevice implements UsbDeviceLike {
   claimError: Error | undefined;
   /** true면 transferOut이 끝나지 않는다(기기 정체). */
   stallWrites = false;
-  /** configuration 접근 시 throw(열 수 없는 기기). */
+  /** configuration/configurations 접근 시 throw(열 수 없는 기기). */
   configurationThrows = false;
+  /**
+   * false면 구성이 아직 선택되지 않은 상태(macOS에서 0xEF 등 클래스 기기): configuration은 throw,
+   * configurations는 목록을 준다. selectConfiguration으로 선택된다.
+   */
+  configurationSelected = true;
+  selectedConfigurations: number[] = [];
+  /** 앞으로 claimInterface가 이 횟수만큼 실패(Windows 인터페이스 준비 지연 흉내). */
+  claimFailures = 0;
   /** ADB 인터페이스가 없는 기기(키보드 등). */
   hasAdb = true;
 
@@ -54,6 +62,22 @@ export class FakeUsbDevice implements UsbDeviceLike {
 
   get configuration(): UsbConfigurationLike {
     if (this.configurationThrows) throw new Error('configuration error: open error: access denied');
+    if (!this.configurationSelected) throw new Error('configuration error: device is not configured');
+    return this.buildConfiguration();
+  }
+
+  get configurations(): UsbConfigurationLike[] {
+    if (this.configurationThrows) throw new Error('configuration error: open error: access denied');
+    return [this.buildConfiguration()];
+  }
+
+  async selectConfiguration(value: number): Promise<void> {
+    if (!this.opened) throw new Error('selectConfiguration error: invalid state');
+    this.selectedConfigurations.push(value);
+    this.configurationSelected = true;
+  }
+
+  private buildConfiguration(): UsbConfigurationLike {
     const mtp = {
       interfaceNumber: 0,
       alternates: [
@@ -84,7 +108,7 @@ export class FakeUsbDevice implements UsbDeviceLike {
         }
       ]
     };
-    return { interfaces: this.hasAdb ? [mtp, adb] : [mtp] };
+    return { configurationValue: 1, interfaces: this.hasAdb ? [mtp, adb] : [mtp] };
   }
 
   async open(): Promise<void> {
@@ -100,6 +124,11 @@ export class FakeUsbDevice implements UsbDeviceLike {
   async claimInterface(n: number): Promise<void> {
     if (!this.opened) throw new Error('claimInterface error: invalid state');
     if (this.claimError) throw this.claimError;
+    if (!this.configurationSelected) throw new Error('claimInterface error: device is not configured');
+    if (this.claimFailures > 0) {
+      this.claimFailures--;
+      throw new Error('claimInterface error: interface not ready');
+    }
     this.claimed.add(n);
   }
 

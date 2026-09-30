@@ -11,7 +11,7 @@
  */
 
 import * as net from 'node:net';
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import type { IncomingOpen } from '../protocol/connection';
 import { StreamReader } from '../protocol/stream-io';
 import { AdbProtocolException } from '../errors';
@@ -102,7 +102,7 @@ export function createReverseOpenHandler(isAllowed: (destination: string) => boo
     const socket = net.connect(port, '127.0.0.1');
     socket.once('error', () => request.reject());
     socket.once('connect', () => {
-      let stream: AdbStream;
+      let stream: AdbStreamLike;
       try {
         stream = request.accept();
       } catch {
@@ -129,7 +129,7 @@ async function forwardRequest(adb: AdbOpener, destination: string): Promise<stri
 }
 
 /** adbd는 응답을 쓰고 스트림을 닫는다. */
-async function readReply(stream: AdbStream): Promise<Buffer> {
+async function readReply(stream: AdbStreamLike): Promise<Buffer> {
   try {
     return await new StreamReader(stream).readToEnd();
   } finally {

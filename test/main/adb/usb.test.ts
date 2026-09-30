@@ -2,12 +2,13 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import * as crypto from 'node:crypto';
 import { Dadb } from '../../../src/main/adb/dadb';
-import { UsbTransport, findAdbInterface } from '../../../src/main/adb/transport/usb';
+import { UsbTransport, accessHint, findAdbInterface } from '../../../src/main/adb/transport/usb';
 import { listUsbAdbDevices } from '../../../src/main/adb/transport/usb-discovery';
 import {
   AdbConnectException,
   AdbConnectionClosedException,
-  AdbTimeoutException
+  AdbTimeoutException,
+  AdbUsbAccessException
 } from '../../../src/main/adb/errors';
 import { FakeAndroid } from './fake-android';
 import { FakeUsbBackend, FakeUsbDevice } from './fake-usb';
@@ -25,7 +26,9 @@ function setup(options: { idlePollMs?: number; writeTimeoutMs?: number } = {}) {
     keyPair: null,
     usbBackend: backend,
     writeTimeoutMs: options.writeTimeoutMs,
-    usb: { idlePollMs: options.idlePollMs ?? 50 }
+    usb: { idlePollMs: options.idlePollMs ?? 50 },
+    // 테스트가 실제 adb server(5037)에 닿지 않도록. 대체 경로는 adb-server.test.ts에서 검증.
+    adbServerFallback: false
   });
   cleanups.push(() => dadb.close());
   return { phone, usbDevice, backend, dadb };
@@ -37,11 +40,23 @@ describe('findAdbInterface / listUsbAdbDevices', () => {
   it('MTP 등 다른 인터페이스 사이에서 ADB 인터페이스(0xff/0x42/0x01)와 bulk 엔드포인트를 찾음', () => {
     const device = new FakeUsbDevice(() => undefined);
     expect(findAdbInterface(device)).toEqual({
+      configurationValue: 1,
+      needsConfiguration: false,
       interfaceNumber: 1,
       alternateSetting: 0,
       inEndpoint: 1,
       outEndpoint: 2,
       packetSize: 512
+    });
+  });
+
+  it('구성이 선택되지 않은 기기(macOS 0xEF 등)는 전체 구성 목록에서 찾고 선택 필요로 표시', () => {
+    const device = new FakeUsbDevice(() => undefined);
+    device.configurationSelected = false;
+    expect(findAdbInterface(device)).toMatchObject({
+      configurationValue: 1,
+      needsConfiguration: true,
+      interfaceNumber: 1
     });
   });
 
@@ -66,7 +81,12 @@ describe('findAdbInterface / listUsbAdbDevices', () => {
 
   it('Dadb.list: USB 기기(에뮬레이터 제외 옵션)', async () => {
     const backend = new FakeUsbBackend([new FakeUsbDevice(() => undefined, 'A'), new FakeUsbDevice(() => undefined, 'B')]);
-    const list = await Dadb.list({ usbBackend: backend, includeEmulators: false, keyPair: null });
+    const list = await Dadb.list({
+      usbBackend: backend,
+      includeEmulators: false,
+      includeAdbServer: false,
+      keyPair: null
+    });
     expect(list.map((d) => d.serial)).toEqual(['A', 'B']);
   });
 });
@@ -133,13 +153,48 @@ describe('UsbTransport + Dadb.fromUsb', () => {
     expect(usbDevice.truncatedBytes).toBe(0);
   });
 
-  it('다른 프로그램이 인터페이스를 점유 중이면 AdbConnectException(adb kill-server 안내)', async () => {
-    const { dadb, usbDevice } = setup();
+  it('다른 프로그램이 인터페이스를 점유 중이면 AdbUsbAccessException(adb kill-server 안내)', async () => {
+    const { usbDevice } = setup();
     usbDevice.claimError = new Error('claimInterface error: Busy');
+    // adb server 대체 경로를 끈 상태에서 원래 오류가 그대로 나오는지.
+    const dadb = Dadb.fromUsb('FAKE123', {
+      keyPair: null,
+      usbBackend: new FakeUsbBackend([usbDevice]),
+      adbServerFallback: false,
+      usb: { claimRetries: 0 }
+    });
+    cleanups.push(() => dadb.close());
     const thrown = await dadb.shell('echo x').catch((e) => e);
+    expect(thrown).toBeInstanceOf(AdbUsbAccessException);
     expect(thrown).toBeInstanceOf(AdbConnectException);
     expect(thrown.message).toContain('adb kill-server');
     expect(usbDevice.opened).toBe(false);
+  });
+
+  it('구성이 선택되지 않은 기기는 열 때 구성을 선택하고 연결', async () => {
+    const { dadb, usbDevice } = setup();
+    usbDevice.configurationSelected = false;
+    expect((await dadb.shell('echo configured')).output).toBe('configured\n');
+    expect(usbDevice.selectedConfigurations).toEqual([1]);
+  });
+
+  it('점유가 일시적으로 실패하면 claimRetries만큼 재시도(Windows 인터페이스 준비 지연)', async () => {
+    const phone = new FakeAndroid();
+    const usbDevice = new FakeUsbDevice(phone.services);
+    usbDevice.claimFailures = 2;
+    const transport = await UsbTransport.open(usbDevice, { claimRetries: 2, idlePollMs: 20 });
+    expect(usbDevice.claimed.has(1)).toBe(true);
+    await transport.close();
+
+    usbDevice.claimFailures = 1;
+    await expect(UsbTransport.open(usbDevice, { claimRetries: 0 })).rejects.toBeInstanceOf(AdbUsbAccessException);
+  });
+
+  it('점유 실패 안내는 Windows에서 WinUSB 드라이버를 함께 안내', () => {
+    expect(accessHint('darwin')).toContain('adb kill-server');
+    expect(accessHint('darwin')).not.toContain('WinUSB');
+    expect(accessHint('win32')).toContain('WinUSB');
+    expect(accessHint('win32')).toContain('adb kill-server');
   });
 
   it('시리얼로 기기를 찾지 못하면 AdbConnectException', async () => {

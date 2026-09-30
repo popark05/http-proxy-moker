@@ -74,6 +74,13 @@ describe('Dadb (TCP)', () => {
     await expect(stream.readAll()).rejects.toBeInstanceOf(AdbTimeoutException);
   });
 
+  it('에뮬레이터: adb와 같은 이름(emulator-<콘솔 포트>)으로 127.0.0.1에 연결', async () => {
+    server = await tcpDevice(echoServices);
+    dadb = Dadb.fromEmulator(server.port, { keyPair: null });
+    expect(dadb.serial).toBe(`emulator-${server.port - 1}`);
+    expect(await shellEcho(dadb, 'emu')).toBe('emu\n');
+  });
+
   it('포트 검증', () => {
     expect(() => Dadb.create('localhost', -1)).toThrow(RangeError);
   });

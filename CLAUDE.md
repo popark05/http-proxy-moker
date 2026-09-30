@@ -18,6 +18,7 @@ npm test               # vitest run (all tests)
 npx vitest run test/main/proxy-service.test.ts   # single file
 npx vitest run -t "test name substring"          # single test by name
 npm run dist:mac       # fetch-node + fetch-usb + build + electron-builder DMG (arm64/x64) → release/
+npm run fetch-usb      # node-usb binaries per target into node_modules/@node-usb (`-- --targets all` for cross builds)
 npm run fetch-node     # pinned Node for the proxy worker → resources/node/<mac|win>-<arch>/ (`-- --targets all` for cross builds)
 npm run verify:worker  # bundle the worker outside the repo, fork it with the pinned Node, check capture + gzip/br/zstd decoding
 node scripts/verify-worker-bundle.mjs --resources <installed app resources dir>   # same check against a packaged/installed app
@@ -59,6 +60,10 @@ Applying or clearing mocks calls `server.reset()` and then re-registers the subs
 
 - **Android** is fully automatic. The modes are `auto`, `system CA (root)` and `VPN (non-root)`. VPN mode reuses the HTTP Toolkit companion APK (`tech.httptoolkit.android.v1`, downloaded from GitHub releases by `apk-manager.ts`) and activates it with an intent that carries the proxy address and CA fingerprint. The proxy answers the companion's verification URLs with our CA.
 - **iOS** is semi-automatic: the device is detected over usbmux, and the user follows setup steps and installs a `.mobileconfig` CA profile.
+
+### Direct ADB layer (`src/main/adb`, not wired into the app yet)
+
+A TypeScript port of dadb (Apache-2.0, see `src/main/adb/NOTICE`) that replaces the adb binary/adbkit. `Dadb` is the entry point: `fromUsb(serial)` (node-usb, WebUSB API), `fromEmulator(port)`, `create(host, port)`, `fromAdbServer(serial)`, and `list()`. Services (shell v2, sync push/pull, install, reverse, tcpForward, root) are written against `AdbSession`/`AdbStreamLike` (`protocol/session.ts`), so they run unchanged over a direct connection or a running adb server. When USB can't be claimed (`AdbUsbAccessException`: adb server/Android Studio holds it, or a non-WinUSB driver on Windows), `fromUsb` falls back to the adb server at `127.0.0.1:${ANDROID_ADB_SERVER_PORT:-5037}` and retries direct on every reconnect. Transport failures throw `AdbException` subclasses; operation outcomes are returned as `*Result` values. USB binaries per target come from `npm run fetch-usb` (a plain `npm install` prunes the non-host ones). The fakes in `test/main/adb/` (`fake-android`, `fake-usb`, `fake-adb-server`) reproduce real adbd/node-usb/adb-server behavior.
 
 ### UI
 

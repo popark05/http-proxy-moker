@@ -24,9 +24,13 @@ const SHA1_DIGEST_INFO_PREFIX = Buffer.from([
   0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14
 ]);
 
-/** adb 키 기본 디렉토리. adb와 동일하게 ANDROID_USER_HOME을 우선한다. */
-export function defaultAdbKeyDir(): string {
-  return process.env.ANDROID_USER_HOME ?? path.join(os.homedir(), '.android');
+/**
+ * adb 키 기본 디렉토리: <홈>/.android (macOS $HOME, Windows 사용자 프로필 폴더).
+ * adb(AOSP adb_utils.cpp adb_get_android_dir_path)는 ANDROID_USER_HOME을 보지 않으므로 여기서도 보지 않는다.
+ * 같은 키를 써야 adb로 이미 허용한 기기가 "USB 디버깅 허용"을 다시 묻지 않는다.
+ */
+export function defaultAdbKeyDir(homedir: string = os.homedir()): string {
+  return path.join(homedir, '.android');
 }
 
 export class AdbKeyPair {

@@ -17,6 +17,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as crypto from 'node:crypto';
 import * as net from 'node:net';
 import { Dadb } from '../../../src/main/adb/dadb';
+import type { AdbConnection } from '../../../src/main/adb/protocol/connection';
 import { listUsbAdbDevices } from '../../../src/main/adb/transport/usb-discovery';
 
 const target = process.env.ADB_TEST_USB;
@@ -49,6 +50,7 @@ function log(message: string): void {
 describe.skipIf(!target)('USB 실기기 (adb server 없이)', () => {
   beforeAll(async () => {
     if (await adbServerRunning()) {
+      // 앱은 이 경우 adb server 경유로 대체하지만, 이 테스트는 직접 USB 경로를 검증한다.
       throw new Error('adb server가 실행 중입니다(127.0.0.1:5037). `adb kill-server` 후 다시 실행하세요.');
     }
     const devices = await listUsbAdbDevices();
@@ -57,10 +59,11 @@ describe.skipIf(!target)('USB 실기기 (adb server 없이)', () => {
     if (!picked) throw new Error(`USB ADB 기기를 찾지 못했습니다(ADB_TEST_USB=${target}). USB 디버깅/케이블을 확인하세요.`);
     serial = picked.serial;
 
-    dadb = Dadb.fromUsb(serial, { authTimeoutMs: AUTH_TIMEOUT, readTimeoutMs: 30_000 });
+    dadb = Dadb.fromUsb(serial, { authTimeoutMs: AUTH_TIMEOUT, readTimeoutMs: 30_000, adbServerFallback: false });
     log('연결 중... (처음이면 기기 화면에서 USB 디버깅 허용)');
     const started = Date.now();
-    const connection = await dadb.connect();
+    const connection = (await dadb.connect()) as AdbConnection;
+    expect(connection.kind).toBe('direct');
     log(
       `연결됨 ${Date.now() - started}ms: state=${connection.banner.state} ` +
         `model=${connection.banner.properties['ro.product.model']} maxPayload=${connection.maxPayloadSize}`
@@ -73,7 +76,7 @@ describe.skipIf(!target)('USB 실기기 (adb server 없이)', () => {
   });
 
   it('핸드셰이크: 배너와 주요 기능', async () => {
-    const connection = await dadb.connect();
+    const connection = (await dadb.connect()) as AdbConnection;
     expect(connection.banner.state).toBe('device');
     for (const feature of ['shell_v2', 'cmd']) {
       expect(connection.supportsFeature(feature), `feature ${feature}`).toBe(true);

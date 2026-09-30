@@ -4,7 +4,12 @@ import * as crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { AdbKeyPair, parsePrivateKey, toAdbPublicKey } from '../../../src/main/adb/protocol/key-pair';
+import {
+  AdbKeyPair,
+  defaultAdbKeyDir,
+  parsePrivateKey,
+  toAdbPublicKey
+} from '../../../src/main/adb/protocol/key-pair';
 
 // dadb PKCS8Test의 테스트 키(Apache-2.0).
 const KEY = `-----BEGIN PRIVATE KEY-----
@@ -128,6 +133,20 @@ describe('toAdbPublicKey', () => {
   });
 });
 
+describe('defaultAdbKeyDir', () => {
+  it('adb와 같은 <홈>/.android, ANDROID_USER_HOME은 보지 않음(adb도 보지 않음)', () => {
+    const before = process.env.ANDROID_USER_HOME;
+    try {
+      process.env.ANDROID_USER_HOME = path.join(os.tmpdir(), 'elsewhere');
+      expect(defaultAdbKeyDir()).toBe(path.join(os.homedir(), '.android'));
+      expect(defaultAdbKeyDir('/home/qa')).toBe(path.join('/home/qa', '.android'));
+    } finally {
+      if (before === undefined) delete process.env.ANDROID_USER_HOME;
+      else process.env.ANDROID_USER_HOME = before;
+    }
+  });
+});
+
 describe('AdbKeyPair 파일 입출력', () => {
   it('readDefault: 키가 없으면 생성하고 adb 형식으로 저장', async () => {
     const dir = await makeTmpDir();
@@ -135,8 +154,11 @@ describe('AdbKeyPair 파일 입출력', () => {
 
     const privatePem = await fs.readFile(path.join(dir, 'adbkey'), 'utf-8');
     expect(privatePem).toContain('-----BEGIN PRIVATE KEY-----');
-    const stat = await fs.stat(path.join(dir, 'adbkey'));
-    expect(stat.mode & 0o777).toBe(0o600);
+    // Windows에는 Unix 권한이 없다(사용자 프로필 폴더 ACL로 보호).
+    if (process.platform !== 'win32') {
+      const stat = await fs.stat(path.join(dir, 'adbkey'));
+      expect(stat.mode & 0o777).toBe(0o600);
+    }
 
     const pubLine = await fs.readFile(path.join(dir, 'adbkey.pub'), 'utf-8');
     const [b64, comment] = pubLine.split(' ');

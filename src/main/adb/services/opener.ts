@@ -1,4 +1,4 @@
-import type { AdbStream } from '../protocol/stream';
+import type { AdbStreamLike } from '../protocol/session';
 import { AdbUnsupportedFeatureException } from '../results';
 
 /**
@@ -6,12 +6,12 @@ import { AdbUnsupportedFeatureException } from '../results';
  * Dadb가 구현하며, 테스트는 가짜 연결로 대체할 수 있다.
  */
 export interface AdbOpener {
-  open(destination: string): Promise<AdbStream>;
+  open(destination: string): Promise<AdbStreamLike>;
   supportsFeature(feature: string): Promise<boolean>;
 }
 
 /** `exec:cmd <args>` 스트림(Android 7+ `cmd` 기능 필요). stdout만 오고 종료 코드는 없다. */
-export async function execCmd(adb: AdbOpener, ...command: string[]): Promise<AdbStream> {
+export async function execCmd(adb: AdbOpener, ...command: string[]): Promise<AdbStreamLike> {
   if (!(await adb.supportsFeature('cmd'))) {
     throw new AdbUnsupportedFeatureException('cmd', '이 Android 버전은 cmd를 지원하지 않습니다.');
   }
@@ -19,7 +19,7 @@ export async function execCmd(adb: AdbOpener, ...command: string[]): Promise<Adb
 }
 
 /** `abb_exec:` 스트림(Android Binder Bridge, 인자를 NUL로 구분). */
-export async function abbExec(adb: AdbOpener, ...command: string[]): Promise<AdbStream> {
+export async function abbExec(adb: AdbOpener, ...command: string[]): Promise<AdbStreamLike> {
   if (!(await adb.supportsFeature('abb_exec'))) {
     throw new AdbUnsupportedFeatureException('abb_exec', '이 Android 버전은 abb_exec를 지원하지 않습니다.');
   }

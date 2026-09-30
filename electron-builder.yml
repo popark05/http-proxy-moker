@@ -39,6 +39,9 @@ extraResources:
 
 mac:
   category: public.app-category.developer-tools
+  # 다른 OS용 node-usb 바이너리 제외(fetch-usb --targets all로 함께 받아 둔 경우).
+  files:
+    - '!node_modules/@node-usb/usb-win32-*/**'
   icon: build/icon.icns
   target:
     - target: dmg
