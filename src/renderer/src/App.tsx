@@ -183,6 +183,28 @@ function AppInner(): JSX.Element {
     </div>
   );
 
+  // 좌측 컬럼(프록시 컨트롤 + 기기 + 트래픽). 캡처/목킹 모드 공용: 목킹에서도 프록시 시작과 기기 연결이 필요하다.
+  const leftColumn = (
+      <div className="flex h-full flex-col">
+        <ProxyControls
+          status={status}
+          count={exchanges.length}
+          onStart={() => void handleStartProxy()}
+          onStop={() => void handleStopProxy()}
+          onClear={() => {
+            clear();
+            mockHits.reset();
+            setSelectedId(undefined);
+          }}
+        />
+        {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
+        <div className="max-h-[40%] shrink-0 overflow-auto border-b border-border px-4 py-2">
+          <DevicePanel />
+        </div>
+        <div className="min-h-0 flex-1">{trafficPanel}</div>
+      </div>
+  );
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <TopBar
@@ -204,24 +226,7 @@ function AppInner(): JSX.Element {
         <div className="min-h-0 flex-1">
           <SplitPane
             left={
-              <div className="flex h-full flex-col">
-                <ProxyControls
-                  status={status}
-                  count={exchanges.length}
-                  onStart={() => void handleStartProxy()}
-                  onStop={() => void handleStopProxy()}
-                  onClear={() => {
-                    clear();
-                    mockHits.reset();
-                    setSelectedId(undefined);
-                  }}
-                />
-                {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
-                <div className="max-h-[40%] shrink-0 overflow-auto border-b border-border px-4 py-2">
-                  <DevicePanel />
-                </div>
-                <div className="min-h-0 flex-1">{trafficPanel}</div>
-              </div>
+              leftColumn
             }
             right={
               <div className="h-full overflow-auto">
@@ -240,7 +245,7 @@ function AppInner(): JSX.Element {
         <div className="min-h-0 flex-1">
           <SplitPane
             initialLeftWidth={360}
-            left={trafficPanel}
+            left={leftColumn}
             right={
               <div className="flex h-full flex-col overflow-auto">
                 {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
