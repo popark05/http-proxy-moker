@@ -55,3 +55,8 @@ const api: MokerApi = {
 
 // contextIsolation이 켜져 있으므로 contextBridge로만 노출한다.
 contextBridge.exposeInMainWorld('mokerApi', api);
+
+// 렌더러 CSS가 플랫폼별 여백(macOS 신호등/Windows 캡션 버튼)을 잡을 수 있게 알린다.
+window.addEventListener('DOMContentLoaded', () => {
+  document.documentElement.dataset.platform = process.platform;
+});

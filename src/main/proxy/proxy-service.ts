@@ -137,7 +137,9 @@ export class ProxyService {
       execPath: nodePath,
       // Electron 바이너리를 fork할 때만 필요한 플래그지만, 시스템 Node에선 무해.
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+      stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+      // Windows에서 워커용 node.exe가 콘솔 창을 띄우지 않게 한다.
+      windowsHide: true
     });
 
     worker.on('message', (msg: WorkerMessage) => this.onWorkerMessage(msg));

@@ -37,6 +37,9 @@ extraResources:
       - '**/*'
       - '!.node-version'
 
+# 두 아키텍처 DMG/설치 파일이 같은 이름으로 덮어써지지 않게 arch를 넣는다.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
 mac:
   category: public.app-category.developer-tools
   # 다른 OS용 node-usb 바이너리 제외(fetch-usb --targets all로 함께 받아 둔 경우).
@@ -63,3 +66,23 @@ dmg:
       y: 220
       type: link
       path: /Applications
+
+win:
+  icon: build/icon.png
+  # 다른 OS용 node-usb 바이너리 제외(fetch-usb --targets all로 함께 받아 둔 경우).
+  files:
+    - '!node_modules/@node-usb/usb-darwin-*/**'
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+  # 내부 QA 전용: Authenticode 서명 없음(SmartScreen 경고 발생). 필요 시 CSC_LINK/CSC_KEY_PASSWORD로 활성화.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  # x64/arm64를 합친 통합 설치 파일(용량 2배)은 만들지 않고 아키텍처별로만 만든다.
+  buildUniversalInstaller: false
+  allowToChangeInstallationDirectory: true
+  # 앱 삭제/업데이트 시 실행 중인 프로세스(프록시 워커 node.exe 포함) 정리는 NSIS 기본 동작에 맡긴다.

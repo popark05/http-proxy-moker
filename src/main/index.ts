@@ -26,7 +26,16 @@ function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     backgroundColor: '#16181e',
-    titleBarStyle: 'hiddenInset',
+    // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이는 TopBar와 동일).
+    // 그 외(Linux)는 기본 프레임을 쓴다.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const }
+      : process.platform === 'win32'
+        ? {
+            titleBarStyle: 'hidden' as const,
+            titleBarOverlay: { color: '#16181e', symbolColor: '#e5e7eb', height: 52 }
+          }
+        : {}),
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -58,7 +67,20 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
+// 프록시 포트가 하나뿐이라 두 번째 인스턴스는 포트 충돌만 낸다(특히 Windows). 기존 창을 앞으로 가져온다.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
   // macOS dock 아이콘(dev 포함). 패키징 시엔 icns가 우선하지만 dev 편의를 위해 설정.
   const iconPath = resolveAppIcon();
   if (iconPath && process.platform === 'darwin' && app.dock) {
