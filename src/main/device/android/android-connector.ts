@@ -95,9 +95,12 @@ export class AndroidConnector implements DeviceConnector {
       warnings.push('adb reverse 터널 설정에 실패했습니다. WiFi 프록시 경로로 시도됩니다.');
     }
 
+    // adb reverse가 성공했으면 기기 localhost가 호스트 프록시로 터널되므로 LAN IP가 필요 없다
+    // (USB 연결 기기·에뮬레이터, 여러 NIC로 IP를 잘못 고르는 경우에도 안전).
+    const deviceProxyHost = reverseOk ? '127.0.0.1' : options.proxyHost;
     let proxyConfigured = false;
     try {
-      await setProxy(device, options.proxyHost, options.proxyPort);
+      await setProxy(device, deviceProxyHost, options.proxyPort);
       proxyConfigured = true;
     } catch {
       warnings.push('프록시 설정에 실패했습니다. 기기의 adb 연결을 확인하세요.');

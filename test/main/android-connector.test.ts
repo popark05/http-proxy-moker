@@ -83,6 +83,27 @@ describe('AndroidConnector.startInterception (root)', () => {
     expect(result.usedMode).toBe('root');
     expect(result.warnings).toHaveLength(0);
     expect(device.reverse).toHaveBeenCalledWith('tcp:8080', 'tcp:8080');
+    // reverse 성공 시 기기 프록시는 LAN IP가 아니라 터널된 localhost를 가리킨다.
+    const shells = (device.shell as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(shells).toContain('settings put global http_proxy 127.0.0.1:8080');
+  });
+
+  it('root 모드: reverse 실패 시 LAN IP로 폴백하고 경고', async () => {
+    const { client, device } = makeAdbClient([{ id: 'phone', type: 'device' }], (cmd) =>
+      cmd === 'id' ? 'uid=0(root)' : ''
+    );
+    (device.reverse as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('no reverse'));
+
+    const result = await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      caPem: SAMPLE_CERT,
+      androidMode: 'root'
+    });
+
+    const shells = (device.shell as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(shells).toContain('settings put global http_proxy 192.168.0.5:8080');
+    expect(result.warnings.some((w) => w.includes('reverse'))).toBe(true);
   });
 
   it('root 강제인데 non-root면: 프록시만, CA 실패 경고', async () => {
