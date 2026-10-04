@@ -41,4 +41,37 @@ describe('BodyView 이미지 본문', () => {
     fireEvent.click(screen.getByText('소스'));
     expect(screen.getByTestId('code').textContent).toBe('<svg/>');
   });
+
+  it('HTML 본문은 격리된 iframe으로 렌더링하고 코드 보기로 전환할 수 있다', () => {
+    const html = '<!doctype html><html><body><script>alert(1)</script><h1>안녕</h1></body></html>';
+    const body: CapturedBody = { encoding: 'text', content: html, byteLength: html.length, contentType: 'text/html' };
+    render(<BodyView body={body} />);
+    const frame = screen.getByTitle('HTML 응답 렌더링') as HTMLIFrameElement;
+    // sandbox 속성이 빈 값 = 스크립트/same-origin/폼/팝업 모두 금지.
+    expect(frame.getAttribute('sandbox')).toBe('');
+    expect(frame.getAttribute('srcdoc')).toBe(html);
+
+    fireEvent.click(screen.getByText('코드'));
+    expect(screen.getByTestId('code').textContent).toBe(html);
+    expect(screen.queryByTitle('HTML 응답 렌더링')).toBeNull();
+  });
+
+  it('JSON 본문은 HTML 렌더링 대상이 아니다', () => {
+    const body: CapturedBody = { encoding: 'text', content: '{"a":1}', byteLength: 7, contentType: 'application/json' };
+    render(<BodyView body={body} />);
+    expect(screen.queryByTitle('HTML 응답 렌더링')).toBeNull();
+    expect(screen.getByTestId('code')).toBeTruthy();
+  });
+
+  it('SPA 껍데기 HTML은 코드 탭을 먼저 보여준다', () => {
+    const shell =
+      '<!doctype html><html><head><script src="/main.js"></script></head>' +
+      '<body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>';
+    const body: CapturedBody = { encoding: 'text', content: shell, byteLength: shell.length, contentType: 'text/html' };
+    render(<BodyView body={body} />);
+    expect(screen.getByTestId('code').textContent).toBe(shell);
+    // 렌더링 탭으로 전환하면 이유를 안내한다.
+    fireEvent.click(screen.getByText('렌더링'));
+    expect(screen.getByText(/SPA 껍데기/)).toBeTruthy();
+  });
 });
