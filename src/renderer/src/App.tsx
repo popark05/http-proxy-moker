@@ -16,6 +16,7 @@ import { ProxyControls } from './components/traffic/ProxyControls';
 import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
+import { SplashScreen } from './components/brand/SplashScreen';
 import { CloneSourceBar } from './components/mock/CloneSourceBar';
 import { TrafficGroupList } from './components/traffic/TrafficGroupList';
 import { SelectionBar } from './components/traffic/SelectionBar';
@@ -350,6 +351,7 @@ function AppInner(): JSX.Element {
       )}
 
       <Toaster />
+      <SplashScreen />
     </div>
   );
 }
