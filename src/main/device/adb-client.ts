@@ -7,6 +7,8 @@ export interface AdbDeviceRecord {
   id: string;
   /** adbkit device type: 'device' | 'emulator' | 'offline' | 'unauthorized' | ... */
   type: string;
+  /** 상태 원인(offline/unauthorized일 때 사용자 안내용). */
+  detail?: string;
 }
 
 /** 기기 단위 명령 실행. */

@@ -19,6 +19,8 @@ import { AndroidConnector } from './device/android/android-connector';
 import { ApkManager } from './device/android/apk-manager';
 import { IosConnector } from './device/ios/ios-connector';
 import { createAdbkitClient } from './device/adbkit-adapter';
+import type { AdbClient } from './device/adb-client';
+import { createDirectAdbClient } from './device/direct-adb-adapter';
 import { createUsbmuxClient } from './device/usbmux-adapter';
 import { getReachableIpv4 } from './device/network';
 import { ProjectStore } from './project/project-store';
@@ -100,7 +102,16 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
       proxyRunning: status.running
     };
   });
-  deviceService.register(new AndroidConnector(createAdbkitClient(), apkManager));
+  // 기본은 adb 없이 직접 USB/TCP로 통신하는 레이어. MOKER_ADB_BACKEND=adbkit이면 기존 adb 바이너리 경로(임시 비상구).
+  let adbClient: AdbClient;
+  if (process.env.MOKER_ADB_BACKEND === 'adbkit') {
+    adbClient = createAdbkitClient();
+  } else {
+    const direct = createDirectAdbClient();
+    app.on('will-quit', () => void direct.close());
+    adbClient = direct;
+  }
+  deviceService.register(new AndroidConnector(adbClient, apkManager));
   deviceService.register(new IosConnector(createUsbmuxClient()));
 
   ipcMain.handle(IpcChannels.deviceList, () => deviceService.listDevices());

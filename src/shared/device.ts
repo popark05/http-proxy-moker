@@ -20,6 +20,8 @@ export interface DeviceInfo {
   name: string;
   /** 연결/사용 가능 상태. */
   status: 'ready' | 'unauthorized' | 'offline' | 'unknown';
+  /** 준비되지 않은 이유(예: USB 점유, 디버깅 승인 대기). */
+  statusDetail?: string;
 }
 
 /** 인터셉션 셋업 결과. */

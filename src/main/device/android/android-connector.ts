@@ -48,7 +48,8 @@ export class AndroidConnector implements DeviceConnector {
       id: r.id,
       platform: 'android' as const,
       name: r.id,
-      status: mapStatus(r.type)
+      status: mapStatus(r.type),
+      statusDetail: r.detail
     }));
   }
 
