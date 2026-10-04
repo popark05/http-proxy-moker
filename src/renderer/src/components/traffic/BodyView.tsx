@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { CapturedBody } from '@shared/capture';
 import { displayableImageMime, isSvgText, toDataUrl } from '@shared/image-body';
+import { isHtmlText } from '@shared/html-body';
 import { Button } from '@/components/ui/button';
 import { CodeView } from '../code/CodeView';
 import { ImagePreview } from './ImagePreview';
+import { HtmlPreview } from './HtmlPreview';
 
 function Note({ children }: { children: React.ReactNode }): JSX.Element {
   return <div className="p-3 text-sm text-muted-foreground">{children}</div>;
@@ -45,7 +47,32 @@ export function BodyView({ body }: { body: CapturedBody }): JSX.Element {
       />
     );
   }
-  if (isSvgText(body)) return <SvgBody body={body} />;
+  if (isSvgText(body)) {
+    return (
+      <PreviewCodeBody
+        previewLabel="미리보기"
+        codeLabel="소스"
+        preview={
+          <ImagePreview
+            src={toDataUrl('image/svg+xml', body.content, 'text')}
+            mime="image/svg+xml"
+            byteLength={body.byteLength}
+          />
+        }
+        code={<CodeView value={body.content} language="xml" readOnly />}
+      />
+    );
+  }
+  if (isHtmlText(body)) {
+    return (
+      <PreviewCodeBody
+        previewLabel="렌더링"
+        codeLabel="코드"
+        preview={<HtmlPreview html={body.content} />}
+        code={<CodeView value={body.content} language="html" readOnly />}
+      />
+    );
+  }
   if (body.encoding === 'base64') {
     return (
       <Note>
@@ -58,30 +85,30 @@ export function BodyView({ body }: { body: CapturedBody }): JSX.Element {
   return <CodeView value={prettify(body.content, language)} language={language} readOnly />;
 }
 
-/** SVG는 텍스트로 캡처되므로 미리보기(기본)와 소스 보기를 전환할 수 있게 한다. */
-function SvgBody({ body }: { body: CapturedBody }): JSX.Element {
+/** 같은 본문을 "미리보기"와 "코드"로 전환해 보는 공통 틀(SVG, HTML). 기본은 미리보기. */
+function PreviewCodeBody({
+  previewLabel,
+  codeLabel,
+  preview,
+  code
+}: {
+  previewLabel: string;
+  codeLabel: string;
+  preview: React.ReactNode;
+  code: React.ReactNode;
+}): JSX.Element {
   const [view, setView] = useState<'preview' | 'code'>('preview');
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 gap-1 border-b border-border px-3 py-1">
         <Button variant={view === 'preview' ? 'secondary' : 'ghost'} size="sm" onClick={() => setView('preview')}>
-          미리보기
+          {previewLabel}
         </Button>
         <Button variant={view === 'code' ? 'secondary' : 'ghost'} size="sm" onClick={() => setView('code')}>
-          소스
+          {codeLabel}
         </Button>
       </div>
-      <div className="min-h-0 flex-1">
-        {view === 'preview' ? (
-          <ImagePreview
-            src={toDataUrl('image/svg+xml', body.content, 'text')}
-            mime="image/svg+xml"
-            byteLength={body.byteLength}
-          />
-        ) : (
-          <CodeView value={body.content} language="xml" readOnly />
-        )}
-      </div>
+      <div className="min-h-0 flex-1">{view === 'preview' ? preview : code}</div>
     </div>
   );
 }
