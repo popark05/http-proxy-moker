@@ -132,7 +132,12 @@ export class ProxyEngine {
           break;
         default: {
           const headers = Object.fromEntries(mock.response.headers);
-          endpoint = await builder.thenReply(mock.response.status, mock.response.body || undefined, headers);
+          // 이진 응답(이미지 등)은 base64를 Buffer로 풀어 원본 바이트 그대로 서비스한다.
+          const body =
+            mock.response.bodyEncoding === 'base64'
+              ? Buffer.from(mock.response.body, 'base64')
+              : mock.response.body || undefined;
+          endpoint = await builder.thenReply(mock.response.status, body, headers);
         }
       }
       this.ruleToMock.set(endpoint.id, mock.id);

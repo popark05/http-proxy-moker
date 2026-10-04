@@ -43,7 +43,9 @@ export function exchangeToMock(exchange: CapturedExchange, id: string): MockDefi
       status: response.statusCode,
       statusMessage: response.statusMessage,
       headers: response.headers,
-      body: response.body.encoding === 'text' ? response.body.content : ''
+      // 이진(이미지 등)은 base64 그대로 보존해 본문이 사라지지 않게 한다. 크기 초과로 생략된 본문만 빈 값.
+      body: response.body.encoding === 'omitted' || response.body.encoding === 'empty' ? '' : response.body.content,
+      ...(response.body.encoding === 'base64' ? { bodyEncoding: 'base64' as const } : {})
     };
   } else {
     mockResponse = { status: 200, headers: [], body: '' };
@@ -88,6 +90,16 @@ export function pickExchangesToClone(
   return { targets: [...latest.values()], skipped };
 }
 
+/** 응답 본문을 mockttp step의 data로. base64면 Buffer 직렬화 형태(IPC 구조화 복제 가능한 순수 데이터). */
+function responseData(response: MockResponse): string | { type: 'Buffer'; data: number[] } {
+  if (response.bodyEncoding !== 'base64') return response.body;
+  // 렌더러 번들에도 포함되는 모듈이라 Buffer 대신 atob을 쓴다.
+  const binary = atob(response.body);
+  const data = new Array<number>(binary.length);
+  for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i);
+  return { type: 'Buffer', data };
+}
+
 /**
  * 목 정의를 mockttp Serialized<RequestRuleData>로 변환한다.
  * matcher: MethodMatcher(method) + FlexiblePathMatcher(path).
@@ -106,7 +118,7 @@ export function mockToSerializedRule(mock: MockDefinition): SerializedRequestRul
         type: 'simple',
         status: mock.response.status,
         ...(mock.response.statusMessage ? { statusMessage: mock.response.statusMessage } : {}),
-        ...(mock.response.body ? { data: mock.response.body } : {}),
+        ...(mock.response.body ? { data: responseData(mock.response) } : {}),
         ...(mock.response.headers.length > 0
           ? { headers: headersToRecord(mock.response.headers) }
           : {})

@@ -34,8 +34,10 @@ export interface MockResponse {
   statusMessage?: string;
   /** 헤더 [name, value][]. */
   headers: Array<[string, string]>;
-  /** 응답 본문(텍스트). 이진은 Phase 1에서 텍스트로만 편집. */
+  /** 응답 본문. bodyEncoding이 'base64'면 base64 문자열(이미지 등 이진 응답). */
   body: string;
+  /** 본문 인코딩. 생략하면 'text'. 이진 응답은 'base64'(화면에서 텍스트 편집 불가, 파일로 교체). */
+  bodyEncoding?: 'text' | 'base64';
 }
 
 /**
@@ -109,8 +111,8 @@ export interface SerializedFixedResponseStep {
   type: 'simple';
   status: number;
   statusMessage?: string;
-  /** 문자열 body. mockttp는 string|Buffer 허용. */
-  data?: string;
+  /** 문자열 body 또는 직렬화된 Buffer(`{type:'Buffer', data:[...]}`, 이진 응답). */
+  data?: string | { type: 'Buffer'; data: number[] };
   headers?: Record<string, string>;
 }
 
@@ -139,5 +141,7 @@ function normalizeBody(body: string): string {
  */
 export function isBodyModified(mock: MockDefinition): boolean {
   if (mock.originalBody === undefined) return false;
+  // base64 본문은 JSON 정규화 없이 원문 그대로 비교한다.
+  if (mock.response.bodyEncoding === 'base64') return mock.response.body !== mock.originalBody;
   return normalizeBody(mock.response.body) !== normalizeBody(mock.originalBody);
 }
