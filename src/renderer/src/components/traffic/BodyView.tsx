@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { CapturedBody } from '@shared/capture';
 import { displayableImageMime, isSvgText, toDataUrl } from '@shared/image-body';
-import { isHtmlText } from '@shared/html-body';
+import { isHtmlText, looksLikeSpaShell } from '@shared/html-body';
 import { Button } from '@/components/ui/button';
 import { CodeView } from '../code/CodeView';
 import { ImagePreview } from './ImagePreview';
@@ -68,6 +68,8 @@ export function BodyView({ body }: { body: CapturedBody }): JSX.Element {
       <PreviewCodeBody
         previewLabel="렌더링"
         codeLabel="코드"
+        // SPA 껍데기는 렌더링해도 noscript 문구만 보이므로 코드를 먼저 보여준다.
+        defaultView={looksLikeSpaShell(body.content) ? 'code' : 'preview'}
         preview={<HtmlPreview html={body.content} />}
         code={<CodeView value={body.content} language="html" readOnly />}
       />
@@ -89,15 +91,17 @@ export function BodyView({ body }: { body: CapturedBody }): JSX.Element {
 function PreviewCodeBody({
   previewLabel,
   codeLabel,
+  defaultView = 'preview',
   preview,
   code
 }: {
   previewLabel: string;
   codeLabel: string;
+  defaultView?: 'preview' | 'code';
   preview: React.ReactNode;
   code: React.ReactNode;
 }): JSX.Element {
-  const [view, setView] = useState<'preview' | 'code'>('preview');
+  const [view, setView] = useState<'preview' | 'code'>(defaultView);
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 gap-1 border-b border-border px-3 py-1">
