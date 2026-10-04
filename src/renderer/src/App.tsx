@@ -17,6 +17,7 @@ import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { CloneSourceBar } from './components/mock/CloneSourceBar';
+import { TrafficGroupList } from './components/traffic/TrafficGroupList';
 import { SelectionBar } from './components/traffic/SelectionBar';
 import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
@@ -47,6 +48,7 @@ function AppInner(): JSX.Element {
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [trafficView, setTrafficView] = useState<'group' | 'flat'>('group');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
   const [activeScenario, setActiveScenario] = useState<string | undefined>(undefined);
@@ -221,15 +223,27 @@ function AppInner(): JSX.Element {
         }
         onClear={() => setCheckedIds(new Set())}
         onCloneChecked={handleCloneChecked}
+        view={trafficView}
+        onViewChange={setTrafficView}
       />
       <div className="min-h-0 flex-1">
-        <TrafficList
-          exchanges={filtered}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          checkedIds={checkedIds}
-          onCheckedChange={setCheckedIds}
-        />
+        {trafficView === 'group' ? (
+          <TrafficGroupList
+            exchanges={filtered}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            checkedIds={checkedIds}
+            onCheckedChange={setCheckedIds}
+          />
+        ) : (
+          <TrafficList
+            exchanges={filtered}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            checkedIds={checkedIds}
+            onCheckedChange={setCheckedIds}
+          />
+        )}
       </div>
     </div>
   );
