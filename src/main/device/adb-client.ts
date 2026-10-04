@@ -1,12 +1,14 @@
 /**
- * adbkit을 감싸는 최소 인터페이스.
+ * ADB 기기 접근의 최소 인터페이스(구현: direct-adb-adapter.ts).
  * AndroidConnector가 이 인터페이스에만 의존하도록 해서 단위 테스트에서 목킹하기 쉽게 한다.
  */
 
 export interface AdbDeviceRecord {
   id: string;
-  /** adbkit device type: 'device' | 'emulator' | 'offline' | 'unauthorized' | ... */
+  /** device type: 'device' | 'emulator' | 'offline' | 'unauthorized' | ... */
   type: string;
+  /** 상태 원인(offline/unauthorized일 때 사용자 안내용). */
+  detail?: string;
 }
 
 /** 기기 단위 명령 실행. */

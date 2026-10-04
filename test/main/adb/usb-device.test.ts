@@ -146,7 +146,8 @@ describe.skipIf(!target)('USB 실기기 (adb server 없이)', () => {
       log(`reverse 기기 tcp:${rule.devicePort} → 호스트 tcp:${localPort}`);
       expect((await dadb.listReverse()).some((r) => r.remote === rule.remote)).toBe(true);
 
-      const r = await dadb.shell(`echo ping | toybox nc -w 3 127.0.0.1 ${rule.devicePort}`);
+      // toybox nc는 stdin이 닫히면 응답을 기다리지 않고 끝나므로 입력을 잠시 유지한다.
+      const r = await dadb.shell(`(echo ping; sleep 1) | toybox nc -w 3 127.0.0.1 ${rule.devicePort}`);
       expect(r.output.trim()).toBe('PING');
 
       await rule.close();
@@ -165,7 +166,7 @@ describe.skipIf(!target)('USB 실기기 (adb server 없이)', () => {
     const localPort = (server.address() as net.AddressInfo).port;
     try {
       const rule = await dadb.reverse('tcp:18080', `tcp:${localPort}`);
-      const r = await dadb.shell(`printf 'GET / HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n' | toybox nc -w 3 127.0.0.1 18080`);
+      const r = await dadb.shell(`(printf 'GET / HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n'; sleep 1) | toybox nc -w 3 127.0.0.1 18080`);
       expect(r.output).toContain('200 OK');
       await rule.close();
     } finally {

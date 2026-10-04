@@ -18,7 +18,7 @@ import { DeviceService } from './device/device-service';
 import { AndroidConnector } from './device/android/android-connector';
 import { ApkManager } from './device/android/apk-manager';
 import { IosConnector } from './device/ios/ios-connector';
-import { createAdbkitClient } from './device/adbkit-adapter';
+import { createDirectAdbClient } from './device/direct-adb-adapter';
 import { createUsbmuxClient } from './device/usbmux-adapter';
 import { getReachableIpv4 } from './device/network';
 import { ProjectStore } from './project/project-store';
@@ -100,7 +100,10 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
       proxyRunning: status.running
     };
   });
-  deviceService.register(new AndroidConnector(createAdbkitClient(), apkManager));
+  // adb 바이너리/adb server 없이 직접 USB/TCP로 기기와 통신한다(src/main/adb).
+  const adbClient = createDirectAdbClient();
+  app.on('will-quit', () => void adbClient.close());
+  deviceService.register(new AndroidConnector(adbClient, apkManager));
   deviceService.register(new IosConnector(createUsbmuxClient()));
 
   ipcMain.handle(IpcChannels.deviceList, () => deviceService.listDevices());

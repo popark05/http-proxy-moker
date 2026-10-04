@@ -34,7 +34,7 @@ function makeAdbClient(
 }
 
 describe('AndroidConnector.listDevices', () => {
-  it('adbkit type을 status로 매핑', async () => {
+  it('ADB type을 status로 매핑', async () => {
     const { client } = makeAdbClient(
       [
         { id: 'emulator-5554', type: 'device' },

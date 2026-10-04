@@ -99,6 +99,11 @@ function DeviceItem({
           </Button>
         )}
       </div>
+      {device.status !== 'ready' && device.statusDetail && (
+        <p className="ml-1 text-xs leading-relaxed text-[hsl(var(--warning))]">
+          {device.statusDetail}
+        </p>
+      )}
       {active && !isIos && (
         <Badge variant={interceptionBadge(interception!).tone}>
           {interceptionBadge(interception!).text}

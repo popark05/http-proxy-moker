@@ -54,7 +54,8 @@ export interface DadbOptions {
   usb?: Omit<UsbTransportOptions, 'writeTimeoutMs'>;
   /**
    * USB를 직접 열 수 없을 때(adb server/Android Studio가 점유 등) 실행 중인 adb server를 경유할지.
-   * 기본 true. 매 재연결마다 직접 연결을 먼저 시도한다.
+   * 기본 false: 직접 통신 레이어만 쓰도록 해 어느 경로로 통신하는지 모호하지 않게 한다(점유 시 오류).
+   * true로 켜면 매 재연결마다 직접 연결을 먼저 시도하고 실패할 때만 서버를 경유한다.
    */
   adbServerFallback?: boolean;
   /** adb server 주소/포트(기본 127.0.0.1:ANDROID_ADB_SERVER_PORT|5037). */
@@ -66,7 +67,7 @@ export interface DadbListOptions extends DadbOptions {
   includeUsb?: boolean;
   /** 127.0.0.1의 에뮬레이터 adb 포트(5555~5585 홀수) 포함(기본 true). */
   includeEmulators?: boolean;
-  /** 실행 중인 adb server에만 보이는 기기(adb connect한 무선 기기 등) 포함(기본 true). */
+  /** 실행 중인 adb server에만 보이는 기기(adb connect한 무선 기기 등) 포함(기본 false: 직접 통신만). */
   includeAdbServer?: boolean;
   /** USB 백엔드(테스트용). 생략하면 `usb` 패키지. */
   usbBackend?: UsbBackend;
@@ -135,7 +136,7 @@ export class Dadb implements AdbOpener {
         return UsbTransport.open(device, { ...options.usb, writeTimeoutMs: options.writeTimeoutMs });
       },
       options,
-      options.adbServerFallback === false ? undefined : serial
+      options.adbServerFallback ? serial : undefined
     );
   }
 
@@ -183,7 +184,7 @@ export class Dadb implements AdbOpener {
         if (open[i]) result.push(Dadb.fromEmulator(port, options));
       });
     }
-    if (options.includeAdbServer ?? true) {
+    if (options.includeAdbServer ?? false) {
       try {
         const known = new Set(result.map((d) => d.serial));
         for (const device of await listAdbServerDevices(options.adbServer)) {

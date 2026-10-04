@@ -129,11 +129,22 @@ describe('Dadb.fromAdbServer (서버 경유 서비스)', () => {
     expect((await app.readBytes(10))?.toString()).toBe('VIA SERVER');
   });
 
+  it('Dadb.list: 기본값에서는 서버 기기를 포함하지 않는다', async () => {
+    const { port } = await server();
+    const list = await Dadb.list({
+      usbBackend: new FakeUsbBackend([new FakeUsbDevice(() => undefined, 'PHONE1')]),
+      includeEmulators: false,
+      adbServer: { port }
+    });
+    expect(list.map((d) => d.serial)).toEqual(['PHONE1']);
+  });
+
   it('Dadb.list: 서버에만 보이는 기기를 추가(같은 시리얼은 USB 직접 우선)', async () => {
     const { port } = await server();
     const list = await Dadb.list({
       usbBackend: new FakeUsbBackend([new FakeUsbDevice(() => undefined, 'PHONE1')]),
       includeEmulators: false,
+      includeAdbServer: true,
       adbServer: { port }
     });
     expect(list.map((d) => d.serial)).toEqual(['PHONE1', 'LOCKED', '192.168.0.9:5555']);
@@ -151,7 +162,7 @@ describe('USB 점유 실패 → adb server 대체', () => {
     const phone = new FakeAndroid();
     const { port } = await server(phone);
     const { usbDevice, backend } = busyUsb(phone);
-    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port }, usb: { claimRetries: 0, idlePollMs: 20 } });
+    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port }, adbServerFallback: true, usb: { claimRetries: 0, idlePollMs: 20 } });
     cleanups.push(() => dadb.close());
 
     expect((await dadb.shell('echo fallback')).output).toBe('fallback\n');
@@ -167,18 +178,18 @@ describe('USB 점유 실패 → adb server 대체', () => {
   it('서버가 없으면 원래 USB 오류(안내 포함)를 그대로', async () => {
     const phone = new FakeAndroid();
     const { backend } = busyUsb(phone);
-    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port: await closedPort() }, usb: { claimRetries: 0 } });
+    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port: await closedPort() }, adbServerFallback: true, usb: { claimRetries: 0 } });
     cleanups.push(() => dadb.close());
     const thrown = await dadb.shell('echo x').catch((e) => e);
     expect(thrown).toBeInstanceOf(AdbUsbAccessException);
     expect(thrown.message).toContain('adb kill-server');
   });
 
-  it('adbServerFallback: false면 대체하지 않음', async () => {
+  it('adbServerFallback 기본값(꺼짐)이면 대체하지 않음', async () => {
     const phone = new FakeAndroid();
     const { port } = await server(phone);
     const { backend } = busyUsb(phone);
-    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port }, adbServerFallback: false, usb: { claimRetries: 0 } });
+    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port }, usb: { claimRetries: 0 } });
     cleanups.push(() => dadb.close());
     await expect(dadb.shell('echo x')).rejects.toBeInstanceOf(AdbUsbAccessException);
   });
@@ -187,7 +198,7 @@ describe('USB 점유 실패 → adb server 대체', () => {
     const phone = new FakeAndroid();
     const { port, requests } = await server(phone);
     const backend = new FakeUsbBackend([]); // 기기 없음 → AdbConnectException(점유 실패 아님)
-    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port } });
+    const dadb = Dadb.fromUsb('PHONE1', { keyPair: null, usbBackend: backend, adbServer: { port }, adbServerFallback: true });
     cleanups.push(() => dadb.close());
     const thrown = await dadb.shell('echo x').catch((e) => e);
     expect(thrown).toBeInstanceOf(AdbConnectException);
