@@ -63,21 +63,6 @@ describe('exchangeToMock', () => {
     expect(mock.response.status).toBe(200);
     expect(mock.response.body).toBe('');
   });
-
-  it('이진(base64) 응답 body는 빈 텍스트로 복제', () => {
-    const mock = exchangeToMock(
-      makeExchange({
-        response: {
-          statusCode: 200,
-          statusMessage: 'OK',
-          headers: [],
-          body: { encoding: 'base64', content: 'AAEC', byteLength: 3 }
-        }
-      }),
-      'm3'
-    );
-    expect(mock.response.body).toBe('');
-  });
 });
 
 describe('mockToSerializedRule', () => {
@@ -129,5 +114,51 @@ describe('pickExchangesToClone', () => {
     );
     expect(targets.map((t) => t.id)).toEqual(['b']);
     expect(skipped).toBe(1);
+  });
+});
+
+describe('이진(base64) 응답 목', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]).toString('base64');
+  const binaryExchange = () =>
+    makeExchange({
+      response: {
+        statusCode: 200,
+        statusMessage: 'OK',
+        headers: [['content-type', 'image/png']],
+        body: { encoding: 'base64', content: PNG, byteLength: 6, contentType: 'image/png' }
+      }
+    });
+
+  it('복제하면 base64 본문과 인코딩을 보존한다', () => {
+    const mock = exchangeToMock(binaryExchange(), 'm1');
+    expect(mock.response.body).toBe(PNG);
+    expect(mock.response.bodyEncoding).toBe('base64');
+    expect(mock.originalBody).toBe(PNG);
+  });
+
+  it('mockttp 룰에는 Buffer 직렬화 형태로 들어간다', () => {
+    const rule = mockToSerializedRule(exchangeToMock(binaryExchange(), 'm1'));
+    expect(rule.steps[0].data).toEqual({ type: 'Buffer', data: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a] });
+  });
+
+  it('텍스트 목은 문자열 그대로(회귀)', () => {
+    const rule = mockToSerializedRule(exchangeToMock(makeExchange(), 'm1'));
+    expect(rule.steps[0].data).toBe('[{"id":1}]');
+  });
+
+  it('생략된(크기 초과) 본문은 빈 값', () => {
+    const mock = exchangeToMock(
+      makeExchange({
+        response: {
+          statusCode: 200,
+          statusMessage: 'OK',
+          headers: [],
+          body: { encoding: 'omitted', content: '', byteLength: 9_999_999 }
+        }
+      }),
+      'm2'
+    );
+    expect(mock.response.body).toBe('');
+    expect(mock.response.bodyEncoding).toBeUndefined();
   });
 });

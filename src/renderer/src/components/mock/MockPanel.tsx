@@ -164,6 +164,11 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove }: MockRowProps):
           {hitCount}회 응답
         </Badge>
       )}
+      {mock.response.bodyEncoding === 'base64' && (
+        <Badge variant="neutral" title="이진 본문(이미지 등)">
+          이진
+        </Badge>
+      )}
       {isBodyModified(mock) && (
         <Badge variant="info" title="원본 응답에서 본문이 수정됨">
           수정됨

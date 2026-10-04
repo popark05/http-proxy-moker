@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { GitCompare, Pencil } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { GitCompare, ImageUp, Pencil } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import { isBodyModified } from '@shared/mock';
 import { Modal } from '../primitives';
@@ -8,6 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CodeView } from '../code/CodeView';
 import { CodeDiffView } from '../code/CodeDiffView';
+import { ImagePreview } from '../traffic/ImagePreview';
+import { displayableImageMime, toDataUrl } from '@shared/image-body';
+import { fileToBase64 } from '@/lib/file';
+
+/** 파일로 교체할 수 있는 최대 크기. 본문은 IPC로 워커에 전달되므로 과도한 크기는 막는다. */
+const MAX_REPLACE_BYTES = 2 * 1024 * 1024;
 
 interface MockEditorProps {
   mock: MockDefinition | undefined;
@@ -31,6 +37,8 @@ function prettifyJson(body: string): string {
 
 /** 편집 초기값용: 응답 본문을 들여쓰기한 목을 반환. */
 function prettifyJsonBody(mock: MockDefinition): MockDefinition {
+  // base64 본문은 JSON이 아니다(숫자처럼 보이는 문자열이 변형되지 않게 건너뜀).
+  if (mock.response.bodyEncoding === 'base64') return mock;
   const formatted = prettifyJson(mock.response.body);
   if (formatted === mock.response.body) return mock;
   return { ...mock, response: { ...mock.response, body: formatted } };
@@ -40,11 +48,14 @@ function prettifyJsonBody(mock: MockDefinition): MockDefinition {
 export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
   const [showDiff, setShowDiff] = useState(false);
+  const [replaceError, setReplaceError] = useState<string | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 모달이 열릴 때 본문 JSON을 들여쓰기해 구조가 보이게 한다. diff 토글은 초기화.
   useEffect(() => {
     setDraft(mock ? prettifyJsonBody(mock) : mock);
     setShowDiff(false);
+    setReplaceError(undefined);
   }, [mock]);
 
   if (!draft) {
@@ -64,6 +75,23 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
     setDraft({ ...draft, response: { ...draft.response, ...patch } });
 
   const hasFault = !!draft.fault && draft.fault !== 'none';
+  const isBinary = draft.response.bodyEncoding === 'base64';
+  const contentTypeHeader = draft.response.headers.find(([k]) => k.toLowerCase() === 'content-type')?.[1];
+
+  /** 이진 본문을 선택한 파일로 교체하고 Content-Type을 파일 형식에 맞춘다. */
+  const replaceWithFile = async (file: File): Promise<void> => {
+    if (file.size > MAX_REPLACE_BYTES) {
+      setReplaceError(`파일이 너무 큽니다(최대 ${MAX_REPLACE_BYTES / 1024 / 1024}MB).`);
+      return;
+    }
+    setReplaceError(undefined);
+    const body = await fileToBase64(file);
+    const headers = draft.response.headers.filter(([k]) => k.toLowerCase() !== 'content-type');
+    // content-length는 원본 크기라 어긋나므로 제거(mockttp가 실제 길이로 채운다).
+    const cleaned = headers.filter(([k]) => k.toLowerCase() !== 'content-length');
+    if (file.type) cleaned.push(['content-type', file.type]);
+    setDraft({ ...draft, response: { ...draft.response, body, bodyEncoding: 'base64', headers: cleaned } });
+  };
   const headersText = draft.response.headers.map(([k, v]) => `${k}: ${v}`).join('\n');
 
   const applyHeaders = (text: string): void => {
@@ -180,7 +208,7 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
 
           <div className="mb-1 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">응답 본문</span>
-            {draft.originalBody !== undefined && (
+            {draft.originalBody !== undefined && !isBinary && (
               <div className="flex items-center gap-2">
                 {isBodyModified(draft) && (
                   <span className="text-xs text-primary">원본에서 수정됨</span>
@@ -205,7 +233,35 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
             )}
           </div>
           <div className="h-[42vh] min-h-[320px] overflow-hidden rounded-md border border-border">
-            {showDiff && draft.originalBody !== undefined ? (
+            {isBinary ? (
+              <div className="flex h-full flex-col">
+                <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+                  <span>
+                    이진 본문은 텍스트로 편집할 수 없습니다. 다른 파일로 교체할 수 있습니다.
+                    {isBodyModified(draft) ? ' (원본에서 교체됨)' : ''}
+                  </span>
+                  <div className="flex-1" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={contentTypeHeader?.startsWith('image/') ? 'image/*' : undefined}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = ''; // 같은 파일을 다시 골라도 change가 오도록 초기화
+                      if (file) void replaceWithFile(file);
+                    }}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    <ImageUp /> 파일로 교체
+                  </Button>
+                </div>
+                {replaceError && <div className="px-3 py-1 text-xs text-destructive">{replaceError}</div>}
+                <div className="min-h-0 flex-1">
+                  <BinaryBody body={draft.response.body} contentType={contentTypeHeader} />
+                </div>
+              </div>
+            ) : showDiff && draft.originalBody !== undefined ? (
               <CodeDiffView
                 original={prettifyJson(draft.originalBody)}
                 modified={draft.response.body}
@@ -233,7 +289,10 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
             // 저장 시에도 JSON이면 pretty-print해 포맷을 일관되게 유지.
             onSave({
               ...draft,
-              response: { ...draft.response, body: prettifyJson(draft.response.body) }
+              response: {
+                ...draft.response,
+                body: isBinary ? draft.response.body : prettifyJson(draft.response.body)
+              }
             });
             onOpenChange(false);
           }}
@@ -242,5 +301,17 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
         </Button>
       </div>
     </Modal>
+  );
+}
+
+/** 이진 본문 미리보기: 이미지면 그림으로, 아니면 크기만 안내한다. */
+function BinaryBody({ body, contentType }: { body: string; contentType?: string }): JSX.Element {
+  const byteLength = Math.floor((body.length * 3) / 4) - (body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0);
+  const mime = displayableImageMime({ encoding: 'base64', content: body, byteLength, contentType });
+  if (mime) return <ImagePreview src={toDataUrl(mime, body, 'base64')} mime={mime} byteLength={byteLength} />;
+  return (
+    <div className="p-3 text-sm text-muted-foreground">
+      이진 본문 ({byteLength.toLocaleString()} 바이트, {contentType ?? '알 수 없음'})
+    </div>
   );
 }
