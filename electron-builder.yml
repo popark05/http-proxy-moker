@@ -16,7 +16,7 @@ files:
 # `npm run fetch-usb`가 node_modules에 배치한다(dist:mac에 포함).
 npmRebuild: false
 
-# node_modules 중 런타임에 필요한 것만 포함(mockttp/adbkit 등은 main에서 require).
+# node_modules 중 런타임에 필요한 것만 포함(mockttp 등은 main에서 require).
 # electron-builder가 package.json dependencies를 기준으로 자동 포함한다.
 asarUnpack:
   - '**/*.node'

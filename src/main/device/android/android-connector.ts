@@ -11,7 +11,7 @@ import { detectRootCommand, setProxy, clearProxy, injectSystemCertificate } from
 import { buildSetupParams, buildConnectUrl } from './vpn-activation';
 import type { ApkManager } from './apk-manager';
 
-/** adbkit device type → DeviceInfo status 매핑. */
+/** ADB device type → DeviceInfo status 매핑. */
 function mapStatus(type: string): DeviceInfo['status'] {
   if (type === 'device' || type === 'emulator') return 'ready';
   if (type === 'unauthorized') return 'unauthorized';
