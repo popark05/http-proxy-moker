@@ -130,9 +130,11 @@ interface DevicePanelProps {
   /** 이 IP의 요청만 보기(같은 기기를 다시 누르면 해제). */
   onFilterClient: (ip: string | undefined) => void;
   activeClientFilter: string | undefined;
+  /** 접속 IP 없는 요청 수. */
+  untrackedCount: number;
 }
 
-export function DevicePanel({ clients, now, proxyRunning, onFilterClient, activeClientFilter }: DevicePanelProps): JSX.Element {
+export function DevicePanel({ clients, now, proxyRunning, onFilterClient, activeClientFilter, untrackedCount }: DevicePanelProps): JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices();
   const [iosSetupOpen, setIosSetupOpen] = useState(false);
 
@@ -207,6 +209,7 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
         devices={devices}
         now={now}
         proxyRunning={proxyRunning}
+        untrackedCount={untrackedCount}
         activeFilter={activeClientFilter}
         onFilter={(ip) => onFilterClient(activeClientFilter === ip ? undefined : ip)}
         onIosSetup={() => setIosSetupOpen(true)}

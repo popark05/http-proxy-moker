@@ -12,7 +12,7 @@ import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
 import { useClients } from './state/useClients';
-import { clientLabel } from '@shared/clients';
+import { clientLabel, countWithoutClientIp } from '@shared/clients';
 import { useTrafficFilter } from './state/useTrafficFilter';
 import { useMockHits } from './state/useMockHits';
 import { ProxyControls } from './components/traffic/ProxyControls';
@@ -348,6 +348,7 @@ function AppInner(): JSX.Element {
             now={now}
             proxyRunning={status.running}
             activeClientFilter={filter.client}
+            untrackedCount={countWithoutClientIp(exchanges)}
             onFilterClient={(ip) => patchFilter({ client: ip })}
           />
         </div>

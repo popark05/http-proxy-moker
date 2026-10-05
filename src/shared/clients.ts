@@ -121,6 +121,11 @@ export function aggregateClients(
   return [...map.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
 }
 
+/** 접속 IP가 기록되지 않은 요청 수(업데이트 전 워커가 캡처했거나 옛 HAR에서 불러온 것). */
+export function countWithoutClientIp(exchanges: readonly CapturedExchange[]): number {
+  return exchanges.filter((e) => !e.request.clientIp).length;
+}
+
 export type ClientState =
   /** 접속은 하지만 HTTPS가 복호화되지 않음(CA 미신뢰). */
   | 'untrusted'

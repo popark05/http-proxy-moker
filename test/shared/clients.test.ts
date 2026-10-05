@@ -6,6 +6,7 @@ import {
   aggregateClients,
   clientLabel,
   clientState,
+  countWithoutClientIp,
   normalizeClientIp,
   parseUserAgent
 } from '../../src/shared/clients';
@@ -118,5 +119,11 @@ describe('clientLabel', () => {
   it('USB iOS 한 대 + Wi-Fi iOS 한 대면 같은 기기로 보고 기기 이름을 쓴다', () => {
     expect(clientLabel(ios, [dev('ios', '민수의 iPhone')], [ios])).toBe('민수의 iPhone · iPhone · iOS 17.4');
     expect(clientLabel(ios, [dev('ios', 'A'), dev('ios', 'B')], [ios])).toBe('iPhone · iOS 17.4');
+  });
+});
+
+describe('countWithoutClientIp', () => {
+  it('접속 IP가 없는 요청만 센다', () => {
+    expect(countWithoutClientIp([ex('1', undefined, 'https://a.com'), ex('2', '1.1.1.1', 'https://a.com'), ex('3', undefined, 'https://b.com')])).toBe(2);
   });
 });

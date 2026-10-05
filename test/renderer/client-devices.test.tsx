@@ -68,6 +68,12 @@ describe('ClientList', () => {
     expect(screen.getByText(/인증서를 고정한 앱/)).toBeTruthy();
   });
 
+  it('접속 IP가 없는 요청이 있으면 프록시 재시작 안내를 보여준다', () => {
+    render(<ClientList {...baseProps} clients={[]} now={0} untrackedCount={175} />);
+    expect(screen.getByText(/접속 기기를 알 수 없는 요청 175건/)).toBeTruthy();
+    expect(screen.getByText('중지 후 다시 시작')).toBeTruthy();
+  });
+
   it('접속 기기가 없으면 안내(프록시 실행 여부에 따라 문구가 다름)', () => {
     const { rerender } = render(<ClientList {...baseProps} clients={[]} now={0} />);
     expect(screen.getByText(/Wi-Fi 프록시를 이 PC 주소로/)).toBeTruthy();

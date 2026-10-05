@@ -30,6 +30,8 @@ interface ClientListProps {
   onFilter: (ip: string) => void;
   activeFilter: string | undefined;
   onIosSetup: () => void;
+  /** 접속 IP가 없는 요청 수(기기를 식별할 수 없는 캡처). */
+  untrackedCount?: number;
 }
 
 /**
@@ -38,7 +40,7 @@ interface ClientListProps {
  */
 const STATE_ORDER = { untrusted: 0, active: 1, idle: 2 } as const;
 
-export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup }: ClientListProps): JSX.Element {
+export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup, untrackedCount = 0 }: ClientListProps): JSX.Element {
   // 조치가 필요한 기기(인증서 미신뢰)를 맨 위에, 그다음 수신 중, 대기 순(같은 상태는 최근 접속순).
   const sorted = [...clients].sort(
     (a, b) => STATE_ORDER[clientState(a, now)] - STATE_ORDER[clientState(b, now)] || b.lastSeenAt - a.lastSeenAt
@@ -48,6 +50,12 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
       <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
         접속 중인 기기 ({clients.length})
       </h3>
+      {untrackedCount > 0 && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          접속 기기를 알 수 없는 요청 {untrackedCount}건이 있습니다(앱 업데이트 전에 시작한 프록시나 불러온 세션).
+          프록시를 <strong className="font-medium">중지 후 다시 시작</strong>하면 이후 요청부터 기기가 표시됩니다.
+        </p>
+      )}
       {clients.length === 0 ? (
         <p className="text-xs leading-relaxed text-muted-foreground">
           {proxyRunning
