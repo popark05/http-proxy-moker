@@ -436,9 +436,17 @@ function AppInner(): JSX.Element {
         scenarios={scenarioLib.scenarios}
         library={scenarioLib.library}
         onSave={(scenario) => {
+          const workspaceEdited = scenario.name === activeScenario && !!scenarioLib.diff?.dirty;
           void scenarioLib
             .saveScenario(scenario)
-            .then((saved) => toast.success('시나리오 저장됨', { description: saved }))
+            .then((saved) => {
+              toast.success('시나리오 저장됨', { description: saved });
+              if (workspaceEdited) {
+                toast.info('작업 공간에는 아직 반영되지 않았습니다', {
+                  description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
+                });
+              }
+            })
             .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
         }}
       />

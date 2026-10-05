@@ -73,8 +73,14 @@ export function useScenarioLibrary({
   // 비동기 콜백이 최신 값을 보도록 미러링(스테일 클로저 방지).
   const libraryRef = useRef(library);
   const scenariosRef = useRef(scenarios);
+  const mocksRef = useRef(mocks);
+  const activeRef = useRef(activeScenario);
+  const replaceMocksRef = useRef(replaceMocks);
   libraryRef.current = library;
   scenariosRef.current = scenarios;
+  mocksRef.current = mocks;
+  activeRef.current = activeScenario;
+  replaceMocksRef.current = replaceMocks;
 
   // 프로젝트가 바뀌면 다시 읽는다.
   useEffect(() => {
@@ -114,6 +120,11 @@ export function useScenarioLibrary({
   /** 상태 반영 + 디스크 저장. 바뀐 시나리오만 저장한다. 저장된 이름(살균 후)으로 상태를 맞춘다. */
   const persist = useCallback(
     async (nextLibrary: CaseLibrary, nextScenarios: ScenarioV2[], changed: ScenarioV2[]): Promise<Map<string, string>> => {
+      // 활성 시나리오의 작업 공간이 아직 손대지 않은 상태였는지(저장 전 기준) 기억해 둔다.
+      const active = activeRef.current;
+      const workspaceWasClean =
+        !!active &&
+        !diffWorkspace(resolveScenario(active, scenariosRef.current, libraryRef.current).mocks, mocksRef.current).dirty;
       await window.mokerApi.project.saveLibrary(nextLibrary);
       const renamed = new Map<string, string>();
       for (const s of changed) {
@@ -127,6 +138,12 @@ export function useScenarioLibrary({
       setScenarios(finalScenarios);
       libraryRef.current = nextLibrary;
       scenariosRef.current = finalScenarios;
+      // 작업 공간에 직접 고친 내용이 없었다면, 시나리오/케이스 편집 결과를 작업 공간에도 바로 반영한다
+      // (그렇지 않으면 "수정됨"으로 보여 "현재 작업 반영"을 눌렀을 때 편집한 내용이 옛 목으로 되돌려진다).
+      // 직접 고친 내용이 있으면 덮어쓰지 않고 그대로 둔다("되돌리기"로 사용자가 선택).
+      if (active && workspaceWasClean) {
+        replaceMocksRef.current(resolveScenario(active, finalScenarios, nextLibrary).mocks);
+      }
       return renamed;
     },
     []

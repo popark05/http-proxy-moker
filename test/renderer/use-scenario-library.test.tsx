@@ -120,4 +120,64 @@ describe('useScenarioLibrary', () => {
     expect(first?.created).toBe(false);
     expect(result.current.library.endpoints[0].cases[0].response.body).toBe('edited');
   });
+
+  describe('활성 시나리오 편집 후 작업 공간 동기화', () => {
+    async function setupActive(workspaceRef: { current: MockDefinition[] }) {
+      installApi();
+      const replaceMocks = vi.fn((m: MockDefinition[]) => void (workspaceRef.current = m));
+      const hook = renderHook(() => useScenarioLibrary({ projectDir: '/p', mocks: workspaceRef.current, replaceMocks }));
+      await waitFor(() => expect(hook.result.current.scenarios).toEqual([]));
+      await act(async () => {
+        await hook.result.current.saveFromWorkspace('S');
+      });
+      act(() => void hook.result.current.activate('S'));
+      hook.rerender();
+      replaceMocks.mockClear();
+      return { hook, replaceMocks };
+    }
+
+    it('작업 공간을 손대지 않았다면 시나리오 편집 결과가 작업 공간에도 바로 반영된다', async () => {
+      const ws = { current: [mock('GET', '/join', 200, 'ok')] };
+      const { hook, replaceMocks } = await setupActive(ws);
+      // 타임아웃 케이스를 라이브러리에 만들고 시나리오가 그것을 고르도록 편집해 저장.
+      let timeoutCaseId = '';
+      await act(async () => {
+        const out = await hook.result.current.saveMockAsCase({ ...mock('GET', '/join', 200, ''), fault: 'timeout' });
+        void out;
+      });
+      timeoutCaseId = hook.result.current.library.endpoints[0].cases.find((c) => c.fault === 'timeout')!.id;
+      replaceMocks.mockClear();
+      await act(async () => {
+        await hook.result.current.saveScenario({
+          ...hook.result.current.scenarios[0],
+          picks: [{ endpointId: 'GET /join', caseId: timeoutCaseId }]
+        });
+      });
+      expect(replaceMocks).toHaveBeenCalled();
+      const applied = replaceMocks.mock.calls.at(-1)![0] as MockDefinition[];
+      expect(applied[0].fault).toBe('timeout');
+    });
+
+    it('작업 공간에 직접 고친 목이 있으면 덮어쓰지 않는다', async () => {
+      const ws = { current: [mock('GET', '/join', 200, 'ok')] };
+      const { hook, replaceMocks } = await setupActive(ws);
+      ws.current = [mock('GET', '/join', 503, 'edited')]; // 사용자가 작업 공간을 직접 수정
+      hook.rerender();
+      await act(async () => {
+        await hook.result.current.saveScenario({ ...hook.result.current.scenarios[0], description: 'x' });
+      });
+      expect(replaceMocks).not.toHaveBeenCalled();
+    });
+
+    it('케이스를 고쳐도(작업 공간이 깨끗하면) 활성 시나리오의 작업 공간이 새 내용으로 갱신된다', async () => {
+      const ws = { current: [mock('GET', '/join', 200, 'old')] };
+      const { hook, replaceMocks } = await setupActive(ws);
+      const e = hook.result.current.library.endpoints[0];
+      const edited = { ...hook.result.current.library, endpoints: [{ ...e, cases: [{ ...e.cases[0], response: { ...e.cases[0].response, body: 'new' } }] }] };
+      await act(async () => {
+        await hook.result.current.commit({ library: edited });
+      });
+      expect((replaceMocks.mock.calls.at(-1)![0] as MockDefinition[])[0].response.body).toBe('new');
+    });
+  });
 });
