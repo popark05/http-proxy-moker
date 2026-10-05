@@ -10,6 +10,7 @@ import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
+import { useScenarioLibrary } from './state/useScenarioLibrary';
 import { useTrafficFilter } from './state/useTrafficFilter';
 import { useMockHits } from './state/useMockHits';
 import { ProxyControls } from './components/traffic/ProxyControls';
@@ -24,6 +25,10 @@ import { DevicePanel } from './components/device/DevicePanel';
 import { ProjectBar } from './components/project/ProjectBar';
 import { MockPanel } from './components/mock/MockPanel';
 import { ScenarioPanel } from './components/mock/ScenarioPanel';
+import { ScenarioEditor } from './components/mock/ScenarioEditor';
+import { LibraryModal } from './components/mock/LibraryModal';
+import type { MockDefinition } from '@shared/mock';
+import type { ScenarioV2 } from '@shared/scenario-library';
 
 /** 에러 객체에서 사용자 표시용 메시지 추출. */
 function errMsg(e: unknown): string {
@@ -38,12 +43,13 @@ function AppInner(): JSX.Element {
     createProject,
     openProject,
     saveCapture,
-    loadCapture,
-    addScenarioName,
-    removeScenarioName
+    loadCapture
   } = useProject();
-  const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, saveScenario, loadScenario } =
-    useMocks();
+  const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, replaceMocks } = useMocks();
+  const scenarioLib = useScenarioLibrary({ projectDir: project?.dir, mocks, replaceMocks });
+  const { activeScenario } = scenarioLib;
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [editorTarget, setEditorTarget] = useState<{ scenario: ScenarioV2 | undefined } | undefined>(undefined);
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
@@ -52,7 +58,6 @@ function AppInner(): JSX.Element {
   const [trafficView, setTrafficView] = useState<'group' | 'flat'>('group');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
-  const [activeScenario, setActiveScenario] = useState<string | undefined>(undefined);
 
   const selected = exchanges.find((e) => e.id === selectedId);
 
@@ -95,30 +100,87 @@ function AppInner(): JSX.Element {
   };
 
   const handleSaveScenario = async (name: string): Promise<void> => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!project) {
+      toast.error('시나리오 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
+      return;
+    }
+    if (
+      scenarioLib.scenarios.some((s) => s.name === trimmed) &&
+      !window.confirm(`"${trimmed}" 시나리오를 현재 작업 공간 내용으로 덮어쓸까요?`)
+    ) {
+      return;
+    }
     try {
-      const saved = await saveScenario(name);
-      addScenarioName(saved);
-      setActiveScenario(saved);
-      toast.success('시나리오 저장됨', { description: saved });
+      const saved = await scenarioLib.saveFromWorkspace(trimmed);
+      toast.success('시나리오 저장됨', { description: `${saved} · 목이 케이스 라이브러리에 저장되었습니다` });
     } catch (e) {
       toast.error('시나리오 저장 실패', { description: errMsg(e) });
     }
   };
 
-  const handleActivateScenario = async (name: string): Promise<void> => {
-    await loadScenario(name);
-    setActiveScenario(name);
+  const handleActivateScenario = (name: string): void => {
+    const { missing, cycle } = scenarioLib.activate(name);
     toast.success('시나리오 활성화', {
       description: mode === 'mock' ? `${name} 적용됨` : `${name} 로드됨 (목킹 모드에서 적용)`
     });
+    if (cycle) toast.warning('베이스 상속이 순환합니다', { description: '시나리오 편집에서 베이스를 확인하세요.' });
+    if (missing.length > 0) {
+      toast.warning(`라이브러리에 없는 케이스 ${missing.length}개를 건너뜀`, { description: missing.join(', ') });
+    }
   };
 
   const handleDeleteScenario = async (name: string): Promise<void> => {
-    await window.mokerApi.project.deleteScenario(name);
-    removeScenarioName(name);
-    if (activeScenario === name) setActiveScenario(undefined);
-    toast('시나리오 삭제됨', { description: name });
+    if (!window.confirm(`"${name}" 시나리오를 삭제할까요? (케이스 라이브러리는 유지됩니다)`)) return;
+    try {
+      await scenarioLib.deleteScenario(name);
+      toast('시나리오 삭제됨', { description: name });
+    } catch (e) {
+      toast.error('삭제할 수 없습니다', { description: errMsg(e) });
+    }
   };
+
+  const handleUpdateActiveScenario = async (): Promise<void> => {
+    try {
+      await scenarioLib.updateActiveFromWorkspace();
+      toast.success('시나리오 갱신됨', { description: activeScenario });
+    } catch (e) {
+      toast.error('시나리오 갱신 실패', { description: errMsg(e) });
+    }
+  };
+
+  const handleSaveMockAsCase = async (mock: MockDefinition): Promise<void> => {
+    if (!project) {
+      toast.error('케이스 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
+      return;
+    }
+    try {
+      const { created, caseName } = await scenarioLib.saveMockAsCase(mock);
+      toast.success(created ? '케이스로 저장됨' : '케이스에 반영됨', {
+        description: `${mock.method} ${mock.path} · ${caseName}`
+      });
+    } catch (e) {
+      toast.error('케이스 저장 실패', { description: errMsg(e) });
+    }
+  };
+
+  const caseNameOf = (mock: MockDefinition): string | undefined => {
+    const ref = mock.caseRef;
+    if (!ref) return undefined;
+    return scenarioLib.library.endpoints
+      .find((e) => e.id === ref.endpointId)
+      ?.cases.find((c) => c.id === ref.caseId)?.name;
+  };
+
+  // 프로젝트를 열 때 v1 시나리오가 변환되었다면 한 번 알린다.
+  useEffect(() => {
+    if (scenarioLib.migratedCount > 0) {
+      toast.info(`시나리오 ${scenarioLib.migratedCount}개를 케이스 라이브러리 형식으로 변환했습니다`, {
+        description: '원본은 scenarios/*.v1.bak으로 보관됩니다.'
+      });
+    }
+  }, [scenarioLib.migratedCount]);
 
   const handleAddTag = (id: string, tag: string): void => {
     addTag(id, tag);
@@ -332,16 +394,24 @@ function AppInner(): JSX.Element {
                     onUpdate={updateMock}
                     onRemove={removeMock}
                     onSaveScenario={(name) => void handleSaveScenario(name)}
+                    onSaveCase={(mock) => void handleSaveMockAsCase(mock)}
+                    caseNameOf={caseNameOf}
                     hitCounts={mockHits.counts}
                     lastHitAt={mockHits.lastHitAt}
                     onResetHits={mockHits.reset}
                   />
                   <Separator className="my-3" />
                   <ScenarioPanel
-                    scenarios={project?.scenarios ?? []}
+                    scenarios={scenarioLib.scenarios}
                     activeScenario={activeScenario}
-                    onActivate={(name) => void handleActivateScenario(name)}
+                    diff={scenarioLib.diff}
+                    hasLibrary={scenarioLib.library.endpoints.length > 0}
+                    onActivate={handleActivateScenario}
+                    onEdit={(scenario) => setEditorTarget({ scenario })}
                     onDelete={(name) => void handleDeleteScenario(name)}
+                    onUpdateActive={() => void handleUpdateActiveScenario()}
+                    onNew={() => setEditorTarget({ scenario: undefined })}
+                    onOpenLibrary={() => setLibraryOpen(true)}
                   />
                 </div>
               </div>
@@ -350,6 +420,28 @@ function AppInner(): JSX.Element {
         </div>
       )}
 
+      <LibraryModal
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        library={scenarioLib.library}
+        scenarios={scenarioLib.scenarios}
+        onCommit={(next) => void scenarioLib.commit(next)}
+      />
+      <ScenarioEditor
+        open={!!editorTarget}
+        onOpenChange={(o) => {
+          if (!o) setEditorTarget(undefined);
+        }}
+        scenario={editorTarget?.scenario}
+        scenarios={scenarioLib.scenarios}
+        library={scenarioLib.library}
+        onSave={(scenario) => {
+          void scenarioLib
+            .saveScenario(scenario)
+            .then((saved) => toast.success('시나리오 저장됨', { description: saved }))
+            .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
+        }}
+      />
       <Toaster />
       <SplashScreen />
     </div>

@@ -23,7 +23,8 @@ import { createUsbmuxClient } from './device/usbmux-adapter';
 import { getReachableIpv4 } from './device/network';
 import { ProjectStore } from './project/project-store';
 import type { CapturedExchange } from '@shared/capture';
-import type { MockScenario, ApplyMocksArgs } from '@shared/mock';
+import type { ApplyMocksArgs } from '@shared/mock';
+import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
 
 /**
  * main 프로세스의 IPC 핸들러를 등록한다.
@@ -166,7 +167,7 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
     return projectStore.loadCaptureSession(openProjectDir, name);
   });
 
-  ipcMain.handle(IpcChannels.projectSaveScenario, async (_event, scenario: MockScenario) => {
+  ipcMain.handle(IpcChannels.projectSaveScenario, async (_event, scenario: ScenarioFile) => {
     if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
     return projectStore.saveScenario(openProjectDir, scenario);
   });
@@ -174,6 +175,21 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   ipcMain.handle(IpcChannels.projectLoadScenario, async (_event, name: string) => {
     if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
     return projectStore.loadScenario(openProjectDir, name);
+  });
+
+  ipcMain.handle(IpcChannels.projectLoadAllScenarios, async () => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.loadAllScenarios(openProjectDir);
+  });
+
+  ipcMain.handle(IpcChannels.projectLoadLibrary, async () => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.loadLibrary(openProjectDir);
+  });
+
+  ipcMain.handle(IpcChannels.projectSaveLibrary, async (_event, library: CaseLibrary) => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.saveLibrary(openProjectDir, library);
   });
 
   ipcMain.handle(IpcChannels.projectDeleteScenario, async (_event, name: string) => {

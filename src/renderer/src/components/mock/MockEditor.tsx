@@ -20,6 +20,11 @@ interface MockEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (mock: MockDefinition) => void;
+  /** 케이스 편집처럼 method/path를 바꾸지 않을 때(엔드포인트 고정). */
+  lockEndpoint?: boolean;
+  /** 이름 입력 라벨(기본 "라벨"). */
+  nameLabel?: string;
+  title?: string;
 }
 
 const selectClass =
@@ -45,7 +50,15 @@ function prettifyJsonBody(mock: MockDefinition): MockDefinition {
 }
 
 /** 목 정의 편집 모달: method/path/status/헤더/본문(Monaco). */
-export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps): JSX.Element {
+export function MockEditor({
+  mock,
+  open,
+  onOpenChange,
+  onSave,
+  lockEndpoint = false,
+  nameLabel = '라벨',
+  title = '목 편집'
+}: MockEditorProps): JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
   const [showDiff, setShowDiff] = useState(false);
   const [replaceError, setReplaceError] = useState<string | undefined>(undefined);
@@ -112,12 +125,12 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="목 편집"
+      title={title}
       className="w-[94vw] max-w-none sm:max-w-5xl"
     >
       <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
         <Label htmlFor="mock-label" className="text-muted-foreground">
-          라벨
+          {nameLabel}
         </Label>
         <Input
           id="mock-label"
@@ -133,6 +146,7 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
           id="mock-method"
           className="font-mono"
           value={draft.method}
+          disabled={lockEndpoint}
           onChange={(e) => update({ method: e.target.value.toUpperCase() })}
         />
 
@@ -143,6 +157,7 @@ export function MockEditor({ mock, open, onOpenChange, onSave }: MockEditorProps
           id="mock-path"
           className="font-mono"
           value={draft.path}
+          disabled={lockEndpoint}
           onChange={(e) => update({ path: e.target.value })}
         />
 

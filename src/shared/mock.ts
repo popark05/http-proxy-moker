@@ -73,6 +73,8 @@ export interface MockDefinition {
    * "무엇을 바꿨는지" 파악하는 데 쓴다. 캡처에서 복제된 목에만 존재.
    */
   originalBody?: string;
+  /** 케이스 라이브러리에서 풀어낸 목이면 출처(엔드포인트/케이스). 수정 반영·변경 감지에 쓴다. */
+  caseRef?: { endpointId: string; caseId: string };
 }
 
 /** 목 시나리오: 목 정의의 집합. scenarios/<name>.json으로 저장. */

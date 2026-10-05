@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { CapturedExchange } from '@shared/capture';
-import type { MockDefinition, MockScenario } from '@shared/mock';
+import type { MockDefinition } from '@shared/mock';
 import { exchangeToMock, pickExchangesToClone } from '@shared/mock-convert';
 
 interface UseMocksResult {
@@ -11,10 +11,8 @@ interface UseMocksResult {
   cloneMany: (exchanges: CapturedExchange[]) => { added: number; skipped: number };
   updateMock: (mock: MockDefinition) => void;
   removeMock: (id: string) => void;
-  /** 현재 목들을 시나리오로 저장. 저장된 시나리오명 반환. */
-  saveScenario: (name: string, description?: string) => Promise<string>;
-  /** 저장된 시나리오를 로드해 목 목록으로 설정. */
-  loadScenario: (name: string) => Promise<void>;
+  /** 작업 공간의 목 목록을 통째로 교체(시나리오 활성화). */
+  replaceMocks: (mocks: MockDefinition[]) => void;
 }
 
 function randomId(): string {
@@ -53,24 +51,7 @@ export function useMocks(): UseMocksResult {
     setMocks((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
-  const saveScenario = useCallback(
-    async (name: string, description?: string): Promise<string> => {
-      const scenario: MockScenario = {
-        version: 1,
-        id: randomId(),
-        name,
-        description,
-        mocks
-      };
-      return window.mokerApi.project.saveScenario(scenario);
-    },
-    [mocks]
-  );
+  const replaceMocks = useCallback((next: MockDefinition[]) => setMocks(next), []);
 
-  const loadScenario = useCallback(async (name: string) => {
-    const scenario = await window.mokerApi.project.loadScenario(name);
-    setMocks(scenario.mocks);
-  }, []);
-
-  return { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, saveScenario, loadScenario };
+  return { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, replaceMocks };
 }
