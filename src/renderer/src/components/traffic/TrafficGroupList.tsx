@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
+import { useVirtualBlankGuard } from '@/lib/useVirtualBlankGuard';
 
 interface TrafficGroupListProps {
   exchanges: CapturedExchange[];
@@ -88,6 +89,7 @@ export function TrafficGroupList({
     estimateSize: (i) => ROW_HEIGHT[rows[i].kind],
     overscan: 12
   });
+  useVirtualBlankGuard(virtualizer, parentRef, rows.length);
 
   const toggleSet = <T,>(set: Set<T>, value: T, update: (next: Set<T>) => void): void => {
     const next = new Set(set);

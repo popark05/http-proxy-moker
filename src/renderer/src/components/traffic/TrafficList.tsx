@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
+import { useVirtualBlankGuard } from '@/lib/useVirtualBlankGuard';
 import type { ClientPlatform } from '@shared/clients';
 import { PlatformIcon } from '../device/ClientList';
 
@@ -67,6 +68,7 @@ export function TrafficList({
     estimateSize: (index) => (exchanges[index]?.tags?.length ? 60 : 44),
     overscan: 12
   });
+  useVirtualBlankGuard(virtualizer, parentRef, exchanges.length);
 
   if (exchanges.length === 0) {
     return (
