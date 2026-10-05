@@ -152,3 +152,16 @@ describe('collectHosts / collectTags', () => {
     expect(collectTags(list)).toEqual(['a', 'b']);
   });
 });
+
+describe('기기(client) 필터', () => {
+  const withIp = (id: string, ip: string | undefined) => {
+    const base = { id, startedAt: 1, request: { method: 'GET', url: 'https://a.com/', path: '/', headers: [] as Array<[string, string]>, body: { encoding: 'empty' as const, content: '', byteLength: 0 }, clientIp: ip } };
+    return base;
+  };
+  it('접속 IP가 같은 요청만 남긴다', () => {
+    const list = [withIp('1', '1.1.1.1'), withIp('2', '2.2.2.2'), withIp('3', undefined)];
+    expect(applyFilter(list, { client: '1.1.1.1' }).map((e) => e.id)).toEqual(['1']);
+    expect(isFilterActive({ client: '1.1.1.1' })).toBe(true);
+    expect(isFilterActive({})).toBe(false);
+  });
+});

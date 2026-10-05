@@ -14,6 +14,8 @@ interface ExchangeDetailProps {
   onCloneToMock?: (exchange: CapturedExchange) => void;
   onAddTag?: (id: string, tag: string) => void;
   onRemoveTag?: (id: string, tag: string) => void;
+  /** 이 요청을 보낸 기기 설명(예: "iPhone · iOS 17.4 (192.168.0.10)"). 알 수 없으면 생략. */
+  clientDescription?: string;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
@@ -28,7 +30,8 @@ export function ExchangeDetail({
   exchange,
   onCloneToMock,
   onAddTag,
-  onRemoveTag
+  onRemoveTag,
+  clientDescription
 }: ExchangeDetailProps): JSX.Element {
   if (!exchange) {
     return (
@@ -58,6 +61,11 @@ export function ExchangeDetail({
           <Badge variant="neutral">대기 중</Badge>
         )}
         <span className="break-all font-mono text-sm text-muted-foreground">{request.url}</span>
+        {clientDescription && (
+          <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground" title="이 요청을 보낸 기기">
+            {clientDescription}
+          </span>
+        )}
         <div className="flex-1" />
         {onCloneToMock && (
           <Button variant="outline" size="sm" onClick={() => onCloneToMock(exchange)}>

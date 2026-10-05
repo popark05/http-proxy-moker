@@ -11,6 +11,7 @@ interface CloneSourceBarProps {
   onCloneToMock: (exchange: CapturedExchange) => void;
   onAddTag: (id: string, tag: string) => void;
   onRemoveTag: (id: string, tag: string) => void;
+  clientDescription?: string;
 }
 
 /**
@@ -21,7 +22,8 @@ export function CloneSourceBar({
   exchange,
   onCloneToMock,
   onAddTag,
-  onRemoveTag
+  onRemoveTag,
+  clientDescription
 }: CloneSourceBarProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const { request, response } = exchange;
@@ -55,6 +57,7 @@ export function CloneSourceBar({
             exchange={exchange}
             onAddTag={onAddTag}
             onRemoveTag={onRemoveTag}
+            clientDescription={clientDescription}
           />
         </div>
       )}

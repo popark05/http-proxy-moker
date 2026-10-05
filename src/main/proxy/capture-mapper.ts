@@ -1,5 +1,6 @@
 import type { CompletedRequest, CompletedResponse } from 'mockttp';
 import type { CapturedRequest, CapturedResponse } from '@shared/capture';
+import { normalizeClientIp } from '@shared/clients';
 import { encodeBody } from './body-encoding';
 
 /** rawHeaders([name,value][])를 우선 쓰되, 없으면 headers 객체를 평탄화. */
@@ -44,6 +45,7 @@ export async function mapRequest(request: CompletedRequest): Promise<CapturedReq
     path: request.path,
     headers,
     destination: formatDestination(request.destination),
+    clientIp: normalizeClientIp(request.remoteIpAddress),
     body: encodeBody(decoded, headerValue(headers, 'content-type'))
   };
 }

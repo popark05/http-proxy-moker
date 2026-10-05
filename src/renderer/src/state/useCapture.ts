@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CapturedExchange, ProxyStatus } from '@shared/capture';
+import type { TlsErrorRecord } from '@shared/clients';
 import { reduceCapture, addTag as addTagReducer, removeTag as removeTagReducer } from './capture-store';
 
 interface UseCaptureResult {
   exchanges: CapturedExchange[];
+  /** 기기가 CA를 신뢰하지 않아 TLS 핸드셰이크가 실패한 기록(접속 기기 진단용). */
+  tlsErrors: TlsErrorRecord[];
   status: ProxyStatus;
   startProxy: (port?: number) => Promise<ProxyStatus>;
   stopProxy: () => Promise<ProxyStatus>;
@@ -22,11 +25,17 @@ interface UseCaptureResult {
  */
 export function useCapture(): UseCaptureResult {
   const [exchanges, setExchanges] = useState<CapturedExchange[]>([]);
+  const [tlsErrors, setTlsErrors] = useState<TlsErrorRecord[]>([]);
   const [status, setStatus] = useState<ProxyStatus>({ running: false });
 
   useEffect(() => {
     void window.mokerApi.proxy.status().then(setStatus);
     const unsubscribe = window.mokerApi.onCaptureEvent((event) => {
+      if (event.type === 'tls-error') {
+        // 최근 500건만 유지(핸드셰이크가 계속 실패하는 기기가 있어도 메모리가 늘지 않게).
+        setTlsErrors((prev) => [...prev.slice(-499), { clientIp: event.clientIp, hostname: event.hostname, at: event.at }]);
+        return;
+      }
       setExchanges((prev) => reduceCapture(prev, event));
     });
     return unsubscribe;
@@ -44,8 +53,15 @@ export function useCapture(): UseCaptureResult {
     return next;
   }, []);
 
-  const clear = useCallback(() => setExchanges([]), []);
-  const replaceExchanges = useCallback((next: CapturedExchange[]) => setExchanges(next), []);
+  const clear = useCallback(() => {
+    setExchanges([]);
+    setTlsErrors([]);
+  }, []);
+  const replaceExchanges = useCallback((next: CapturedExchange[]) => {
+    setExchanges(next);
+    // 저장된 세션을 불러온 경우 이전 실시간 TLS 진단은 의미가 없다.
+    setTlsErrors([]);
+  }, []);
 
   const addTag = useCallback((id: string, tag: string) => {
     setExchanges((prev) => addTagReducer(prev, id, tag));
@@ -57,6 +73,7 @@ export function useCapture(): UseCaptureResult {
 
   return {
     exchanges,
+    tlsErrors,
     status,
     startProxy,
     stopProxy,

@@ -67,6 +67,8 @@ export interface HarEntry {
   _destination?: string;
   /** 커스텀: QA 태그. */
   _tags?: string[];
+  /** 요청을 보낸 기기의 IP(확장 필드). */
+  _clientIp?: string;
 }
 
 export interface Har {
@@ -197,7 +199,8 @@ export function exchangeToHarEntry(exchange: CapturedExchange): HarEntry {
         ? { _responseState: 'pending' as const }
         : {}),
     ...(request.destination ? { _destination: request.destination } : {}),
-    ...(exchange.tags && exchange.tags.length > 0 ? { _tags: exchange.tags } : {})
+    ...(exchange.tags && exchange.tags.length > 0 ? { _tags: exchange.tags } : {}),
+    ...(exchange.request.clientIp ? { _clientIp: exchange.request.clientIp } : {})
   };
 
   return entry;
@@ -217,6 +220,7 @@ export function harEntryToExchange(entry: HarEntry): CapturedExchange {
     })(),
     headers: harToHeaders(entry.request.headers),
     destination: entry._destination,
+    ...(entry._clientIp ? { clientIp: entry._clientIp } : {}),
     body: entry.request.postData
       ? harBodyToCaptured(
           entry.request.postData._status,

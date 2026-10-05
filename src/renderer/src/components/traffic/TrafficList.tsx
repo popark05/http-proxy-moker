@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
+import type { ClientPlatform } from '@shared/clients';
+import { PlatformIcon } from '../device/ClientList';
 
 function shortUrl(url: string): string {
   try {
@@ -23,6 +25,8 @@ interface TrafficListProps {
   /** 체크(다중 선택)된 id 집합. 생략하면 체크박스를 표시하지 않는다. */
   checkedIds?: ReadonlySet<string>;
   onCheckedChange?: (next: Set<string>) => void;
+  /** 접속 IP → 플랫폼. 기기가 둘 이상일 때 행에 기기 아이콘을 보여준다. */
+  clientPlatforms?: ReadonlyMap<string, ClientPlatform>;
 }
 
 /** 캡처된 트래픽 목록. @tanstack/react-virtual로 대량 렌더 최적화. */
@@ -31,7 +35,8 @@ export function TrafficList({
   selectedId,
   onSelect,
   checkedIds,
-  onCheckedChange
+  onCheckedChange,
+  clientPlatforms
 }: TrafficListProps): JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   /** Shift+클릭 범위 선택의 기준 행(목록 인덱스). */
@@ -125,9 +130,15 @@ export function TrafficList({
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span
                     title={exchange.request.url}
-                    className="truncate font-mono text-sm text-muted-foreground"
+                    className="flex items-center gap-1 truncate font-mono text-sm text-muted-foreground"
                   >
-                    {shortUrl(exchange.request.url)}
+                    {clientPlatforms && clientPlatforms.size > 1 && exchange.request.clientIp && (
+                      <PlatformIcon
+                        platform={clientPlatforms.get(exchange.request.clientIp) ?? 'unknown'}
+                        className="size-3.5 shrink-0"
+                      />
+                    )}
+                    <span className="truncate">{shortUrl(exchange.request.url)}</span>
                   </span>
                   {exchange.tags && exchange.tags.length > 0 && (
                     <div className="flex gap-1 overflow-hidden">

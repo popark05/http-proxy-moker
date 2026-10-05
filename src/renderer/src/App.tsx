@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
@@ -11,6 +11,8 @@ import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
+import { useClients } from './state/useClients';
+import { clientLabel } from '@shared/clients';
 import { useTrafficFilter } from './state/useTrafficFilter';
 import { useMockHits } from './state/useMockHits';
 import { ProxyControls } from './components/traffic/ProxyControls';
@@ -36,7 +38,7 @@ function errMsg(e: unknown): string {
 }
 
 function AppInner(): JSX.Element {
-  const { exchanges, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
+  const { exchanges, tlsErrors, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
     useCapture();
   const {
     project,
@@ -54,6 +56,18 @@ function AppInner(): JSX.Element {
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
+  const { clients, now } = useClients(exchanges, tlsErrors);
+  const clientPlatforms = useMemo(() => new Map(clients.map((c) => [c.ip, c.platform] as const)), [clients]);
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ ip: c.ip, label: clientLabel(c, [], clients) })),
+    [clients]
+  );
+  /** 이 요청을 보낸 기기 설명. 기기가 둘 이상 접속했을 때만 보여준다(한 대면 군더더기). */
+  const clientDescriptionOf = (exchange: CapturedExchange | undefined): string | undefined => {
+    const ip = exchange?.request.clientIp;
+    const client = ip ? clients.find((c) => c.ip === ip) : undefined;
+    return client && clients.length > 1 ? `${clientLabel(client, [], clients)} (${client.ip})` : undefined;
+  };
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [trafficView, setTrafficView] = useState<'group' | 'flat'>('group');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -267,6 +281,7 @@ function AppInner(): JSX.Element {
         active={active}
         hosts={hosts}
         tags={tags}
+        clients={clientOptions}
         total={exchanges.length}
         shown={filtered.length}
       />
@@ -305,6 +320,7 @@ function AppInner(): JSX.Element {
             onSelect={setSelectedId}
             checkedIds={checkedIds}
             onCheckedChange={setCheckedIds}
+            clientPlatforms={clientPlatforms}
           />
         )}
       </div>
@@ -326,8 +342,14 @@ function AppInner(): JSX.Element {
           }}
         />
         {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
-        <div className="max-h-[40%] shrink-0 overflow-auto border-b border-border px-4 py-2">
-          <DevicePanel />
+        <div className="max-h-[50%] shrink-0 overflow-auto border-b border-border px-4 py-2">
+          <DevicePanel
+            clients={clients}
+            now={now}
+            proxyRunning={status.running}
+            activeClientFilter={filter.client}
+            onFilterClient={(ip) => patchFilter({ client: ip })}
+          />
         </div>
         <div className="min-h-0 flex-1">{trafficPanel}</div>
       </div>
@@ -360,6 +382,7 @@ function AppInner(): JSX.Element {
               <div className="h-full overflow-auto">
                 <ExchangeDetail
                   exchange={selected}
+                  clientDescription={clientDescriptionOf(selected)}
                   onCloneToMock={handleCloneToMock}
                   onAddTag={handleAddTag}
                   onRemoveTag={handleRemoveTag}
@@ -380,6 +403,7 @@ function AppInner(): JSX.Element {
                 {selected && (
                   <CloneSourceBar
                     exchange={selected}
+                    clientDescription={clientDescriptionOf(selected)}
                     onCloneToMock={handleCloneToMock}
                     onAddTag={handleAddTag}
                     onRemoveTag={handleRemoveTag}
