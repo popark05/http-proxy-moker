@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Slow } from '@lucasmarkes/hairline/react';
 import { cn } from '@/lib/utils';
 import './splash.css';
 
@@ -21,44 +22,9 @@ function shouldShow(): boolean {
   }
 }
 
-/** 요청 입자 하나(GET/POST/MOCK). 좌표는 로고 중심(0,0) 기준. */
-function Packet({
-  label,
-  from,
-  to,
-  delay,
-  width,
-  out
-}: {
-  label: string;
-  from: [number, number];
-  to: [number, number];
-  delay: number;
-  width: number;
-  out?: boolean;
-}): JSX.Element {
-  return (
-    <g
-      className={cn('sp-pk', out && 'sp-out')}
-      style={
-        {
-          '--x0': `${from[0]}px`,
-          '--y0': `${from[1]}px`,
-          '--x1': `${to[0]}px`,
-          '--y1': `${to[1]}px`,
-          animationDelay: `${delay}s`
-        } as React.CSSProperties
-      }
-    >
-      <rect x={-width / 2} y={-10} width={width} height={20} rx={4} />
-      <text>{label}</text>
-    </g>
-  );
-}
-
 /**
- * 앱 시작 브랜드 애니메이션: 두 요청이 중앙 인터셉트 노드로 수렴하고 목 응답이 오른쪽으로 나간 뒤
- * 워드마크가 나타난다(로고 Logo.tsx의 E2 수렴 노드 구조). 클릭/키 입력으로 건너뛸 수 있다.
+ * 앱 시작 브랜드 애니메이션: hairline `Slow`(크레이트가 게이트를 지나는 컨베이어)가 "요청이 프록시를
+ * 통과한다"를 보여주고, 이어서 워드마크가 나타난다. 클릭/키 입력으로 건너뛸 수 있다.
  */
 export function SplashScreen(): JSX.Element | null {
   const [phase, setPhase] = useState<Phase>(() => (shouldShow() ? 'show' : 'gone'));
@@ -102,38 +68,15 @@ export function SplashScreen(): JSX.Element | null {
         className="absolute inset-x-0 top-0 h-10"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
-      <svg
-        viewBox="0 0 680 300"
-        role="img"
-        aria-label="EverMock 로고 애니메이션"
-        className="w-[min(680px,92vw)]"
-      >
-        <g transform="translate(340,120)">
-          <line className="sp-ln" pathLength={1} x1={-110} y1={-76} x2={-34} y2={-14} style={{ animationDelay: '0.1s' }} />
-          <line className="sp-ln" pathLength={1} x1={-110} y1={76} x2={-34} y2={14} style={{ animationDelay: '0.2s' }} />
-          <line className="sp-ln" pathLength={1} x1={48} y1={0} x2={112} y2={0} style={{ animationDelay: '0.4s' }} />
-          <line className="sp-flow" x1={-110} y1={-76} x2={-34} y2={-14} />
-          <line className="sp-flow" x1={-110} y1={76} x2={-34} y2={14} />
-          <line className="sp-flow sp-r" x1={48} y1={0} x2={112} y2={0} />
-          <circle className="sp-ep" cx={-128} cy={-88} r={26} fill="hsl(var(--foreground))" style={{ animationDelay: '0.05s' }} />
-          <circle className="sp-ep" cx={-128} cy={88} r={26} fill="hsl(var(--foreground))" style={{ animationDelay: '0.15s' }} />
-          <g className="sp-ring-g">
-            <circle className="sp-ring" pathLength={1} cx={0} cy={0} r={48} />
-          </g>
-          <circle className="sp-core" cx={0} cy={0} r={22} />
-          <circle className="sp-ep" cx={136} cy={0} r={26} fill="hsl(var(--primary))" style={{ animationDelay: '0.5s' }} />
-          <circle className="sp-wave" cx={136} cy={0} r={26} />
-          <Packet label="GET" from={[-128, -88]} to={[0, 0]} delay={0.95} width={44} />
-          <Packet label="POST" from={[-128, 88]} to={[0, 0]} delay={1.05} width={48} />
-          <Packet label="MOCK" from={[0, 0]} to={[136, 0]} delay={1.6} width={52} out />
-        </g>
-        <text className="sp-word" x={340} y={262}>
-          Ever<tspan className="sp-accent">Mock</tspan>
-        </text>
-        <text className="sp-tag" x={340} y={286}>
-          CAPTURE · CLONE · MOCK
-        </text>
-      </svg>
+      <div role="img" aria-label="EverMock 로고 애니메이션" className="hairline-theme flex w-[min(460px,84vw)] flex-col items-center">
+        <div className="sp-fig w-full">
+          <Slow label="요청이 프록시 게이트를 통과하는 컨베이어" intensity={0.3} />
+        </div>
+        <div className="sp-word-html">
+          Ever<span className="sp-accent">Mock</span>
+        </div>
+        <div className="sp-tag-html">CAPTURE · CLONE · MOCK</div>
+      </div>
     </div>
   );
 }

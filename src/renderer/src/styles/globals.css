@@ -179,7 +179,7 @@
   animation: wizard-packet 2.4s linear infinite;
 }
 /* hairline 도형: 플레이트 색은 모달 배경(card)과 같아야 한다. */
-.wizard-figures {
+.hairline-theme {
   --hairline-plate: hsl(var(--card));
   --hairline-hi: hsl(var(--foreground));
   --hairline-edge: hsl(var(--muted-foreground));

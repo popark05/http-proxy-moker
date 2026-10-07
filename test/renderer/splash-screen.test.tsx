@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { SplashScreen } from '../../src/renderer/src/components/brand/SplashScreen';
 
+// hairline은 DOM 드로잉 라이브러리라 jsdom에서는 빈 상자로 대체한다.
+vi.mock('@lucasmarkes/hairline/react', () => ({ Slow: () => <div data-testid="figure-slow" /> }));
+
 function mockReducedMotion(reduce: boolean): void {
   window.matchMedia = ((query: string) => ({
     matches: reduce && query.includes('prefers-reduced-motion'),
