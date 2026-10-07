@@ -20,6 +20,8 @@ export interface TrafficFilter {
   host?: string;
   /** 이 태그를 모두 가진 exchange만(AND). 비어있으면 전체. */
   tags?: string[];
+  /** 이 접속 IP(기기)의 요청만. */
+  client?: string;
 }
 
 /** exchange의 응답 상태를 StatusClass로 분류. */
@@ -99,6 +101,9 @@ export function matchesFilter(
     if (!hostOf(exchange).toLowerCase().includes(filter.host.trim().toLowerCase())) return false;
   }
 
+  // 접속 기기(IP)
+  if (filter.client && exchange.request.clientIp !== filter.client) return false;
+
   // 태그(AND)
   if (filter.tags && filter.tags.length > 0) {
     const tags = exchange.tags ?? [];
@@ -115,6 +120,7 @@ export function isFilterActive(filter: TrafficFilter): boolean {
     (filter.methods?.length ?? 0) > 0 ||
     (filter.statusClasses?.length ?? 0) > 0 ||
     !!filter.host?.trim() ||
+    !!filter.client ||
     (filter.tags?.length ?? 0) > 0
   );
 }

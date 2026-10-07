@@ -198,3 +198,48 @@ describe('ProjectStore', () => {
     expect((await store.open(dir)).scenarios).not.toContain('temp');
   });
 });
+
+describe('ProjectStore: 케이스 라이브러리/시나리오 v2', () => {
+  it('라이브러리가 없으면 빈 라이브러리, 저장 후 다시 읽으면 복원', async () => {
+    const store = new ProjectStore();
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
+    await store.create(dir, 'p');
+    expect((await store.loadLibrary(dir)).endpoints).toEqual([]);
+    const lib = { version: 2 as const, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }] };
+    await store.saveLibrary(dir, lib);
+    expect(await store.loadLibrary(dir)).toEqual(lib);
+  });
+
+  it('깨진 library.json은 빈 라이브러리로 처리', async () => {
+    const store = new ProjectStore();
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
+    await store.create(dir, 'p');
+    await fs.writeFile(path.join(dir, 'library.json'), '{not json', 'utf-8');
+    expect((await store.loadLibrary(dir)).endpoints).toEqual([]);
+  });
+
+  it('시나리오 이름은 파일명으로 맞춰지고(상속 참조 일관성), loadAll이 모두 읽는다', async () => {
+    const store = new ProjectStore();
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
+    await store.create(dir, 'p');
+    const saved = await store.saveScenario(dir, { version: 2, id: 's1', name: '결제 실패!', picks: [] });
+    expect(saved).toBe('결제_실패_');
+    const all = await store.loadAllScenarios(dir);
+    expect(all.map((s) => s.name)).toEqual(['결제_실패_']);
+    expect((await store.loadScenario(dir, saved)).name).toBe('결제_실패_');
+  });
+
+  it('v1 시나리오를 v2로 덮어쓰면 원본을 .v1.bak으로 보관하고 목록에는 나타나지 않는다', async () => {
+    const store = new ProjectStore();
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
+    await store.create(dir, 'p');
+    await store.saveScenario(dir, { version: 1, id: 'a', name: 'old', mocks: [] });
+    await store.saveScenario(dir, { version: 2, id: 'a', name: 'old', picks: [] });
+    const backup = JSON.parse(await fs.readFile(path.join(dir, 'scenarios', 'old.v1.bak'), 'utf-8'));
+    expect(backup.version).toBe(1);
+    expect((await store.open(dir)).scenarios).toEqual(['old']);
+    // 같은 v2를 다시 저장해도 백업은 덮어쓰이지 않는다(v2가 v1 백업을 망가뜨리지 않음).
+    await store.saveScenario(dir, { version: 2, id: 'a', name: 'old', picks: [] });
+    expect(JSON.parse(await fs.readFile(path.join(dir, 'scenarios', 'old.v1.bak'), 'utf-8')).version).toBe(1);
+  });
+});

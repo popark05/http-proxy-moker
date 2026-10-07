@@ -15,6 +15,8 @@ interface FilterBarProps {
   active: boolean;
   hosts: string[];
   tags: string[];
+  /** 접속 기기 선택지(기기가 둘 이상일 때만 필터를 보여준다). */
+  clients: Array<{ ip: string; label: string }>;
   total: number;
   shown: number;
 }
@@ -32,6 +34,7 @@ export function FilterBar({
   active,
   hosts,
   tags,
+  clients,
   total,
   shown
 }: FilterBarProps): JSX.Element {
@@ -117,6 +120,25 @@ export function FilterBar({
               ))}
             </select>
           </div>
+
+          {(clients.length > 1 || !!filter.client) && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-xs text-muted-foreground">기기</span>
+              <select
+                value={filter.client ?? ''}
+                onChange={(e) => patchFilter({ client: e.target.value || undefined })}
+                aria-label="기기 필터"
+                className="rounded-md border border-input bg-transparent px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">전체</option>
+                {clients.map((c) => (
+                  <option key={c.ip} value={c.ip}>
+                    {c.label} ({c.ip})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">

@@ -3,7 +3,8 @@ import { IpcChannels, type MokerApi, type PingRequest, type ProxyStartArgs } fro
 import type { CaptureEvent, CapturedExchange } from '@shared/capture';
 import type { CaExportFormat } from '@shared/certificate';
 import type { DevicePlatform, AndroidInterceptionMode } from '@shared/device';
-import type { MockScenario, ApplyMocksArgs } from '@shared/mock';
+import type { ApplyMocksArgs } from '@shared/mock';
+import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
 
 const api: MokerApi = {
   ping: (request: PingRequest) => ipcRenderer.invoke(IpcChannels.ping, request),
@@ -46,10 +47,13 @@ const api: MokerApi = {
     saveCapture: (name: string, exchanges: CapturedExchange[]) =>
       ipcRenderer.invoke(IpcChannels.projectSaveCapture, name, exchanges),
     loadCapture: (name: string) => ipcRenderer.invoke(IpcChannels.projectLoadCapture, name),
-    saveScenario: (scenario: MockScenario) =>
+    saveScenario: (scenario: ScenarioFile) =>
       ipcRenderer.invoke(IpcChannels.projectSaveScenario, scenario),
     loadScenario: (name: string) => ipcRenderer.invoke(IpcChannels.projectLoadScenario, name),
-    deleteScenario: (name: string) => ipcRenderer.invoke(IpcChannels.projectDeleteScenario, name)
+    deleteScenario: (name: string) => ipcRenderer.invoke(IpcChannels.projectDeleteScenario, name),
+    loadAllScenarios: () => ipcRenderer.invoke(IpcChannels.projectLoadAllScenarios),
+    loadLibrary: () => ipcRenderer.invoke(IpcChannels.projectLoadLibrary),
+    saveLibrary: (library: CaseLibrary) => ipcRenderer.invoke(IpcChannels.projectSaveLibrary, library)
   }
 };
 

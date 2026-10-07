@@ -1,6 +1,7 @@
 import { getLocal, type Mockttp, type MockedEndpoint } from 'mockttp';
 import type { CaptureEvent, CapturedExchange, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
+import { normalizeClientIp } from '@shared/clients';
 import { mapRequest, mapResponse } from './capture-mapper';
 
 export type EngineEmitter = (event: CaptureEvent) => void;
@@ -173,6 +174,21 @@ export class ProxyEngine {
 
     await server.on('abort', (request) => {
       this.emit({ type: 'abort', id: request.id });
+    });
+
+    // 기기가 프록시 CA를 신뢰하지 않으면 TLS 핸드셰이크가 실패한다(iOS의 "인증서 신뢰 설정" 누락 등).
+    // 클라이언트에 따라 거부 알림(cert-rejected)을 보내거나 그냥 끊어서(closed/reset) 원인이 다르게 보고되므로
+    // 모두 전달하고, "복호화된 HTTPS가 한 건도 없는 기기"인지는 렌더러 집계(clientState)가 판단한다.
+    // 암호 스위트 불일치/타임아웃은 CA와 무관해 제외한다.
+    await server.on('tls-client-error', (failure) => {
+      if (failure.failureCause === 'no-shared-cipher' || failure.failureCause === 'handshake-timeout') return;
+      this.emit({
+        type: 'tls-error',
+        clientIp: normalizeClientIp(failure.remoteIpAddress),
+        hostname: failure.tlsMetadata?.sniHostname,
+        cause: failure.failureCause,
+        at: Date.now()
+      });
     });
   }
 }

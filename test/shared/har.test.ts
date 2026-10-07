@@ -115,3 +115,16 @@ describe('HAR 라운드트립', () => {
     expect(back[1].response).toBe('aborted');
   });
 });
+
+describe('HAR 접속 기기 확장 필드', () => {
+  it('요청을 보낸 기기의 IP(_clientIp)를 저장하고 복원한다', () => {
+    const base = makeExchange();
+    const withIp = { ...base, request: { ...base.request, clientIp: '192.168.45.12' } };
+    const har = exchangesToHar([withIp]);
+    expect(har.log.entries[0]._clientIp).toBe('192.168.45.12');
+    expect(harToExchanges(har)[0].request.clientIp).toBe('192.168.45.12');
+    // IP가 없는 옛 캡처는 필드 없이 그대로 왕복
+    expect(exchangesToHar([base]).log.entries[0]._clientIp).toBeUndefined();
+    expect(harToExchanges(exchangesToHar([base]))[0].request.clientIp).toBeUndefined();
+  });
+});

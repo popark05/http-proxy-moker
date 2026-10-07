@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { useDevices } from '../../state/useDevices';
 import { IosSetupModal } from './IosSetupModal';
+import { ClientList } from './ClientList';
+import type { ClientInfo } from '@shared/clients';
 
 function statusTone(status: DeviceInfo['status']): 'success' | 'warning' | 'neutral' {
   if (status === 'ready') return 'success';
@@ -120,7 +122,19 @@ function DeviceItem({
   );
 }
 
-export function DevicePanel(): JSX.Element {
+interface DevicePanelProps {
+  /** 프록시에 접속한 기기(트래픽 기반). */
+  clients: ClientInfo[];
+  now: number;
+  proxyRunning: boolean;
+  /** 이 IP의 요청만 보기(같은 기기를 다시 누르면 해제). */
+  onFilterClient: (ip: string | undefined) => void;
+  activeClientFilter: string | undefined;
+  /** 접속 IP 없는 요청 수. */
+  untrackedCount: number;
+}
+
+export function DevicePanel({ clients, now, proxyRunning, onFilterClient, activeClientFilter, untrackedCount }: DevicePanelProps): JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices();
   const [iosSetupOpen, setIosSetupOpen] = useState(false);
 
@@ -167,12 +181,16 @@ export function DevicePanel(): JSX.Element {
       </div>
 
       {devices.length === 0 ? (
-        <EmptyState
-          compact
-          icon={SmartphoneNfc}
-          title="연결된 기기가 없습니다"
-          description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동으로 감지됩니다."
-        />
+        clients.length > 0 ? (
+          <p className="text-xs text-muted-foreground">USB로 감지된 기기가 없습니다(아래 접속 중인 기기는 프록시 기준).</p>
+        ) : (
+          <EmptyState
+            compact
+            icon={SmartphoneNfc}
+            title="연결된 기기가 없습니다"
+            description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
+          />
+        )
       ) : (
         devices.map((device) => (
           <DeviceItem
@@ -185,6 +203,17 @@ export function DevicePanel(): JSX.Element {
           />
         ))
       )}
+
+      <ClientList
+        clients={clients}
+        devices={devices}
+        now={now}
+        proxyRunning={proxyRunning}
+        untrackedCount={untrackedCount}
+        activeFilter={activeClientFilter}
+        onFilter={(ip) => onFilterClient(activeClientFilter === ip ? undefined : ip)}
+        onIosSetup={() => setIosSetupOpen(true)}
+      />
 
       <IosSetupModal open={iosSetupOpen} onOpenChange={setIosSetupOpen} />
     </div>

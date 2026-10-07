@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Trash2, Save, FileJson, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, Save, FileJson, RotateCcw, BookmarkPlus, Upload } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import type { AppMode } from '../../state/app-mode';
 import { restartAnimation } from '@/lib/utils';
@@ -34,6 +34,10 @@ interface MockPanelProps {
   onUpdate: (mock: MockDefinition) => void;
   onRemove: (id: string) => void;
   onSaveScenario: (name: string) => void;
+  /** 목을 케이스로 저장(출처 케이스가 있으면 그 케이스에 반영). */
+  onSaveCase?: (mock: MockDefinition) => void;
+  /** 출처 케이스 이름(라이브러리에서 풀어낸 목이면). */
+  caseNameOf?: (mock: MockDefinition) => string | undefined;
   /** mockId별 누적 히트 수(목킹 응답 횟수). */
   hitCounts?: Record<string, number>;
   /** mockId별 마지막 히트 시각(플래시 트리거). */
@@ -50,6 +54,8 @@ export function MockPanel({
   onUpdate,
   onRemove,
   onSaveScenario,
+  onSaveCase,
+  caseNameOf,
   hitCounts = {},
   lastHitAt = {},
   onResetHits
@@ -117,6 +123,8 @@ export function MockPanel({
             mock={mock}
             hitCount={hitCounts[mock.id] ?? 0}
             lastHitAt={lastHitAt[mock.id] ?? 0}
+            caseName={caseNameOf?.(mock)}
+            onSaveCase={onSaveCase ? () => onSaveCase(mock) : undefined}
             onEdit={() => openEditor(mock)}
             onRemove={() => onRemove(mock.id)}
           />
@@ -134,10 +142,12 @@ interface MockRowProps {
   lastHitAt: number;
   onEdit: () => void;
   onRemove: () => void;
+  caseName?: string;
+  onSaveCase?: () => void;
 }
 
 /** 목 정의 한 행. mock-hit 발생 시 배경 플래시 + 히트 카운트 표시. */
-function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove }: MockRowProps): JSX.Element {
+function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSaveCase }: MockRowProps): JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const hitBadgeRef = useRef<HTMLSpanElement>(null);
   const prevHit = useRef(lastHitAt);
@@ -159,6 +169,11 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove }: MockRowProps):
       <span className="min-w-0 flex-1 truncate font-mono text-sm" title={mock.path}>
         {mock.path}
       </span>
+      {caseName && (
+        <Badge variant="neutral" title="케이스 라이브러리에서 가져온 목">
+          {caseName}
+        </Badge>
+      )}
       {hitCount > 0 && (
         <Badge ref={hitBadgeRef} variant="success" title="이 목이 응답한 횟수">
           {hitCount}회 응답
@@ -179,6 +194,17 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove }: MockRowProps):
         <Badge variant="error">{faultLabel(mock.fault)}</Badge>
       ) : (
         <Badge variant={statusTone(mock.response.status)}>{mock.response.status}</Badge>
+      )}
+      {onSaveCase && (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={caseName ? '케이스에 반영' : '케이스로 저장'}
+          title={caseName ? '수정한 내용을 라이브러리 케이스에 반영(이 케이스를 쓰는 모든 시나리오에 적용)' : '라이브러리에 케이스로 저장'}
+          onClick={onSaveCase}
+        >
+          {caseName ? <Upload /> : <BookmarkPlus />}
+        </Button>
       )}
       <Button variant="ghost" size="icon" aria-label="편집" onClick={onEdit}>
         <Pencil />

@@ -13,7 +13,8 @@ import type {
   SetupStep
 } from './device';
 import type { OpenProject } from './project';
-import type { MockScenario, ApplyMocksArgs } from './mock';
+import type { ApplyMocksArgs } from './mock';
+import type { CaseLibrary, ScenarioFile } from './scenario-library';
 
 export const IpcChannels = {
   /** 연결 확인용 왕복(핑퐁). Task 1 데모용. */
@@ -60,7 +61,12 @@ export const IpcChannels = {
   /** 목 시나리오 로드. arg: name → MockScenario */
   projectLoadScenario: 'project:load-scenario',
   /** 목 시나리오 삭제. arg: name */
-  projectDeleteScenario: 'project:delete-scenario'
+  projectDeleteScenario: 'project:delete-scenario',
+  /** 모든 시나리오 로드(v1/v2). */
+  projectLoadAllScenarios: 'project:load-all-scenarios',
+  /** 케이스 라이브러리 로드/저장. */
+  projectLoadLibrary: 'project:load-library',
+  projectSaveLibrary: 'project:save-library'
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -126,10 +132,16 @@ export interface MokerApi {
     saveCapture(name: string, exchanges: CapturedExchange[]): Promise<string>;
     /** 캡처 세션 로드. */
     loadCapture(name: string): Promise<CapturedExchange[]>;
-    /** 목 시나리오 저장. 저장된 시나리오명 반환. */
-    saveScenario(scenario: MockScenario): Promise<string>;
-    /** 목 시나리오 로드. */
-    loadScenario(name: string): Promise<MockScenario>;
+    /** 시나리오 저장. 파일 기준(살균된) 시나리오명 반환. */
+    saveScenario(scenario: ScenarioFile): Promise<string>;
+    /** 시나리오 로드(v1/v2). */
+    loadScenario(name: string): Promise<ScenarioFile>;
+    /** 모든 시나리오 로드(상속/사용처 계산용). */
+    loadAllScenarios(): Promise<ScenarioFile[]>;
+    /** 케이스 라이브러리 로드(없으면 빈 라이브러리). */
+    loadLibrary(): Promise<CaseLibrary>;
+    /** 케이스 라이브러리 저장. */
+    saveLibrary(library: CaseLibrary): Promise<void>;
     /** 목 시나리오 삭제. */
     deleteScenario(name: string): Promise<void>;
   };

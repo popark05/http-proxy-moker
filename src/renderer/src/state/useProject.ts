@@ -8,10 +8,6 @@ interface UseProjectResult {
   openProject: () => Promise<void>;
   saveCapture: (name: string, exchanges: CapturedExchange[]) => Promise<void>;
   loadCapture: (name: string) => Promise<CapturedExchange[]>;
-  /** 시나리오 목록에 추가(저장 반영). */
-  addScenarioName: (name: string) => void;
-  /** 시나리오 목록에서 제거(삭제 반영). */
-  removeScenarioName: (name: string) => void;
 }
 
 /** 열린 프로젝트 상태와 캡처 세션 저장/로드를 관리하는 훅. */
@@ -51,32 +47,11 @@ export function useProject(): UseProjectResult {
     []
   );
 
-  const addScenarioName = useCallback((name: string) => {
-    setProject((prev) =>
-      prev
-        ? {
-            ...prev,
-            scenarios: prev.scenarios.includes(name)
-              ? prev.scenarios
-              : [...prev.scenarios, name].sort()
-          }
-        : prev
-    );
-  }, []);
-
-  const removeScenarioName = useCallback((name: string) => {
-    setProject((prev) =>
-      prev ? { ...prev, scenarios: prev.scenarios.filter((s) => s !== name) } : prev
-    );
-  }, []);
-
   return {
     project,
     createProject,
     openProject,
     saveCapture,
-    loadCapture,
-    addScenarioName,
-    removeScenarioName
+    loadCapture
   };
 }

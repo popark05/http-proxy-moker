@@ -25,6 +25,8 @@ export interface CapturedRequest {
   body: CapturedBody;
   /** 목적지 host:port (알 수 있으면). */
   destination?: string;
+  /** 프록시에 접속한 기기의 IP(IPv4-mapped 표기는 정규화). Android USB 터널은 127.0.0.1. */
+  clientIp?: string;
 }
 
 export interface CapturedResponse {
@@ -52,7 +54,9 @@ export type CaptureEvent =
   | { type: 'response'; id: string; response: CapturedResponse }
   | { type: 'abort'; id: string }
   /** 목킹 모드에서 목 룰이 매칭되어 응답한 순간(실시간 강조용). */
-  | { type: 'mock-hit'; mockId: string; at: number };
+  | { type: 'mock-hit'; mockId: string; at: number }
+  /** 기기가 프록시 CA를 신뢰하지 않아 TLS 핸드셰이크를 거부한 순간(HTTPS 복호화 불가 진단용). */
+  | { type: 'tls-error'; clientIp?: string; hostname?: string; cause?: string; at: number };
 
 /** 프록시 상태. */
 export interface ProxyStatus {

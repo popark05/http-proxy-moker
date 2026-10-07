@@ -49,10 +49,14 @@ mockttp's upstream TLS breaks under Electron's BoringSSL (`INVALID_COMMAND`, whi
 
 Applying or clearing mocks calls `server.reset()` and then re-registers the subscriptions, the companion endpoints, the mock rules and the unmatched rule, in that order. Mock hits are tracked through the rule id → mock id map (`ruleToMock`).
 
-### Mocks and projects
+### Mocks, scenarios and projects
 
-- `shared/mock.ts`: `MockDefinition` (method + path matcher, editable response, `delayMs`, `fault` of `timeout|reset|close`, and `originalBody` for the edited-vs-original diff) and `MockScenario`. Mocks are converted to mockttp serialized rules; methods are mockttp's numeric enum (`METHOD_ENUM`).
-- A project is a local directory: `project.json`, `captures/<name>.har.json` (HAR 1.2 with extensions such as `_tags`), and `scenarios/<name>.json`.
+- **Mocks vs scenarios (product direction):** a *mock* (`MockDefinition`) is the ad-hoc, in-memory workspace rule (method + path matcher, editable response, `delayMs`, `fault` of `timeout|reset|close`, `originalBody` for the diff) that is applied to the proxy in mock mode. A *scenario* is the reusable, persisted layer for edge cases. Scenarios do **not** copy mocks: `shared/scenario-library.ts` holds a per-project **case library** (`library.json`: endpoints `METHOD /path` → named response cases such as 정상/500/타임아웃) and `ScenarioV2` (`picks` of endpoint → case, optional `base` scenario to inherit, `null` pick = switch an inherited endpoint off). `resolveScenario` turns a scenario into `MockDefinition[]` (with `caseRef`), so the proxy engine is unchanged; `diffWorkspace` drives the "수정됨" badge; `scenarioFromWorkspace`/`applyMockToCase` promote workspace mocks into cases. v1 scenario files (embedded mocks) are converted deterministically by `normalizeScenarios` when a project opens (originals kept as `scenarios/<name>.v1.bak`). Renderer state lives in `useScenarioLibrary`; UI in `ScenarioPanel`, `ScenarioEditor`, `LibraryModal`. Mocks are converted to mockttp serialized rules; methods are mockttp's numeric enum (`METHOD_ENUM`).
+- A project is a local directory: `project.json`, `library.json`, `captures/<name>.har.json` (HAR 1.2 with extensions such as `_tags`), and `scenarios/<name>.json`.
+
+### Connected clients (proxy-observed devices)
+
+Devices are also identified by what the proxy actually sees, not only by transport (adb/usbmux), so Wi-Fi-proxy devices (manual iOS setup, Android over Wi-Fi) show up. `ProxyEngine` records the client IP on every request (`CapturedRequest.clientIp`, normalized by `normalizeClientIp`; saved in HAR as `_clientIp`) and forwards mockttp `tls-client-error` as a `tls-error` capture event. `shared/clients.ts` aggregates exchanges + TLS errors per IP (`aggregateClients`: platform/model/OS from the User-Agent heuristics, request/HTTPS counts, last seen), derives `clientState` (`untrusted` = TLS failures with zero decrypted HTTPS, i.e. the device does not trust the CA; `active` within 15 s; else `idle`) and `clientLabel`. The UI (`ClientList` in the device panel, `useClients`) shows this list, a per-device filter (`TrafficFilter.client`) and device icons in the flat traffic list. Android over USB (`adb reverse`/VPN companion) all arrive from `127.0.0.1`, so several USB Androids cannot be told apart without per-device proxy ports (not implemented).
 
 ### Devices
 

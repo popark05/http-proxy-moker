@@ -4,12 +4,13 @@ import {
   PROJECT_FILE,
   CAPTURES_DIR,
   SCENARIOS_DIR,
+  LIBRARY_FILE,
   type ProjectMeta,
   type OpenProject
 } from '@shared/project';
 import type { CapturedExchange } from '@shared/capture';
 import { exchangesToHar, harToExchanges, type Har } from '@shared/har';
-import type { MockScenario } from '@shared/mock';
+import { EMPTY_LIBRARY, parseLibrary, type CaseLibrary, type ScenarioFile } from '@shared/scenario-library';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 
 /** Windows 예약 장치 이름(확장자가 있어도 예약됨). */
@@ -94,21 +95,53 @@ export class ProjectStore {
     return harToExchanges(har);
   }
 
-  /** 목 시나리오를 저장. 저장된 시나리오명 반환. */
-  async saveScenario(dir: string, scenario: MockScenario): Promise<string> {
+  /**
+   * 시나리오를 저장하고 파일 기준 이름(살균된 이름)을 반환한다.
+   * 파일 안의 name도 같은 값으로 맞춰서, 시나리오끼리의 상속(base) 참조가 파일명과 어긋나지 않게 한다.
+   */
+  async saveScenario(dir: string, scenario: ScenarioFile): Promise<string> {
     const safe = sanitizeName(scenario.name);
     const filePath = path.join(dir, SCENARIOS_DIR, `${safe}.json`);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, JSON.stringify(scenario, null, 2), 'utf-8');
+    // v1(목 복사본)을 v2로 바꿔 쓰기 전에 원본을 한 번 보관한다(.v1.bak은 시나리오 목록에 나타나지 않는다).
+    if (scenario.version === 2) {
+      try {
+        const existing = JSON.parse(await fs.readFile(filePath, 'utf-8')) as { version?: number };
+        if (existing.version === 1) await fs.copyFile(filePath, path.join(path.dirname(filePath), `${safe}.v1.bak`));
+      } catch {
+        // 기존 파일이 없거나 읽을 수 없으면 백업할 것이 없다.
+      }
+    }
+    await fs.writeFile(filePath, JSON.stringify({ ...scenario, name: safe }, null, 2), 'utf-8');
     return safe;
   }
 
-  /** 목 시나리오를 로드. */
-  async loadScenario(dir: string, name: string): Promise<MockScenario> {
+  /** 시나리오를 로드(v1/v2 그대로). name은 파일명으로 맞춘다. */
+  async loadScenario(dir: string, name: string): Promise<ScenarioFile> {
     const safe = sanitizeName(name);
     const filePath = path.join(dir, SCENARIOS_DIR, `${safe}.json`);
     const raw = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(raw) as MockScenario;
+    return { ...(JSON.parse(raw) as ScenarioFile), name: safe };
+  }
+
+  /** scenarios/ 의 모든 시나리오(깨진 파일은 건너뜀). 상속 해석과 사용처 계산에 쓴다. */
+  async loadAllScenarios(dir: string): Promise<ScenarioFile[]> {
+    const names = await this.listNames(path.join(dir, SCENARIOS_DIR), '.json');
+    const loaded = await Promise.all(names.map((n) => this.loadScenario(dir, n).catch(() => undefined)));
+    return loaded.filter((s): s is ScenarioFile => !!s);
+  }
+
+  /** 케이스 라이브러리(library.json). 없거나 깨졌으면 빈 라이브러리. */
+  async loadLibrary(dir: string): Promise<CaseLibrary> {
+    try {
+      return parseLibrary(JSON.parse(await fs.readFile(path.join(dir, LIBRARY_FILE), 'utf-8')));
+    } catch {
+      return EMPTY_LIBRARY;
+    }
+  }
+
+  async saveLibrary(dir: string, library: CaseLibrary): Promise<void> {
+    await fs.writeFile(path.join(dir, LIBRARY_FILE), JSON.stringify(library, null, 2), 'utf-8');
   }
 
   /** 목 시나리오를 삭제. */
