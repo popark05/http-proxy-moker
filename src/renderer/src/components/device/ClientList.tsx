@@ -96,8 +96,8 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                     <p>
                       HTTPS를 복호화할 수 없습니다. 기기에서 EverMock CA 프로파일 설치와 &quot;인증서 신뢰 설정&quot;(설정 &gt; 일반 &gt; 정보)
                       활성화를 확인하세요.
-                      {(c.tlsHostsSinceHttps.length > 0 || c.tlsHosts.length > 0) &&
-                        ` 실패한 호스트: ${(c.tlsHostsSinceHttps.length > 0 ? c.tlsHostsSinceHttps : c.tlsHosts).join(', ')}`}
+                      {(c.tlsHostsSinceHttps.length > 0 || c.tlsHostsOther.length > 0) &&
+                        ` 실패한 호스트: ${(c.tlsHostsSinceHttps.length > 0 ? c.tlsHostsSinceHttps : c.tlsHostsOther).join(', ')}`}
                     </p>
                     {/* 요청이 없어 플랫폼을 모르는 기기도 대부분 iOS(수동 설정)라 가이드를 함께 안내한다. */}
                     {c.platform !== 'android' && (
@@ -110,7 +110,9 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
               )}
               {state !== 'untrusted' && c.tlsErrorCount > 0 && (
                 <p className="text-2xs text-muted-foreground">
-                  TLS 오류 {c.tlsErrorCount}건 (인증서를 고정한 앱일 수 있습니다{c.tlsHosts.length > 0 ? `: ${c.tlsHosts.join(', ')}` : ''})
+                  {c.tlsErrorsOther === 0
+                    ? `iCloud 등 시스템 서비스가 인증서를 고정해 프록시를 거부한 연결 ${c.tlsErrorCount}건입니다(정상, 신뢰 설정과 무관${c.tlsHosts.length > 0 ? `: ${c.tlsHosts.join(', ')}` : ''}).`
+                    : `TLS 오류 ${c.tlsErrorCount}건 (인증서를 고정한 앱일 수 있습니다${c.tlsHosts.length > 0 ? `: ${c.tlsHosts.join(', ')}` : ''})`}
                 </p>
               )}
             </div>

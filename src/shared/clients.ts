@@ -29,11 +29,15 @@ export interface ClientInfo {
   tlsHosts: string[];
   /** 마지막으로 복호화된 HTTPS 요청 시각(없으면 0). */
   lastHttpsAt: number;
-  /** 마지막 TLS 실패 시각(없으면 0). */
+  /** "고정 시스템 호스트(iCloud 등)를 뺀" TLS 실패 수 — CA 미신뢰를 판단하는 근거. */
+  tlsErrorsOther: number;
+  /** 고정 호스트를 뺀 실패 호스트(최대 3개, 최근순). */
+  tlsHostsOther: string[];
+  /** 마지막 근거 실패 시각(고정 호스트 제외, 없으면 0). */
   lastTlsErrorAt: number;
-  /** 마지막 복호화 성공 "이후"의 TLS 실패 수. 신뢰를 끈 순간부터의 상황을 본다. */
+  /** 마지막 복호화 성공 "이후"의 근거 실패 수. 신뢰를 끈 순간부터의 상황을 본다. */
   tlsErrorsSinceHttps: number;
-  /** 마지막 복호화 성공 이후 실패한 서로 다른 호스트(최대 5개). */
+  /** 마지막 복호화 성공 이후 실패한 서로 다른 호스트(고정 호스트 제외, 최대 5개). */
   tlsHostsSinceHttps: string[];
   /** 127.0.0.1(Android USB 터널 등 같은 PC를 경유한 접속). */
   local: boolean;
@@ -49,6 +53,28 @@ export function normalizeClientIp(raw: string | undefined): string | undefined {
 }
 
 const LOCAL_IPS = new Set(['127.0.0.1', 'localhost']);
+
+/**
+ * 인증서를 고정(pinning)해 프록시 CA를 신뢰 설정과 무관하게 항상 거부하는 시스템 서비스 도메인.
+ * iOS는 화면이 꺼져도 iCloud/Apple 서비스가 백그라운드로 접속하고, 이 연결의 TLS 실패는 정상이다.
+ * "CA를 신뢰하지 않는다"는 근거로 세면 신뢰를 켠 기기도 미신뢰로 오판하므로 판정에서 제외한다.
+ */
+const PINNED_HOST_SUFFIXES = [
+  'apple.com',
+  'icloud.com',
+  'icloud-content.com',
+  'mzstatic.com',
+  'apple-dns.net',
+  'cdn-apple.com',
+  'aaplimg.com'
+];
+
+/** 인증서를 고정하는 것으로 알려진 시스템 호스트인지(서브도메인 포함). */
+export function isPinnedHost(hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  const host = hostname.toLowerCase();
+  return PINNED_HOST_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`));
+}
 
 interface UaInfo {
   platform: ClientPlatform;
@@ -95,7 +121,7 @@ export function aggregateClients(
   const entry = (ip: string): ClientInfo => {
     let c = map.get(ip);
     if (!c) {
-      c = { ip, platform: 'unknown', requestCount: 0, httpsCount: 0, lastSeenAt: 0, tlsErrorCount: 0, tlsHosts: [], lastHttpsAt: 0, lastTlsErrorAt: 0, tlsErrorsSinceHttps: 0, tlsHostsSinceHttps: [], local: LOCAL_IPS.has(ip) };
+      c = { ip, platform: 'unknown', requestCount: 0, httpsCount: 0, lastSeenAt: 0, tlsErrorCount: 0, tlsHosts: [], lastHttpsAt: 0, tlsErrorsOther: 0, tlsHostsOther: [], lastTlsErrorAt: 0, tlsErrorsSinceHttps: 0, tlsHostsSinceHttps: [], local: LOCAL_IPS.has(ip) };
       map.set(ip, c);
     }
     return c;
@@ -121,8 +147,12 @@ export function aggregateClients(
     const c = entry(t.clientIp);
     c.tlsErrorCount++;
     c.lastSeenAt = Math.max(c.lastSeenAt, t.at);
-    c.lastTlsErrorAt = Math.max(c.lastTlsErrorAt, t.at);
     if (t.hostname && !c.tlsHosts.includes(t.hostname)) c.tlsHosts = [t.hostname, ...c.tlsHosts].slice(0, 3);
+    // 고정 시스템 호스트(iCloud 등)의 실패는 신뢰 설정과 무관하게 일어나므로 CA 미신뢰의 근거로 세지 않는다.
+    if (isPinnedHost(t.hostname)) continue;
+    c.tlsErrorsOther++;
+    c.lastTlsErrorAt = Math.max(c.lastTlsErrorAt, t.at);
+    if (t.hostname && !c.tlsHostsOther.includes(t.hostname)) c.tlsHostsOther = [t.hostname, ...c.tlsHostsOther].slice(0, 3);
     if (t.at > c.lastHttpsAt) {
       c.tlsErrorsSinceHttps++;
       if (t.hostname && !c.tlsHostsSinceHttps.includes(t.hostname)) {
@@ -156,6 +186,8 @@ export type ClientState =
 /** 최근 이 시간(ms) 안에 트래픽이 있으면 "수신 중". */
 export const ACTIVE_WINDOW_MS = 15_000;
 
+/** 복호화된 HTTPS가 한 번도 없을 때 미신뢰로 보려면 필요한 근거 실패 수(고정 호스트 제외). */
+export const UNTRUSTED_MIN_ERRORS_NO_HTTPS = 2;
 /** 이 시간(ms) 안에 TLS 실패가 있었을 때만 "미신뢰"로 본다(신뢰를 다시 켜면 곧 풀리게). */
 export const UNTRUSTED_WINDOW_MS = 60_000;
 /** 마지막 복호화 성공 이후 이만큼 실패하면 신뢰가 꺼진 것으로 본다. 인증서를 고정한 앱 1~2건의 실패와 구분한다. */
@@ -165,13 +197,14 @@ export const UNTRUSTED_MIN_HOSTS = 2;
 
 /**
  * 상태 판정. CA를 신뢰하지 않으면 모든 HTTPS 핸드셰이크가 실패한다.
- * - 복호화된 HTTPS가 한 번도 없는데 실패가 있으면 untrusted.
+ * - iCloud 등 인증서를 고정하는 시스템 호스트의 실패는 근거에서 뺀다(신뢰를 켜도 항상 실패하므로).
+ * - 복호화된 HTTPS가 한 번도 없는데 근거 실패가 2회 이상이면 untrusted.
  * - 복호화에 성공한 적이 있더라도, 그 "이후" 최근(60초)에 여러 번(3회 이상) 또는 여러 호스트(2곳 이상)에서
  *   실패하면 untrusted: 신뢰 설정을 중간에 껐거나 CA가 바뀐 경우다. 과거 성공 기록이 있다는 이유로 가리지 않는다.
  * - 한두 호스트만 실패하고 다른 곳은 성공하는 경우(인증서 고정 앱)는 untrusted가 아니다.
  */
 export function clientState(client: ClientInfo, now: number): ClientState {
-  if (client.tlsErrorCount > 0 && client.httpsCount === 0) return 'untrusted';
+  if (client.tlsErrorsOther >= UNTRUSTED_MIN_ERRORS_NO_HTTPS && client.httpsCount === 0) return 'untrusted';
   const recent = client.lastTlsErrorAt > 0 && now - client.lastTlsErrorAt <= UNTRUSTED_WINDOW_MS;
   if (recent && (client.tlsErrorsSinceHttps >= UNTRUSTED_MIN_ERRORS || client.tlsHostsSinceHttps.length >= UNTRUSTED_MIN_HOSTS)) {
     return 'untrusted';

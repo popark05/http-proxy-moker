@@ -18,6 +18,8 @@ const client = (over: Partial<ClientInfo> = {}): ClientInfo => ({
   tlsErrorCount: 0,
   tlsHosts: [],
   lastHttpsAt: 100_000,
+  tlsErrorsOther: 0,
+  tlsHostsOther: [],
   lastTlsErrorAt: 0,
   tlsErrorsSinceHttps: 0,
   tlsHostsSinceHttps: [],
@@ -55,7 +57,7 @@ describe('ClientList', () => {
       <ClientList
         {...baseProps}
         onIosSetup={onIosSetup}
-        clients={[client({ httpsCount: 0, requestCount: 0, tlsErrorCount: 4, tlsHosts: ['api.a.com'] })]}
+        clients={[client({ httpsCount: 0, requestCount: 0, tlsErrorCount: 4, tlsErrorsOther: 4, tlsHostsOther: ['api.a.com'], tlsHosts: ['api.a.com'] })]}
         now={101_000}
       />
     );
@@ -71,15 +73,27 @@ describe('ClientList', () => {
       <ClientList
         {...baseProps}
         now={110_000}
-        clients={[client({ tlsErrorCount: 5, lastTlsErrorAt: 109_000, tlsErrorsSinceHttps: 5, tlsHostsSinceHttps: ['b.com', 'a.com'], tlsHosts: ['b.com', 'a.com'] })]}
+        clients={[client({ tlsErrorCount: 5, tlsErrorsOther: 5, lastTlsErrorAt: 109_000, tlsErrorsSinceHttps: 5, tlsHostsSinceHttps: ['b.com', 'a.com'], tlsHosts: ['b.com', 'a.com'] })]}
       />
     );
     expect(screen.getByText('인증서 미신뢰')).toBeTruthy();
     expect(screen.getByText(/실패한 호스트: b\.com, a\.com/)).toBeTruthy();
   });
 
+  it('iCloud 같은 시스템 서비스만 실패하면 미신뢰가 아니라 "정상" 안내만 보여준다(화면 꺼진 iPhone)', () => {
+    render(
+      <ClientList
+        {...baseProps}
+        now={101_000}
+        clients={[client({ httpsCount: 0, tlsErrorCount: 6, tlsErrorsOther: 0, tlsHosts: ['gateway.icloud.com'] })]}
+      />
+    );
+    expect(screen.queryByText('인증서 미신뢰')).toBeNull();
+    expect(screen.getByText(/iCloud 등 시스템 서비스가 인증서를 고정해 프록시를 거부한 연결 6건/)).toBeTruthy();
+  });
+
   it('일부 호스트만 TLS 실패하면(복호화된 HTTPS 있음) 미신뢰가 아니라 참고 문구만', () => {
-    render(<ClientList {...baseProps} clients={[client({ tlsErrorCount: 2, tlsHosts: ['pin.a.com'] })]} now={101_000} />);
+    render(<ClientList {...baseProps} clients={[client({ tlsErrorCount: 2, tlsErrorsOther: 2, tlsHostsOther: ['pin.a.com'], tlsHosts: ['pin.a.com'] })]} now={101_000} />);
     expect(screen.queryByText('인증서 미신뢰')).toBeNull();
     expect(screen.getByText(/인증서를 고정한 앱/)).toBeTruthy();
   });
@@ -113,7 +127,7 @@ describe('ClientList', () => {
         now={101_000}
         clients={[
           client({ ip: '10.0.0.1', lastSeenAt: 100_900 }),
-          client({ ip: '10.0.0.2', httpsCount: 0, requestCount: 0, tlsErrorCount: 3, lastSeenAt: 90_000, platform: 'unknown', model: undefined, osVersion: undefined })
+          client({ ip: '10.0.0.2', httpsCount: 0, requestCount: 0, tlsErrorCount: 3, tlsErrorsOther: 3, lastSeenAt: 90_000, platform: 'unknown', model: undefined, osVersion: undefined })
         ]}
       />
     );
