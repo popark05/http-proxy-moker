@@ -24,6 +24,8 @@ export class ProxyEngine {
   private server: Mockttp | undefined;
   /** mockttp 룰 id → 목 id. 요청의 matchedRuleId로 어떤 목이 응답했는지 판별한다. */
   private ruleToMock = new Map<string, string>();
+  /** TLS 실패 진단 로그 도배 방지: `ip|host` → 마지막으로 기록한 시각. */
+  private tlsLogAt = new Map<string, number>();
 
   constructor(
     private readonly emit: EngineEmitter,
@@ -145,6 +147,15 @@ export class ProxyEngine {
     }
   }
 
+  /** 기기가 TLS 핸드셰이크를 실패할 때 터미널(dev)에서 확인할 수 있게 같은 호스트는 10초에 한 번만 기록한다. */
+  private logTlsFailure(clientIp: string | undefined, hostname: string | undefined, cause: string): void {
+    const key = `${clientIp ?? '?'}|${hostname ?? '?'}`;
+    const now = Date.now();
+    if (now - (this.tlsLogAt.get(key) ?? 0) < 10_000) return;
+    this.tlsLogAt.set(key, now);
+    console.log(`[tls-error] 기기 ${clientIp ?? '알 수 없음'} → ${hostname ?? '(SNI 없음)'} 핸드셰이크 실패(${cause})`);
+  }
+
   private async subscribe(server: Mockttp): Promise<void> {
     await server.on('request', async (request) => {
       // 목 룰이 매칭된 요청이면 mock-hit을 알린다(장애 주입 목 포함). 캡처 변환 실패와 무관하게 먼저 emit.
@@ -181,11 +192,14 @@ export class ProxyEngine {
     // 모두 전달하고, "복호화된 HTTPS가 한 건도 없는 기기"인지는 렌더러 집계(clientState)가 판단한다.
     // 암호 스위트 불일치/타임아웃은 CA와 무관해 제외한다.
     await server.on('tls-client-error', (failure) => {
+      const clientIp = normalizeClientIp(failure.remoteIpAddress);
+      const hostname = failure.tlsMetadata?.sniHostname;
+      this.logTlsFailure(clientIp, hostname, failure.failureCause);
       if (failure.failureCause === 'no-shared-cipher' || failure.failureCause === 'handshake-timeout') return;
       this.emit({
         type: 'tls-error',
-        clientIp: normalizeClientIp(failure.remoteIpAddress),
-        hostname: failure.tlsMetadata?.sniHostname,
+        clientIp,
+        hostname,
         cause: failure.failureCause,
         at: Date.now()
       });

@@ -17,6 +17,10 @@ const client = (over: Partial<ClientInfo> = {}): ClientInfo => ({
   lastSeenAt: 100_000,
   tlsErrorCount: 0,
   tlsHosts: [],
+  lastHttpsAt: 100_000,
+  lastTlsErrorAt: 0,
+  tlsErrorsSinceHttps: 0,
+  tlsHostsSinceHttps: [],
   local: false,
   ...over
 });
@@ -60,6 +64,18 @@ describe('ClientList', () => {
     expect(screen.getByText(/api\.a\.com/)).toBeTruthy();
     fireEvent.click(screen.getByText('iOS 셋업 가이드 열기'));
     expect(onIosSetup).toHaveBeenCalled();
+  });
+
+  it('신뢰를 중간에 끈 iPhone(과거 복호화 성공 있음)도 최근 실패가 이어지면 미신뢰로 표시하고 실패 호스트를 보여준다', () => {
+    render(
+      <ClientList
+        {...baseProps}
+        now={110_000}
+        clients={[client({ tlsErrorCount: 5, lastTlsErrorAt: 109_000, tlsErrorsSinceHttps: 5, tlsHostsSinceHttps: ['b.com', 'a.com'], tlsHosts: ['b.com', 'a.com'] })]}
+      />
+    );
+    expect(screen.getByText('인증서 미신뢰')).toBeTruthy();
+    expect(screen.getByText(/실패한 호스트: b\.com, a\.com/)).toBeTruthy();
   });
 
   it('일부 호스트만 TLS 실패하면(복호화된 HTTPS 있음) 미신뢰가 아니라 참고 문구만', () => {

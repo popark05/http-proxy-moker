@@ -96,7 +96,8 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                     <p>
                       HTTPS를 복호화할 수 없습니다. 기기에서 EverMock CA 프로파일 설치와 &quot;인증서 신뢰 설정&quot;(설정 &gt; 일반 &gt; 정보)
                       활성화를 확인하세요.
-                      {c.tlsHosts.length > 0 && ` 거부된 호스트: ${c.tlsHosts.join(', ')}`}
+                      {(c.tlsHostsSinceHttps.length > 0 || c.tlsHosts.length > 0) &&
+                        ` 실패한 호스트: ${(c.tlsHostsSinceHttps.length > 0 ? c.tlsHostsSinceHttps : c.tlsHosts).join(', ')}`}
                     </p>
                     {/* 요청이 없어 플랫폼을 모르는 기기도 대부분 iOS(수동 설정)라 가이드를 함께 안내한다. */}
                     {c.platform !== 'android' && (
