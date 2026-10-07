@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Smartphone, Apple, RefreshCw, SmartphoneNfc } from 'lucide-react';
+import { Smartphone, Apple, RefreshCw, SmartphoneNfc, CircleHelp } from 'lucide-react';
 import type {
   AndroidInterceptionMode,
   AndroidTrafficPath,
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { useDevices } from '../../state/useDevices';
-import { IosSetupModal } from './IosSetupModal';
+import { ConnectionWizard } from './ConnectionWizard';
 import { ClientList } from './ClientList';
 import type { ClientInfo } from '@shared/clients';
 
@@ -63,13 +63,13 @@ function DeviceItem({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2 rounded-md border border-border p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
         {isIos ? (
           <Apple className="size-[18px] shrink-0" />
         ) : (
           <Smartphone className="size-[18px] shrink-0" />
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[6rem] flex-1">
           <div className="truncate text-sm" title={device.id}>
             {device.name}
           </div>
@@ -151,7 +151,11 @@ interface DevicePanelProps {
 
 export function DevicePanel({ clients, now, proxyRunning, onFilterClient, activeClientFilter, untrackedCount }: DevicePanelProps): JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices();
-  const [iosSetupOpen, setIosSetupOpen] = useState(false);
+  const [wizard, setWizard] = useState<{ open: boolean; tab: 'android-usb' | 'ios-wifi' }>({
+    open: false,
+    tab: 'android-usb'
+  });
+  const openWizard = (tab: 'android-usb' | 'ios-wifi'): void => setWizard({ open: true, tab });
 
   const handleStart = async (
     device: DeviceInfo,
@@ -184,8 +188,8 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
           기기
         </h3>
         <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setIosSetupOpen(true)}>
-            <Apple /> iOS 셋업
+          <Button variant="ghost" size="sm" onClick={() => openWizard('android-usb')}>
+            <CircleHelp /> 연결 가이드
           </Button>
           <Button
             variant="ghost"
@@ -208,6 +212,11 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
             icon={SmartphoneNfc}
             title="연결된 기기가 없습니다"
             description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
+            action={
+              <Button variant="outline" size="sm" onClick={() => openWizard('android-usb')}>
+                <CircleHelp /> 연결 방법 보기
+              </Button>
+            }
           />
         )
       ) : (
@@ -218,7 +227,7 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
             interception={interceptions[device.id]}
             onStart={(mode, path) => void handleStart(device, mode, path)}
             onStop={() => void handleStop(device)}
-            onIosSetup={() => setIosSetupOpen(true)}
+            onIosSetup={() => openWizard('ios-wifi')}
           />
         ))
       )}
@@ -231,10 +240,15 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
         untrackedCount={untrackedCount}
         activeFilter={activeClientFilter}
         onFilter={(ip) => onFilterClient(activeClientFilter === ip ? undefined : ip)}
-        onIosSetup={() => setIosSetupOpen(true)}
+        onIosSetup={() => openWizard('ios-wifi')}
       />
 
-      <IosSetupModal open={iosSetupOpen} onOpenChange={setIosSetupOpen} />
+      <ConnectionWizard
+        open={wizard.open}
+        onOpenChange={(open) => setWizard((w) => ({ ...w, open }))}
+        initialTab={wizard.tab}
+        input={{ proxyRunning, devices, interceptions, clients, now }}
+      />
     </div>
   );
 }
