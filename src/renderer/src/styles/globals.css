@@ -158,7 +158,41 @@
   animation: mock-hit-pulse 0.7s ease-out;
 }
 
+/* 연결 마법사: 커넥터 위를 지나가는 패킷 칩. 왼쪽(기기) → 오른쪽(PC). */
+@keyframes wizard-packet {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 2.2rem);
+    opacity: 0;
+  }
+}
+.wizard-packet {
+  animation: wizard-packet 2.4s linear infinite;
+}
+/* hairline 도형: 플레이트 색은 모달 배경(card)과 같아야 한다. */
+.wizard-figures {
+  --hairline-plate: hsl(var(--card));
+  --hairline-hi: hsl(var(--foreground));
+  --hairline-edge: hsl(var(--muted-foreground));
+  --hairline-mid: hsl(var(--muted-foreground) / 0.55);
+  --hairline-lo: hsl(var(--border));
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .wizard-packet {
+    animation: none;
+    left: 40%;
+    opacity: 1;
+  }
   .animate-mock-hit-flash,
   .animate-mock-hit-pop,
   .animate-mock-hit-pulse {
