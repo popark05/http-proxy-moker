@@ -60,13 +60,24 @@ export class AndroidConnector implements DeviceConnector {
     const device = this.adb.getDevice(deviceId);
     const mode = options.androidMode ?? 'auto';
 
-    // adb reverse: 기기의 proxyPort를 호스트로 터널(에뮬레이터/USB). 실패해도 wifi 폴백.
+    const wifiPath = options.trafficPath === 'wifi';
+
+    // usb 경로: adb reverse로 기기의 proxyPort를 호스트로 터널. 실패하면 wifi로 폴백(경고).
+    // wifi 경로: 터널을 쓰지 않고, 이전에 남은 reverse 규칙이 있으면 제거한다.
     let reverseOk = false;
-    try {
-      await device.reverse(`tcp:${options.proxyPort}`, `tcp:${options.proxyPort}`);
-      reverseOk = true;
-    } catch {
-      reverseOk = false;
+    if (wifiPath) {
+      try {
+        await device.removeReverse(`tcp:${options.proxyPort}`);
+      } catch {
+        // 규칙이 없으면 실패하는 게 정상.
+      }
+    } else {
+      try {
+        await device.reverse(`tcp:${options.proxyPort}`, `tcp:${options.proxyPort}`);
+        reverseOk = true;
+      } catch {
+        reverseOk = false;
+      }
     }
 
     // 방식 결정: vpn 명시 or (auto인데 root 불가)면 VPN.
@@ -83,6 +94,23 @@ export class AndroidConnector implements DeviceConnector {
     return this.activateRoot(deviceId, device, options, root, reverseOk);
   }
 
+  /** 트래픽 경로 관련 경고: usb 터널 실패 폴백, wifi인데 LAN IP 없음. */
+  private pushPathWarnings(
+    warnings: string[],
+    options: InterceptionOptions,
+    reverseOk: boolean
+  ): void {
+    if (reverseOk) return;
+    if (options.trafficPath !== 'wifi') {
+      warnings.push('adb reverse 터널 설정에 실패했습니다. WiFi 프록시 경로로 시도됩니다.');
+    }
+    if (!options.proxyHost || options.proxyHost === '127.0.0.1') {
+      warnings.push(
+        'PC의 LAN IP를 찾지 못해 Wi-Fi 경로를 사용할 수 없습니다. PC와 기기가 같은 네트워크에 있는지 확인하세요.'
+      );
+    }
+  }
+
   /** root 모드: 프록시 설정 + 시스템 CA 주입. */
   private async activateRoot(
     deviceId: string,
@@ -92,9 +120,7 @@ export class AndroidConnector implements DeviceConnector {
     reverseOk: boolean
   ): Promise<InterceptionResult> {
     const warnings: string[] = [];
-    if (!reverseOk) {
-      warnings.push('adb reverse 터널 설정에 실패했습니다. WiFi 프록시 경로로 시도됩니다.');
-    }
+    this.pushPathWarnings(warnings, options, reverseOk);
 
     // adb reverse가 성공했으면 기기 localhost가 호스트 프록시로 터널되므로 LAN IP가 필요 없다
     // (USB 연결 기기·에뮬레이터, 여러 NIC로 IP를 잘못 고르는 경우에도 안전).
@@ -134,6 +160,7 @@ export class AndroidConnector implements DeviceConnector {
     reverseOk: boolean
   ): Promise<InterceptionResult> {
     const warnings: string[] = [];
+    this.pushPathWarnings(warnings, options, reverseOk);
 
     if (options.proxyRunning === false) {
       // 프록시가 없으면 companion이 신뢰 검증에 실패해 무조건 disconnected가 된다.

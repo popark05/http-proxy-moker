@@ -213,6 +213,75 @@ describe('AndroidConnector.startInterception (vpn)', () => {
   });
 });
 
+describe('AndroidConnector 트래픽 경로 선택', () => {
+  const shellsOf = (device: AdbDevice): unknown[] =>
+    (device.shell as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+
+  it('wifi 경로(root): reverse를 만들지 않고 기존 규칙을 지우며 LAN IP를 쓴다', async () => {
+    const { client, device } = makeAdbClient([{ id: 'phone', type: 'device' }], (cmd) =>
+      cmd === 'id' ? 'uid=0(root)' : ''
+    );
+    const result = await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      caPem: SAMPLE_CERT,
+      androidMode: 'root',
+      trafficPath: 'wifi'
+    });
+
+    expect(device.reverse).not.toHaveBeenCalled();
+    expect(device.removeReverse).toHaveBeenCalledWith('tcp:8080');
+    expect(shellsOf(device)).toContain('settings put global http_proxy 192.168.0.5:8080');
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('wifi 경로인데 LAN IP가 없으면 경고', async () => {
+    const { client } = makeAdbClient([{ id: 'phone', type: 'device' }], (cmd) =>
+      cmd === 'id' ? 'uid=0(root)' : ''
+    );
+    const result = await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '127.0.0.1',
+      proxyPort: 8080,
+      androidMode: 'root',
+      trafficPath: 'wifi'
+    });
+    expect(result.warnings.some((w) => w.includes('LAN IP'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('reverse'))).toBe(false);
+  });
+
+  it('wifi 경로(vpn): 터널 포트 없이 LAN IP만 전달', async () => {
+    const { client, device } = makeAdbClient([{ id: 'phone', type: 'device' }], () => '');
+    await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      certFingerprint: 'FP',
+      androidMode: 'vpn',
+      trafficPath: 'wifi'
+    });
+    expect(device.reverse).not.toHaveBeenCalled();
+    const activate = (device.startActivity as ReturnType<typeof vi.fn>).mock.calls.find((c) =>
+      c[0].action?.includes('ACTIVATE')
+    );
+    const b64 = new URL(activate![0].data).searchParams.get('data')!;
+    const params = JSON.parse(Buffer.from(b64, 'base64').toString());
+    expect(params.addresses).toContain('192.168.0.5');
+    expect(params.localTunnelPort).toBeUndefined();
+  });
+
+  it('usb가 기본값이며 reverse를 만든다', async () => {
+    const { client, device } = makeAdbClient([{ id: 'phone', type: 'device' }], (cmd) =>
+      cmd === 'id' ? 'uid=0(root)' : ''
+    );
+    await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      androidMode: 'root'
+    });
+    expect(device.reverse).toHaveBeenCalledWith('tcp:8080', 'tcp:8080');
+    expect(device.removeReverse).not.toHaveBeenCalled();
+  });
+});
+
 describe('AndroidConnector.stopInterception', () => {
   it('프록시를 해제한다', async () => {
     const { client, device } = makeAdbClient([{ id: 'emu', type: 'emulator' }], () => '');

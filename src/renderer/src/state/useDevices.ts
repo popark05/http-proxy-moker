@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AndroidInterceptionMode, DeviceInfo, InterceptionResult } from '@shared/device';
+import type {
+  AndroidInterceptionMode,
+  AndroidTrafficPath,
+  DeviceInfo,
+  InterceptionResult
+} from '@shared/device';
 
 interface UseDevicesResult {
   devices: DeviceInfo[];
@@ -8,7 +13,8 @@ interface UseDevicesResult {
   interceptions: Record<string, InterceptionResult>;
   start: (
     device: DeviceInfo,
-    androidMode?: AndroidInterceptionMode
+    androidMode?: AndroidInterceptionMode,
+    trafficPath?: AndroidTrafficPath
   ) => Promise<InterceptionResult>;
   stop: (device: DeviceInfo) => Promise<void>;
 }
@@ -36,11 +42,16 @@ export function useDevices(): UseDevicesResult {
     return () => clearInterval(timer);
   }, [refresh]);
 
-  const start = useCallback(async (device: DeviceInfo, androidMode?: AndroidInterceptionMode) => {
+  const start = useCallback(async (
+    device: DeviceInfo,
+    androidMode?: AndroidInterceptionMode,
+    trafficPath?: AndroidTrafficPath
+  ) => {
     const result = await window.mokerApi.device.startInterception(
       device.platform,
       device.id,
-      androidMode
+      androidMode,
+      trafficPath
     );
     setInterceptions((prev) => ({ ...prev, [device.id]: result }));
     return result;

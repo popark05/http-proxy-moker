@@ -7,6 +7,7 @@ import type { CaptureEvent, CapturedExchange, ProxyStatus } from './capture';
 import type { CaInfo, CaExportFormat } from './certificate';
 import type {
   AndroidInterceptionMode,
+  AndroidTrafficPath,
   DeviceInfo,
   DevicePlatform,
   InterceptionResult,
@@ -117,7 +118,8 @@ export interface MokerApi {
     startInterception(
       platform: DevicePlatform,
       deviceId: string,
-      androidMode?: AndroidInterceptionMode
+      androidMode?: AndroidInterceptionMode,
+      trafficPath?: AndroidTrafficPath
     ): Promise<InterceptionResult>;
     stopInterception(platform: DevicePlatform, deviceId: string): Promise<void>;
     setupInstructions(platform: DevicePlatform): Promise<SetupStep[]>;

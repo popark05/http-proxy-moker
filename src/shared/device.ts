@@ -13,6 +13,13 @@ export type DevicePlatform = 'android' | 'ios';
  */
 export type AndroidInterceptionMode = 'auto' | 'root' | 'vpn';
 
+/**
+ * Android 트래픽 경로(기기 → 프록시).
+ * - usb: adb reverse 터널로 기기 127.0.0.1 → PC 프록시(USB 연결 필요, LAN 불필요).
+ * - wifi: PC의 LAN IP로 직접 접속(같은 네트워크 필요, 기기가 자기 LAN IP로 구분됨).
+ */
+export type AndroidTrafficPath = 'usb' | 'wifi';
+
 export interface DeviceInfo {
   /** 플랫폼별 고유 식별자(android: adb serial, ios: udid). */
   id: string;

@@ -2,7 +2,11 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels, type MokerApi, type PingRequest, type ProxyStartArgs } from '@shared/ipc';
 import type { CaptureEvent, CapturedExchange } from '@shared/capture';
 import type { CaExportFormat } from '@shared/certificate';
-import type { DevicePlatform, AndroidInterceptionMode } from '@shared/device';
+import type {
+  DevicePlatform,
+  AndroidInterceptionMode,
+  AndroidTrafficPath
+} from '@shared/device';
 import type { ApplyMocksArgs } from '@shared/mock';
 import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
 
@@ -33,8 +37,16 @@ const api: MokerApi = {
     startInterception: (
       platform: DevicePlatform,
       deviceId: string,
-      androidMode?: AndroidInterceptionMode
-    ) => ipcRenderer.invoke(IpcChannels.deviceStartInterception, platform, deviceId, androidMode),
+      androidMode?: AndroidInterceptionMode,
+      trafficPath?: AndroidTrafficPath
+    ) =>
+      ipcRenderer.invoke(
+        IpcChannels.deviceStartInterception,
+        platform,
+        deviceId,
+        androidMode,
+        trafficPath
+      ),
     stopInterception: (platform: DevicePlatform, deviceId: string) =>
       ipcRenderer.invoke(IpcChannels.deviceStopInterception, platform, deviceId),
     setupInstructions: (platform: DevicePlatform) =>
