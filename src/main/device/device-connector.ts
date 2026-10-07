@@ -1,5 +1,6 @@
 import type {
   AndroidInterceptionMode,
+  AndroidTrafficPath,
   DeviceInfo,
   DevicePlatform,
   InterceptionResult,
@@ -17,6 +18,8 @@ export interface InterceptionOptions {
   proxyRunning?: boolean;
   /** Android 인터셉션 방식. 기본 'auto'. */
   androidMode?: AndroidInterceptionMode;
+  /** Android 트래픽 경로. 기본 'usb'. */
+  trafficPath?: AndroidTrafficPath;
 }
 
 /**

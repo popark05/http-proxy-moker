@@ -221,3 +221,38 @@ describe('countWithoutClientIp', () => {
     expect(countWithoutClientIp([ex('1', undefined, 'https://a.com'), ex('2', '1.1.1.1', 'https://a.com'), ex('3', undefined, 'https://b.com')])).toBe(2);
   });
 });
+
+describe('Android(USB 터널/VPN) 미신뢰 판정', () => {
+  const T0 = 2_000_000;
+  const plain = (id: string) => ex(id, '127.0.0.1', 'http://connectivitycheck.gstatic.com/generate_204', ANDROID_UA, T0);
+  const fail = (host: string, at: number) => ({ clientIp: '127.0.0.1', hostname: host, at });
+
+  it('Google 서비스 + 앱 하나(coupang)의 TLS 실패만으로는 미신뢰가 아니다', () => {
+    const [c] = aggregateClients(
+      [plain('1')],
+      [
+        fail('connectivitycheck.gstatic.com', T0 + 1),
+        fail('play-fe.googleapis.com', T0 + 2),
+        fail('ljc.coupang.com', T0 + 3),
+        fail('entrance.coupang.com', T0 + 4)
+      ]
+    );
+    expect(clientState(c, T0 + 1000)).not.toBe('untrusted');
+  });
+
+  it('복호화된 HTTPS 없이 서로 다른 호스트 3곳이 최근 실패하면 미신뢰', () => {
+    const [c] = aggregateClients(
+      [plain('1')],
+      [fail('a.com', T0 + 1), fail('b.com', T0 + 2), fail('c.com', T0 + 3)]
+    );
+    expect(clientState(c, T0 + 1000)).toBe('untrusted');
+  });
+
+  it('오래된 실패는 시간이 지나면 풀린다', () => {
+    const [c] = aggregateClients(
+      [plain('1')],
+      [fail('a.com', T0 + 1), fail('b.com', T0 + 2), fail('c.com', T0 + 3)]
+    );
+    expect(clientState(c, T0 + 3 + UNTRUSTED_WINDOW_MS + 1)).not.toBe('untrusted');
+  });
+});

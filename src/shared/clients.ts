@@ -66,7 +66,15 @@ const PINNED_HOST_SUFFIXES = [
   'mzstatic.com',
   'apple-dns.net',
   'cdn-apple.com',
-  'aaplimg.com'
+  'aaplimg.com',
+  // Android: Google Play 서비스/연결 확인/동기화도 사용자 CA를 신뢰하지 않거나 인증서를 고정한다.
+  'google.com',
+  'googleapis.com',
+  'gstatic.com',
+  'gvt1.com',
+  'gvt2.com',
+  'android.com',
+  'googleusercontent.com'
 ];
 
 /** 인증서를 고정하는 것으로 알려진 시스템 호스트인지(서브도메인 포함). */
@@ -195,6 +203,13 @@ export const UNTRUSTED_MIN_ERRORS = 3;
 /** 또는 서로 다른 호스트가 이만큼 실패하면(앱 하나가 아니라 CA 자체를 거부하는 신호). */
 export const UNTRUSTED_MIN_HOSTS = 2;
 
+/** Android(또는 USB 터널로 들어온 기기)용: 근거 실패 호스트가 이 수 이상이어야 미신뢰로 본다. */
+export const ANDROID_UNTRUSTED_MIN_HOSTS = 3;
+
+function isAndroidLike(client: ClientInfo): boolean {
+  return client.platform === 'android' || client.local;
+}
+
 /**
  * 상태 판정. CA를 신뢰하지 않으면 모든 HTTPS 핸드셰이크가 실패한다.
  * - iCloud 등 인증서를 고정하는 시스템 호스트의 실패는 근거에서 뺀다(신뢰를 켜도 항상 실패하므로).
@@ -204,6 +219,13 @@ export const UNTRUSTED_MIN_HOSTS = 2;
  * - 한두 호스트만 실패하고 다른 곳은 성공하는 경우(인증서 고정 앱)는 untrusted가 아니다.
  */
 export function clientState(client: ClientInfo, now: number): ClientState {
+  // Android는 API 24+ 앱 대부분이 사용자 CA를 아예 무시한다(앱별 opt-in). 앱 한두 개의 TLS 실패는 정상이므로,
+  // 복호화된 HTTPS가 한 번도 없으면서 서로 다른 호스트 여러 곳이 최근에 실패할 때만 미신뢰로 본다.
+  if (isAndroidLike(client)) {
+    const recent = client.lastTlsErrorAt > 0 && now - client.lastTlsErrorAt <= UNTRUSTED_WINDOW_MS;
+    if (recent && client.httpsCount === 0 && client.tlsHostsOther.length >= ANDROID_UNTRUSTED_MIN_HOSTS) return 'untrusted';
+    return now - client.lastSeenAt <= ACTIVE_WINDOW_MS ? 'active' : 'idle';
+  }
   if (client.tlsErrorsOther >= UNTRUSTED_MIN_ERRORS_NO_HTTPS && client.httpsCount === 0) return 'untrusted';
   const recent = client.lastTlsErrorAt > 0 && now - client.lastTlsErrorAt <= UNTRUSTED_WINDOW_MS;
   if (recent && (client.tlsErrorsSinceHttps >= UNTRUSTED_MIN_ERRORS || client.tlsHostsSinceHttps.length >= UNTRUSTED_MIN_HOSTS)) {

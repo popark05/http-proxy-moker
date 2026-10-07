@@ -1,5 +1,6 @@
 import type {
   AndroidInterceptionMode,
+  AndroidTrafficPath,
   DeviceInfo,
   DevicePlatform,
   InterceptionResult,
@@ -38,11 +39,12 @@ export class DeviceService {
   async startInterception(
     platform: DevicePlatform,
     deviceId: string,
-    androidMode?: AndroidInterceptionMode
+    androidMode?: AndroidInterceptionMode,
+    trafficPath?: AndroidTrafficPath
   ): Promise<InterceptionResult> {
     const options = await this.getOptions();
     const connector = this.connectorFor(platform);
-    return connector.startInterception(deviceId, { ...options, androidMode });
+    return connector.startInterception(deviceId, { ...options, androidMode, trafficPath });
   }
 
   async stopInterception(platform: DevicePlatform, deviceId: string): Promise<void> {

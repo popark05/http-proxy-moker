@@ -10,7 +10,11 @@ import {
 } from '@shared/ipc';
 import type { CaptureEvent } from '@shared/capture';
 import type { CaExportFormat } from '@shared/certificate';
-import type { DevicePlatform, AndroidInterceptionMode } from '@shared/device';
+import type {
+  DevicePlatform,
+  AndroidInterceptionMode,
+  AndroidTrafficPath
+} from '@shared/device';
 import { ProxyService } from './proxy/proxy-service';
 import { CaManager } from './cert/ca-manager';
 import { generateMobileConfig } from './cert/mobileconfig';
@@ -110,8 +114,13 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   ipcMain.handle(IpcChannels.deviceList, () => deviceService.listDevices());
   ipcMain.handle(
     IpcChannels.deviceStartInterception,
-    (_event, platform: DevicePlatform, deviceId: string, androidMode?: AndroidInterceptionMode) =>
-      deviceService.startInterception(platform, deviceId, androidMode)
+    (
+      _event,
+      platform: DevicePlatform,
+      deviceId: string,
+      androidMode?: AndroidInterceptionMode,
+      trafficPath?: AndroidTrafficPath
+    ) => deviceService.startInterception(platform, deviceId, androidMode, trafficPath)
   );
   ipcMain.handle(
     IpcChannels.deviceStopInterception,

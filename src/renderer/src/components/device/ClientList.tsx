@@ -94,8 +94,9 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                   <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
                   <div>
                     <p>
-                      HTTPS를 복호화할 수 없습니다. 기기에서 EverMock CA 프로파일 설치와 &quot;인증서 신뢰 설정&quot;(설정 &gt; 일반 &gt; 정보)
-                      활성화를 확인하세요.
+                      {c.platform === 'android' || c.local
+                        ? 'HTTPS를 복호화할 수 없습니다. VPN 연결 요청을 허용했는지, 기기에 EverMock CA가 설치(사용자 CA)됐는지 확인하세요. 사용자 CA를 무시하는 앱의 트래픽은 복호화되지 않을 수 있습니다.'
+                        : 'HTTPS를 복호화할 수 없습니다. 기기에서 EverMock CA 프로파일 설치와 "인증서 신뢰 설정"(설정 > 일반 > 정보) 활성화를 확인하세요.'}
                       {(c.tlsHostsSinceHttps.length > 0 || c.tlsHostsOther.length > 0) &&
                         ` 실패한 호스트: ${(c.tlsHostsSinceHttps.length > 0 ? c.tlsHostsSinceHttps : c.tlsHostsOther).join(', ')}`}
                     </p>

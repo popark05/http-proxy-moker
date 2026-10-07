@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Smartphone, Apple, RefreshCw, SmartphoneNfc } from 'lucide-react';
 import type {
   AndroidInterceptionMode,
+  AndroidTrafficPath,
   DeviceInfo,
   InterceptionResult
 } from '@shared/device';
@@ -51,13 +52,14 @@ function DeviceItem({
 }: {
   device: DeviceInfo;
   interception: InterceptionResult | undefined;
-  onStart: (mode: AndroidInterceptionMode) => void;
+  onStart: (mode: AndroidInterceptionMode, trafficPath: AndroidTrafficPath) => void;
   onStop: () => void;
   onIosSetup: () => void;
 }): JSX.Element {
   const active = !!interception;
   const isIos = device.platform === 'ios';
   const [mode, setMode] = useState<AndroidInterceptionMode>('auto');
+  const [trafficPath, setTrafficPath] = useState<AndroidTrafficPath>('usb');
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -87,6 +89,19 @@ function DeviceItem({
           </select>
         )}
 
+        {!isIos && !active && (
+          <select
+            aria-label="트래픽 경로"
+            title="기기 트래픽이 PC 프록시에 도달하는 경로"
+            value={trafficPath}
+            onChange={(e) => setTrafficPath(e.target.value as AndroidTrafficPath)}
+            className="rounded-md border border-input bg-transparent px-1.5 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="usb">USB 터널</option>
+            <option value="wifi">Wi-Fi</option>
+          </select>
+        )}
+
         {isIos ? (
           <Button variant="outline" size="sm" onClick={onIosSetup}>
             셋업 가이드
@@ -96,7 +111,7 @@ function DeviceItem({
             해제
           </Button>
         ) : (
-          <Button size="sm" disabled={device.status !== 'ready'} onClick={() => onStart(mode)}>
+          <Button size="sm" disabled={device.status !== 'ready'} onClick={() => onStart(mode, trafficPath)}>
             인터셉트
           </Button>
         )}
@@ -138,9 +153,13 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices();
   const [iosSetupOpen, setIosSetupOpen] = useState(false);
 
-  const handleStart = async (device: DeviceInfo, mode: AndroidInterceptionMode): Promise<void> => {
+  const handleStart = async (
+    device: DeviceInfo,
+    mode: AndroidInterceptionMode,
+    trafficPath: AndroidTrafficPath
+  ): Promise<void> => {
     try {
-      const result = await start(device, mode);
+      const result = await start(device, mode, trafficPath);
       if (result.warnings.length > 0) {
         toast.warning('인터셉션 시작(주의 필요)', { description: result.warnings[0] });
       } else {
@@ -197,7 +216,7 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
             key={device.id}
             device={device}
             interception={interceptions[device.id]}
-            onStart={(mode) => void handleStart(device, mode)}
+            onStart={(mode, path) => void handleStart(device, mode, path)}
             onStop={() => void handleStop(device)}
             onIosSetup={() => setIosSetupOpen(true)}
           />
