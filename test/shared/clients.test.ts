@@ -8,7 +8,9 @@ import {
   clientState,
   countWithoutClientIp,
   normalizeClientIp,
-  parseUserAgent
+  parseUserAgent,
+  UNTRUSTED_WINDOW_MS,
+  isPinnedHost
 } from '../../src/shared/clients';
 
 const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
@@ -90,9 +92,9 @@ describe('aggregateClients', () => {
 });
 
 describe('clientState', () => {
-  const base = { ip: '1', platform: 'ios' as const, requestCount: 5, httpsCount: 3, lastSeenAt: 10_000, tlsErrorCount: 0, tlsHosts: [], local: false };
+  const base = { ip: '1', platform: 'ios' as const, requestCount: 5, httpsCount: 3, lastSeenAt: 10_000, tlsErrorCount: 0, tlsHosts: [], lastHttpsAt: 10_000, tlsErrorsOther: 0, tlsHostsOther: [], lastTlsErrorAt: 0, tlsErrorsSinceHttps: 0, tlsHostsSinceHttps: [], local: false };
   it('복호화된 HTTPS 없이 TLS 거부가 있으면 untrusted', () => {
-    expect(clientState({ ...base, httpsCount: 0, tlsErrorCount: 2 }, 10_500)).toBe('untrusted');
+    expect(clientState({ ...base, httpsCount: 0, tlsErrorCount: 2, tlsErrorsOther: 2 }, 10_500)).toBe('untrusted');
   });
   it('일부 호스트만 거부(복호화된 HTTPS 있음)는 untrusted가 아니다(인증서 고정 앱)', () => {
     expect(clientState({ ...base, tlsErrorCount: 2 }, 10_500)).toBe('active');
@@ -103,8 +105,100 @@ describe('clientState', () => {
   });
 });
 
+describe('신뢰 설정을 중간에 끈 경우(과거에 복호화 성공 기록이 있는 기기)', () => {
+  const T0 = 1_000_000;
+  const https = (id: string, at: number) => ex(id, '192.168.0.20', 'https://api.a.com/x', IOS_UA, at);
+  const fail = (host: string, at: number) => ({ clientIp: '192.168.0.20', hostname: host, at });
+
+  it('성공 이후 여러 호스트에서 실패하면 미신뢰로 본다(과거 성공 기록과 무관)', () => {
+    const [c] = aggregateClients(
+      [https('1', T0), https('2', T0 + 1000)],
+      [fail('a.com', T0 + 5000), fail('b.com', T0 + 5100)]
+    );
+    expect(c.httpsCount).toBe(2);
+    expect(c.lastHttpsAt).toBe(T0 + 1000);
+    expect(c.tlsErrorsSinceHttps).toBe(2);
+    expect(c.tlsHostsSinceHttps).toEqual(['b.com', 'a.com']);
+    expect(clientState(c, T0 + 6000)).toBe('untrusted');
+  });
+
+  it('같은 호스트가 3번 이상 계속 실패해도 미신뢰', () => {
+    const [c] = aggregateClients([https('1', T0)], [fail('a.com', T0 + 1000), fail('a.com', T0 + 2000), fail('a.com', T0 + 3000)]);
+    expect(clientState(c, T0 + 4000)).toBe('untrusted');
+  });
+
+  it('인증서를 고정한 앱 하나의 1~2회 실패는 미신뢰가 아니다', () => {
+    const [c] = aggregateClients([https('1', T0)], [fail('bank.example.com', T0 + 1000), fail('bank.example.com', T0 + 2000)]);
+    expect(clientState(c, T0 + 3000)).toBe('active');
+  });
+
+  it('실패 뒤에 복호화가 다시 성공하면(신뢰를 다시 켬) 미신뢰가 풀린다', () => {
+    const [c] = aggregateClients(
+      [https('1', T0), https('2', T0 + 10_000)],
+      [fail('a.com', T0 + 1000), fail('b.com', T0 + 2000), fail('c.com', T0 + 3000)]
+    );
+    expect(c.tlsErrorsSinceHttps).toBe(0);
+    expect(clientState(c, T0 + 11_000)).toBe('active');
+  });
+
+  it('실패가 60초 넘게 없으면 미신뢰를 유지하지 않는다', () => {
+    const [c] = aggregateClients([https('1', T0)], [fail('a.com', T0 + 1000), fail('b.com', T0 + 2000)]);
+    expect(clientState(c, T0 + 2000 + UNTRUSTED_WINDOW_MS)).toBe('untrusted');
+    expect(clientState(c, T0 + 2000 + UNTRUSTED_WINDOW_MS + 1)).not.toBe('untrusted');
+  });
+});
+
+describe('인증서를 고정하는 시스템 호스트(iCloud 등)는 미신뢰 근거에서 제외', () => {
+  const T0 = 2_000_000;
+  const fail = (host: string | undefined, at: number) => ({ clientIp: '192.168.45.20', hostname: host, at });
+
+  it('isPinnedHost: Apple/iCloud 서브도메인은 포함, 비슷한 이름의 다른 도메인은 제외', () => {
+    expect(isPinnedHost('gateway.icloud.com')).toBe(true);
+    expect(isPinnedHost('sandbox.itunes.apple.com')).toBe(true);
+    expect(isPinnedHost('APPLE.COM')).toBe(true);
+    expect(isPinnedHost('notapple.com')).toBe(false);
+    expect(isPinnedHost('fakeicloud.com')).toBe(false);
+    expect(isPinnedHost('api.example.com')).toBe(false);
+    expect(isPinnedHost(undefined)).toBe(false);
+  });
+
+  it('화면이 꺼진 iPhone처럼 iCloud 호스트만 반복 실패하면(신뢰는 켜져 있음) 미신뢰가 아니다', () => {
+    const [c] = aggregateClients(
+      [ex('1', '192.168.45.20', 'http://captive.example.com/', IOS_UA, T0)], // HTTPS 복호화 기록 없음
+      [fail('gateway.icloud.com', T0 + 1000), fail('gateway.icloud.com', T0 + 2000), fail('gateway.icloud.com', T0 + 3000), fail('p01-ckdatabase.icloud.com', T0 + 3500)]
+    );
+    expect(c.tlsErrorCount).toBe(4); // 기록은 남기되
+    expect(c.tlsErrorsOther).toBe(0); // 근거로는 세지 않는다
+    expect(clientState(c, T0 + 4000)).toBe('active');
+  });
+
+  it('복호화 성공 기록이 있는 기기도 iCloud 호스트 실패만으로는 미신뢰가 되지 않는다', () => {
+    const [c] = aggregateClients(
+      [ex('1', '192.168.45.20', 'https://api.a.com/x', IOS_UA, T0)],
+      [fail('gateway.icloud.com', T0 + 1000), fail('push.apple.com', T0 + 2000), fail('gateway.icloud.com', T0 + 3000)]
+    );
+    expect(clientState(c, T0 + 4000)).toBe('active');
+  });
+
+  it('iCloud 실패가 섞여 있어도 일반 앱 호스트의 실패가 이어지면 미신뢰', () => {
+    const [c] = aggregateClients([], [
+      fail('gateway.icloud.com', T0 + 500),
+      fail('api.kia.com', T0 + 1000),
+      fail('cdn.hyundai.com', T0 + 2000)
+    ]);
+    expect(c.tlsErrorsOther).toBe(2);
+    expect(c.tlsHostsOther).toEqual(['cdn.hyundai.com', 'api.kia.com']);
+    expect(clientState(c, T0 + 3000)).toBe('untrusted');
+  });
+
+  it('복호화된 HTTPS 없이 일반 호스트 실패가 1건뿐이면 아직 미신뢰로 보지 않는다', () => {
+    const [c] = aggregateClients([], [fail('api.kia.com', T0 + 1000)]);
+    expect(clientState(c, T0 + 2000)).not.toBe('untrusted');
+  });
+});
+
 describe('clientLabel', () => {
-  const ios = { ip: '192.168.0.10', platform: 'ios' as const, model: 'iPhone', osVersion: '17.4', requestCount: 1, httpsCount: 1, lastSeenAt: 1, tlsErrorCount: 0, tlsHosts: [], local: false };
+  const ios = { ip: '192.168.0.10', platform: 'ios' as const, model: 'iPhone', osVersion: '17.4', requestCount: 1, httpsCount: 1, lastSeenAt: 1, tlsErrorCount: 0, tlsHosts: [], lastHttpsAt: 1, tlsErrorsOther: 0, tlsHostsOther: [], lastTlsErrorAt: 0, tlsErrorsSinceHttps: 0, tlsHostsSinceHttps: [], local: false };
   const dev = (platform: 'ios' | 'android', name: string): DeviceInfo => ({ id: name, platform, name, status: 'ready' });
 
   it('모델과 OS 버전으로 이름을 만든다', () => {
