@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { createDirectAdbClient } from '../../src/main/device/direct-adb-adapter';
 import { FakeAndroid } from './adb/fake-android';
 import { FakeUsbBackend, FakeUsbDevice } from './adb/fake-usb';
+import { startFakeAdbServer } from './adb/fake-adb-server';
 
 const cleanups: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -94,5 +95,25 @@ describe('createDirectAdbClient', () => {
     await client.listDevices();
     backend.devices = [];
     expect(await client.listDevices()).toEqual([]);
+  });
+});
+
+describe('createDirectAdbClient (adbServerOnly: EVERMOCK_ADB=server 진단 대조군)', () => {
+  it('직접 USB는 건너뛰고 adb server의 기기만 목록에 올려 shell을 실행한다', async () => {
+    const phone = new FakeAndroid();
+    const server = await startFakeAdbServer([{ serial: 'SERVERDEV', state: 'device', services: phone.services }]);
+    cleanups.push(() => server.close());
+    // USB 쪽에도 기기가 있지만 무시되어야 한다.
+    const backend = new FakeUsbBackend([new FakeUsbDevice(new FakeAndroid().services, 'USBDEV')]);
+    const client = createDirectAdbClient({
+      adbServerOnly: true,
+      usbBackend: backend,
+      dadb: { keyPair: null, adbServer: { port: server.port } }
+    });
+    cleanups.push(() => client.close());
+
+    const list = await client.listDevices();
+    expect(list.map((d) => d.id)).toEqual(['SERVERDEV']);
+    expect(await client.getDevice('SERVERDEV').shell('echo hi')).toBe('hi\n');
   });
 });

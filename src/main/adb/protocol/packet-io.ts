@@ -25,6 +25,7 @@ import {
   CONNECT_VERSION
 } from './constants';
 import { MessageDecoder, encodeHeader, type AdbMessage } from './message';
+import { ADB_TRACE, adbCommandName, adbTrace } from '../trace';
 
 interface PendingRead {
   resolve: (message: AdbMessage) => void;
@@ -79,6 +80,9 @@ export class AdbPacketReader {
       return;
     }
     for (const message of messages) {
+      if (ADB_TRACE) {
+        adbTrace(`<- ${adbCommandName(message.command)}[${message.arg0}, ${message.arg1}] len=${message.payload.length}`);
+      }
       const waiter = this.waiters.shift();
       if (waiter) {
         if (waiter.timer) clearTimeout(waiter.timer);
@@ -132,6 +136,7 @@ export class AdbPacketWriter {
 
   write(command: number, arg0: number, arg1: number, payload?: Uint8Array): Promise<void> {
     const body = payload && payload.length > 0 ? payload : undefined;
+    if (ADB_TRACE) adbTrace(`-> ${adbCommandName(command)}[${arg0}, ${arg1}] len=${body?.length ?? 0}`);
     const run = async (): Promise<void> => {
       try {
         await this.transport.write(encodeHeader(command, arg0, arg1, body));

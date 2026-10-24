@@ -7,8 +7,17 @@ import {
   ACTIVATE_ACTION,
   DEACTIVATE_ACTION
 } from '@shared/android-vpn';
-import { detectRootCommand, setProxy, clearProxy, injectSystemCertificate } from './adb-ops';
+import {
+  detectRootCommand,
+  setProxy,
+  clearProxy,
+  injectSystemCertificate,
+  checkCompanionVpn,
+  checkGlobalProxy
+} from './adb-ops';
+import type { InterceptionLiveness } from '@shared/interception-liveness';
 import { buildSetupParams, buildConnectUrl } from './vpn-activation';
+import type { ProgressReporter } from '@shared/progress';
 import type { ApkManager } from './apk-manager';
 
 /** ADB device type → DeviceInfo status 매핑. */
@@ -59,12 +68,14 @@ export class AndroidConnector implements DeviceConnector {
   ): Promise<InterceptionResult> {
     const device = this.adb.getDevice(deviceId);
     const mode = options.androidMode ?? 'auto';
+    const report = options.report;
 
     const wifiPath = options.trafficPath === 'wifi';
 
     // usb 경로: adb reverse로 기기의 proxyPort를 호스트로 터널. 실패하면 wifi로 폴백(경고).
     // wifi 경로: 터널을 쓰지 않고, 이전에 남은 reverse 규칙이 있으면 제거한다.
     let reverseOk = false;
+    report?.(wifiPath ? '기존 USB 터널 정리 중…' : 'USB 터널(adb reverse) 설정 중…');
     if (wifiPath) {
       try {
         await device.removeReverse(`tcp:${options.proxyPort}`);
@@ -85,6 +96,7 @@ export class AndroidConnector implements DeviceConnector {
       return this.activateVpn(deviceId, device, options, reverseOk);
     }
 
+    report?.('기기 root 권한 확인 중…');
     const root = await detectRootCommand(device);
     if (mode === 'auto' && !root) {
       // auto인데 root 불가 → VPN으로 폴백.
@@ -121,6 +133,7 @@ export class AndroidConnector implements DeviceConnector {
   ): Promise<InterceptionResult> {
     const warnings: string[] = [];
     this.pushPathWarnings(warnings, options, reverseOk);
+    options.report?.('프록시 설정 적용 중…');
 
     // adb reverse가 성공했으면 기기 localhost가 호스트 프록시로 터널되므로 LAN IP가 필요 없다
     // (USB 연결 기기·에뮬레이터, 여러 NIC로 IP를 잘못 고르는 경우에도 안전).
@@ -136,6 +149,7 @@ export class AndroidConnector implements DeviceConnector {
     let caInstalled = false;
     if (options.caPem) {
       if (root) {
+        options.report?.('시스템 CA 설치 중…');
         try {
           await injectSystemCertificate(device, root, options.caPem);
           caInstalled = true;
@@ -176,9 +190,11 @@ export class AndroidConnector implements DeviceConnector {
     }
 
     // companion APK 설치(없을 때만).
+    options.report?.('companion 앱 설치 확인 중…');
     try {
       const installed = await device.isInstalled(COMPANION_PACKAGE);
       if (!installed) {
+        options.report?.('companion 앱 설치 중(처음에는 다운로드가 필요합니다)…');
         if (!this.apkManager) {
           warnings.push('APK 관리자가 없어 companion 앱을 설치할 수 없습니다.');
           return { deviceId, proxyConfigured: false, caInstalled: false, warnings, usedMode: 'vpn' };
@@ -193,12 +209,14 @@ export class AndroidConnector implements DeviceConnector {
         }
         await delay(200); // 인텐트 등록 대기
       }
-    } catch {
-      warnings.push('companion 앱 설치/확인에 실패했습니다.');
+    } catch (e) {
+      const reason = e instanceof Error && e.message ? `: ${e.message}` : '';
+      warnings.push(`companion 앱 설치/확인에 실패했습니다${reason}`);
       return { deviceId, proxyConfigured: false, caInstalled: false, warnings, usedMode: 'vpn' };
     }
 
     // VPN 서비스 시작 이슈 회피: 앱을 포그라운드로.
+    options.report?.('VPN 앱 실행 중…');
     try {
       await device.bringToFront(COMPANION_MAIN_ACTIVITY);
     } catch {
@@ -214,6 +232,7 @@ export class AndroidConnector implements DeviceConnector {
       reachableIps: options.proxyHost && options.proxyHost !== '127.0.0.1' ? [options.proxyHost] : []
     });
 
+    options.report?.('VPN 활성화 요청 전송 중…');
     try {
       await device.startActivity({
         action: ACTIVATE_ACTION,
@@ -236,8 +255,9 @@ export class AndroidConnector implements DeviceConnector {
     };
   }
 
-  async stopInterception(deviceId: string): Promise<void> {
+  async stopInterception(deviceId: string, report?: ProgressReporter): Promise<void> {
     const device = this.adb.getDevice(deviceId);
+    report?.('프록시 설정 해제 중…');
 
     // root 모드로 설정된 프록시 해제(best-effort).
     try {
@@ -247,11 +267,21 @@ export class AndroidConnector implements DeviceConnector {
     }
 
     // vpn 모드 해제: 앱 포그라운드 → DEACTIVATE 인텐트(best-effort).
+    report?.('VPN 연결 해제 중…');
     try {
       await device.bringToFront(COMPANION_MAIN_ACTIVITY);
       await device.startActivity({ action: DEACTIVATE_ACTION, wait: true });
     } catch {
       // companion 앱이 없거나 실패 시 무시.
+    }
+  }
+
+  async checkInterception(deviceId: string, usedMode: 'root' | 'vpn'): Promise<InterceptionLiveness> {
+    try {
+      const device = this.adb.getDevice(deviceId);
+      return usedMode === 'vpn' ? await checkCompanionVpn(device) : await checkGlobalProxy(device);
+    } catch {
+      return 'unknown';
     }
   }
 

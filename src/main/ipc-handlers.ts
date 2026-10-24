@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
+import { app, dialog, ipcMain, net, type BrowserWindow } from 'electron';
 import {
   IpcChannels,
   DEFAULT_PROXY_PORT,
@@ -9,6 +9,7 @@ import {
   type ProxyStartArgs
 } from '@shared/ipc';
 import type { CaptureEvent } from '@shared/capture';
+import { operationId, type ProgressReporter } from '@shared/progress';
 import type { CaExportFormat } from '@shared/certificate';
 import type {
   DevicePlatform,
@@ -52,6 +53,16 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
     }
   };
 
+  // 시작/해제 작업의 진행 단계를 renderer로 push(로딩 토스트). 보고 실패는 작업에 영향을 주지 않는다.
+  const progress =
+    (operation: string): ProgressReporter =>
+    (step) => {
+      const window = getWindow();
+      if (window && !window.isDestroyed()) {
+        window.webContents.send(IpcChannels.operationProgress, { operation, step });
+      }
+    };
+
   const ca = new CaManager(path.join(app.getPath('userData'), 'ca'));
   const proxy = new ProxyService(emit, ca);
 
@@ -59,9 +70,9 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   app.on('will-quit', () => proxy.dispose());
 
   ipcMain.handle(IpcChannels.proxyStart, (_event, args: ProxyStartArgs | undefined) =>
-    proxy.start(args?.port ?? DEFAULT_PROXY_PORT)
+    proxy.start(args?.port ?? DEFAULT_PROXY_PORT, progress(operationId.proxyStart))
   );
-  ipcMain.handle(IpcChannels.proxyStop, () => proxy.stop());
+  ipcMain.handle(IpcChannels.proxyStop, () => proxy.stop(progress(operationId.proxyStop)));
   ipcMain.handle(IpcChannels.proxyStatus, () => proxy.getStatus());
   ipcMain.handle(IpcChannels.proxyApplyMocks, (_event, args: ApplyMocksArgs) =>
     proxy.applyMocks(args.mocks, args.unmatchedPolicy)
@@ -93,7 +104,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
 
   // --- 기기 연동 ---
   // 인터셉션 옵션은 현재 프록시 상태 + 로컬 IP + CA로 지연 조립.
-  const apkManager = new ApkManager(path.join(app.getPath('userData'), 'apk'));
+  // Node fetch는 사내망 SSL 인터셉션 CA를 신뢰하지 않으므로 시스템 인증서 저장소를 쓰는 Electron net.fetch로 받는다.
+  const apkManager = new ApkManager(path.join(app.getPath('userData'), 'apk'), net.fetch.bind(net) as typeof fetch);
   const deviceService = new DeviceService(async () => {
     const status = proxy.getStatus();
     const caInfo = await ca.getInfo();
@@ -106,7 +118,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
     };
   });
   // adb 바이너리/adb server 없이 직접 USB/TCP로 기기와 통신한다(src/main/adb).
-  const adbClient = createDirectAdbClient();
+  // EVERMOCK_ADB=server: 진단용 대조군(직접 레이어를 건너뛰고 시스템 adb server만 사용).
+  const adbClient = createDirectAdbClient({ adbServerOnly: process.env.EVERMOCK_ADB === 'server' });
   app.on('will-quit', () => void adbClient.close());
   deviceService.register(new AndroidConnector(adbClient, apkManager));
   deviceService.register(new IosConnector(createUsbmuxClient()));
@@ -120,12 +133,24 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
       deviceId: string,
       androidMode?: AndroidInterceptionMode,
       trafficPath?: AndroidTrafficPath
-    ) => deviceService.startInterception(platform, deviceId, androidMode, trafficPath)
+    ) =>
+      deviceService.startInterception(
+        platform,
+        deviceId,
+        androidMode,
+        trafficPath,
+        progress(operationId.deviceStart(deviceId))
+      )
+  );
+  ipcMain.handle(
+    IpcChannels.deviceInterceptionStatus,
+    (_event, platform: DevicePlatform, deviceId: string, usedMode: 'root' | 'vpn' | undefined) =>
+      deviceService.checkInterception(platform, deviceId, usedMode)
   );
   ipcMain.handle(
     IpcChannels.deviceStopInterception,
     (_event, platform: DevicePlatform, deviceId: string) =>
-      deviceService.stopInterception(platform, deviceId)
+      deviceService.stopInterception(platform, deviceId, progress(operationId.deviceStop(deviceId)))
   );
   ipcMain.handle(IpcChannels.deviceSetupInstructions, (_event, platform: DevicePlatform) =>
     deviceService.getSetupInstructions(platform)

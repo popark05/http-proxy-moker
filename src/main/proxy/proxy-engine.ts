@@ -1,3 +1,4 @@
+import { ADB_TRACE, adbTrace } from '../adb/trace';
 import { getLocal, type Mockttp, type MockedEndpoint } from 'mockttp';
 import type { CaptureEvent, CapturedExchange, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
@@ -158,6 +159,7 @@ export class ProxyEngine {
 
   private async subscribe(server: Mockttp): Promise<void> {
     await server.on('request', async (request) => {
+      if (ADB_TRACE) adbTrace(`req ${request.id.slice(0, 8)} ${request.method} ${request.url}`);
       // 목 룰이 매칭된 요청이면 mock-hit을 알린다(장애 주입 목 포함). 캡처 변환 실패와 무관하게 먼저 emit.
       const mockId = request.matchedRuleId ? this.ruleToMock.get(request.matchedRuleId) : undefined;
       if (mockId) this.emit({ type: 'mock-hit', mockId, at: Date.now() });
@@ -175,6 +177,7 @@ export class ProxyEngine {
     });
 
     await server.on('response', async (response) => {
+      if (ADB_TRACE) adbTrace(`res ${response.id.slice(0, 8)} ${response.statusCode}`);
       try {
         const mapped = await mapResponse(response);
         this.emit({ type: 'response', id: response.id, response: mapped });
@@ -184,6 +187,7 @@ export class ProxyEngine {
     });
 
     await server.on('abort', (request) => {
+      if (ADB_TRACE) adbTrace(`abort ${request.id.slice(0, 8)} ${request.url}`);
       this.emit({ type: 'abort', id: request.id });
     });
 

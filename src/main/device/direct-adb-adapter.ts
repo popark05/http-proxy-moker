@@ -14,6 +14,11 @@ export interface DirectAdbOptions {
   dadb?: DadbListOptions;
   /** USB 백엔드(테스트용). */
   usbBackend?: UsbBackend;
+  /**
+   * 진단용: 직접 USB/에뮬레이터 탐색을 건너뛰고 실행 중인 adb server만 쓴다(`EVERMOCK_ADB=server`).
+   * 직접 레이어 문제인지 가르기 위한 대조군이다. 직접 경로를 시험하려면 먼저 `adb kill-server`를 한다.
+   */
+  adbServerOnly?: boolean;
 }
 
 type DeviceState = 'device' | 'unauthorized' | 'offline';
@@ -79,7 +84,9 @@ export function createDirectAdbClient(options: DirectAdbOptions = {}): AdbClient
       const emulator = /^emulator-(\d+)$/.exec(serial);
       const created =
         dadb ??
-        (emulator
+        (options.adbServerOnly
+          ? Dadb.fromAdbServer(serial, dadbOptions)
+          : emulator
           ? Dadb.fromEmulator(Number(emulator[1]) + 1, dadbOptions)
           : Dadb.fromUsb(serial, { ...dadbOptions, usbBackend: options.usbBackend }));
       // 첫 판정 전에는 승인 대기로 본다(실제로는 곧 연결 결과로 갱신된다).
@@ -91,7 +98,11 @@ export function createDirectAdbClient(options: DirectAdbOptions = {}): AdbClient
 
   return {
     async listDevices(): Promise<AdbDeviceRecord[]> {
-      const found = await Dadb.list({ ...dadbOptions, usbBackend: options.usbBackend });
+      const found = await Dadb.list({
+        ...dadbOptions,
+        usbBackend: options.usbBackend,
+        ...(options.adbServerOnly ? { includeUsb: false, includeEmulators: false, includeAdbServer: true } : {})
+      });
       const serials = new Set(found.map((d) => d.serial));
 
       // 사라진 기기의 연결은 정리한다.

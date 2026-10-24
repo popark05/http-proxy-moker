@@ -6,6 +6,8 @@ import type {
   InterceptionResult,
   SetupStep
 } from '@shared/device';
+import type { ProgressReporter } from '@shared/progress';
+import type { InterceptionLiveness } from '@shared/interception-liveness';
 
 export interface InterceptionOptions {
   proxyHost: string;
@@ -20,6 +22,8 @@ export interface InterceptionOptions {
   androidMode?: AndroidInterceptionMode;
   /** Android 트래픽 경로. 기본 'usb'. */
   trafficPath?: AndroidTrafficPath;
+  /** 진행 단계 보고(로딩 토스트용, 선택). */
+  report?: ProgressReporter;
 }
 
 /**
@@ -37,7 +41,13 @@ export interface DeviceConnector {
   startInterception(deviceId: string, options: InterceptionOptions): Promise<InterceptionResult>;
 
   /** 인터셉션 해제. */
-  stopInterception(deviceId: string): Promise<void>;
+  stopInterception(deviceId: string, report?: ProgressReporter): Promise<void>;
+
+  /**
+   * 시작한 인터셉션이 기기에서 지금도 살아 있는지 확인(선택). 사용자가 기기에서 직접 연결을 해제한 경우를 알아채는 데 쓴다.
+   * 확인 자체가 실패하면 'unknown'. 구현하지 않는 플랫폼(iOS)은 항상 unknown으로 취급한다.
+   */
+  checkInterception?(deviceId: string, usedMode: 'root' | 'vpn'): Promise<InterceptionLiveness>;
 
   /** 수동 셋업 안내 단계(iOS 등). 자동 플랫폼은 빈 배열. */
   getSetupInstructions(options: InterceptionOptions): SetupStep[];

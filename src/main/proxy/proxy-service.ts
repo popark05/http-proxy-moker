@@ -5,6 +5,7 @@ import type { CaptureEvent, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import type { WorkerCommand, WorkerMessage } from '@shared/proxy-worker';
+import type { ProgressReporter } from '@shared/progress';
 import type { CaManager } from '../cert/ca-manager';
 
 export type CaptureEmitter = (event: CaptureEvent) => void;
@@ -47,12 +48,14 @@ export class ProxyService {
     return this.lastStatus;
   }
 
-  async start(port: number = DEFAULT_PROXY_PORT): Promise<ProxyStatus> {
+  async start(port: number = DEFAULT_PROXY_PORT, report?: ProgressReporter): Promise<ProxyStatus> {
     if (this.lastStatus.running) return this.lastStatus;
 
+    report?.('프록시 워커 시작 중…');
     const worker = await this.ensureWorker();
 
     // CA를 디스크에 보장하고 경로를 워커에 전달(워커가 직접 파일을 로드).
+    report?.('CA 인증서 준비 중…');
     let caCertPath = '';
     let caKeyPath = '';
     if (this.ca) {
@@ -61,6 +64,7 @@ export class ProxyService {
       caKeyPath = paths.keyPath;
     }
 
+    report?.(`포트 ${port}에서 수신 시작 중…`);
     const status = await this.command(worker, (requestId) => ({
       kind: 'start',
       requestId,
@@ -72,11 +76,12 @@ export class ProxyService {
     return this.lastStatus;
   }
 
-  async stop(): Promise<ProxyStatus> {
+  async stop(report?: ProgressReporter): Promise<ProxyStatus> {
     if (!this.worker) {
       this.lastStatus = { running: false };
       return this.lastStatus;
     }
+    report?.('프록시 서버 중지 중…');
     const status = await this.command(this.worker, (requestId) => ({
       kind: 'stop',
       requestId

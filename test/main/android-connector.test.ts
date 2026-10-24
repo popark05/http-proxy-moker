@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
+import { parseCompanionVpnState, parseGlobalProxyState } from '../../src/main/device/android/adb-ops';
 import { AndroidConnector } from '../../src/main/device/android/android-connector';
 import type { AdbClient, AdbDevice, AdbDeviceRecord } from '../../src/main/device/adb-client';
 
@@ -279,6 +280,96 @@ describe('AndroidConnector 트래픽 경로 선택', () => {
     });
     expect(device.reverse).toHaveBeenCalledWith('tcp:8080', 'tcp:8080');
     expect(device.removeReverse).not.toHaveBeenCalled();
+  });
+});
+
+describe('AndroidConnector 진행 단계 보고', () => {
+  it('root 모드: 터널 → root 확인 → 프록시 → CA 순으로 보고', async () => {
+    const { client } = makeAdbClient([{ id: 'phone', type: 'device' }], (cmd) => (cmd === 'id' ? 'uid=0(root)' : ''));
+    const steps: string[] = [];
+    await new AndroidConnector(client).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      caPem: SAMPLE_CERT,
+      androidMode: 'root',
+      report: (s) => steps.push(s)
+    });
+    expect(steps).toEqual([
+      'USB 터널(adb reverse) 설정 중…',
+      '기기 root 권한 확인 중…',
+      '프록시 설정 적용 중…',
+      '시스템 CA 설치 중…'
+    ]);
+  });
+
+  it('vpn 모드: 설치 확인 → 앱 실행 → 활성화 요청을 보고하고, 미설치면 설치 단계도 보고', async () => {
+    const { client } = makeAdbClient([{ id: 'phone', type: 'device' }], () => '', {
+      isInstalled: vi.fn(async () => false)
+    });
+    const apkManager = { ensureApk: vi.fn(async () => '/tmp/app.apk'), clearCache: vi.fn() };
+    const steps: string[] = [];
+    await new AndroidConnector(client, apkManager as never).startInterception('phone', {
+      proxyHost: '192.168.0.5',
+      proxyPort: 8080,
+      certFingerprint: 'FP',
+      androidMode: 'vpn',
+      report: (s) => steps.push(s)
+    });
+    expect(steps.map((s) => s.replace(/\(.*\)/, '').replace('…', ''))).toEqual([
+      'USB 터널 설정 중',
+      'companion 앱 설치 확인 중',
+      'companion 앱 설치 중',
+      'VPN 앱 실행 중',
+      'VPN 활성화 요청 전송 중'
+    ]);
+  });
+
+  it('해제도 단계를 보고하고, report가 없어도 동작한다', async () => {
+    const { client } = makeAdbClient([{ id: 'emu', type: 'emulator' }], () => '');
+    const steps: string[] = [];
+    await new AndroidConnector(client).stopInterception('emu', (s) => steps.push(s));
+    expect(steps).toEqual(['프록시 설정 해제 중…', 'VPN 연결 해제 중…']);
+    await expect(new AndroidConnector(client).stopInterception('emu')).resolves.toBeUndefined();
+  });
+});
+
+describe('인터셉션 생존 확인', () => {
+  const RUNNING = `ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  * ServiceRecord{3f2a1b u0 tech.httptoolkit.android.v1/tech.httptoolkit.android.ProxyVpnService}\n    isForeground=true`;
+
+  it('dumpsys 출력 해석: 서비스 레코드가 있으면 active, 없으면 inactive, 오류는 unknown', () => {
+    expect(parseCompanionVpnState(RUNNING)).toBe('active');
+    expect(parseCompanionVpnState('ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)\n')).toBe('inactive');
+    expect(parseCompanionVpnState('')).toBe('inactive');
+    expect(parseCompanionVpnState('Permission Denial: can\'t dump ActivityManager')).toBe('unknown');
+  });
+
+  it('전역 프록시 설정 해석', () => {
+    expect(parseGlobalProxyState('127.0.0.1:8080\n')).toBe('active');
+    expect(parseGlobalProxyState('192.168.0.5:8080')).toBe('active');
+    expect(parseGlobalProxyState('null\n')).toBe('inactive');
+    expect(parseGlobalProxyState(':0')).toBe('inactive');
+    expect(parseGlobalProxyState('')).toBe('inactive');
+    expect(parseGlobalProxyState('weird output')).toBe('unknown');
+  });
+
+  it('vpn 모드: companion 서비스가 사라지면 inactive', async () => {
+    let out = RUNNING;
+    const { client } = makeAdbClient([{ id: 'phone', type: 'device' }], () => out);
+    const connector = new AndroidConnector(client);
+    expect(await connector.checkInterception('phone', 'vpn')).toBe('active');
+    out = 'ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)\n';
+    expect(await connector.checkInterception('phone', 'vpn')).toBe('inactive');
+  });
+
+  it('root 모드: 전역 프록시가 지워지면 inactive, adb 오류는 unknown', async () => {
+    let out = '127.0.0.1:8080';
+    const { client, device } = makeAdbClient([{ id: 'phone', type: 'device' }], () => out);
+    const connector = new AndroidConnector(client);
+    expect(await connector.checkInterception('phone', 'root')).toBe('active');
+    out = 'null';
+    expect(await connector.checkInterception('phone', 'root')).toBe('inactive');
+    (device.shell as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('device offline'));
+    expect(await connector.checkInterception('phone', 'root')).toBe('unknown');
   });
 });
 

@@ -6,6 +6,8 @@ import type {
   InterceptionResult,
   SetupStep
 } from '@shared/device';
+import type { ProgressReporter } from '@shared/progress';
+import type { InterceptionLiveness } from '@shared/interception-liveness';
 import type { DeviceConnector, InterceptionOptions } from './device-connector';
 
 /**
@@ -40,16 +42,31 @@ export class DeviceService {
     platform: DevicePlatform,
     deviceId: string,
     androidMode?: AndroidInterceptionMode,
-    trafficPath?: AndroidTrafficPath
+    trafficPath?: AndroidTrafficPath,
+    report?: ProgressReporter
   ): Promise<InterceptionResult> {
     const options = await this.getOptions();
     const connector = this.connectorFor(platform);
-    return connector.startInterception(deviceId, { ...options, androidMode, trafficPath });
+    return connector.startInterception(deviceId, { ...options, androidMode, trafficPath, report });
   }
 
-  async stopInterception(platform: DevicePlatform, deviceId: string): Promise<void> {
+  async checkInterception(
+    platform: DevicePlatform,
+    deviceId: string,
+    usedMode: 'root' | 'vpn' | undefined
+  ): Promise<InterceptionLiveness> {
     const connector = this.connectorFor(platform);
-    await connector.stopInterception(deviceId);
+    if (!connector.checkInterception || !usedMode) return 'unknown';
+    return connector.checkInterception(deviceId, usedMode).catch(() => 'unknown');
+  }
+
+  async stopInterception(
+    platform: DevicePlatform,
+    deviceId: string,
+    report?: ProgressReporter
+  ): Promise<void> {
+    const connector = this.connectorFor(platform);
+    await connector.stopInterception(deviceId, report);
   }
 
   async getSetupInstructions(platform: DevicePlatform): Promise<SetupStep[]> {

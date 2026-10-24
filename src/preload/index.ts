@@ -7,6 +7,7 @@ import type {
   AndroidInterceptionMode,
   AndroidTrafficPath
 } from '@shared/device';
+import type { OperationProgress } from '@shared/progress';
 import type { ApplyMocksArgs } from '@shared/mock';
 import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
 
@@ -25,6 +26,12 @@ const api: MokerApi = {
     const handler = (_event: IpcRendererEvent, payload: CaptureEvent): void => listener(payload);
     ipcRenderer.on(IpcChannels.captureEvent, handler);
     return () => ipcRenderer.removeListener(IpcChannels.captureEvent, handler);
+  },
+
+  onOperationProgress: (listener: (progress: OperationProgress) => void) => {
+    const handler = (_event: IpcRendererEvent, payload: OperationProgress): void => listener(payload);
+    ipcRenderer.on(IpcChannels.operationProgress, handler);
+    return () => ipcRenderer.removeListener(IpcChannels.operationProgress, handler);
   },
 
   ca: {
@@ -47,6 +54,8 @@ const api: MokerApi = {
         androidMode,
         trafficPath
       ),
+    interceptionStatus: (platform: DevicePlatform, deviceId: string, usedMode: 'root' | 'vpn' | undefined) =>
+      ipcRenderer.invoke(IpcChannels.deviceInterceptionStatus, platform, deviceId, usedMode),
     stopInterception: (platform: DevicePlatform, deviceId: string) =>
       ipcRenderer.invoke(IpcChannels.deviceStopInterception, platform, deviceId),
     setupInstructions: (platform: DevicePlatform) =>

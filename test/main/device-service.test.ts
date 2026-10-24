@@ -87,3 +87,26 @@ describe('DeviceService', () => {
     expect(await service.getSetupInstructions('ios')).toEqual([]);
   });
 });
+
+describe('DeviceService.checkInterception', () => {
+  it('확인을 지원하지 않는 커넥터(iOS)나 방식을 모르면 unknown', async () => {
+    const service = new DeviceService(async () => options);
+    service.register({ ...fakeConnector('ios', []), checkInterception: undefined });
+    expect(await service.checkInterception('ios', 'udid', 'vpn')).toBe('unknown');
+
+    service.register({ ...fakeConnector('android', []), checkInterception: async () => 'active' as const });
+    expect(await service.checkInterception('android', 'a', undefined)).toBe('unknown');
+    expect(await service.checkInterception('android', 'a', 'vpn')).toBe('active');
+  });
+
+  it('커넥터가 던져도 unknown으로 바꾼다', async () => {
+    const service = new DeviceService(async () => options);
+    service.register({
+      ...fakeConnector('android', []),
+      checkInterception: async () => {
+        throw new Error('boom');
+      }
+    });
+    expect(await service.checkInterception('android', 'a', 'root')).toBe('unknown');
+  });
+});
