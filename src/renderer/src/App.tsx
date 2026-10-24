@@ -20,6 +20,8 @@ import { FilterBar } from './components/traffic/FilterBar';
 import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { SplashScreen } from './components/brand/SplashScreen';
+import { withProgress } from './state/with-progress';
+import { operationId } from '@shared/progress';
 import { CloneSourceBar } from './components/mock/CloneSourceBar';
 import { TrafficGroupList } from './components/traffic/TrafficGroupList';
 import { SelectionBar } from './components/traffic/SelectionBar';
@@ -88,18 +90,30 @@ function AppInner(): JSX.Element {
     }
   }, [mode, mocks, blockUnmatched, status.running]);
 
+  const [proxyBusy, setProxyBusy] = useState<'starting' | 'stopping' | undefined>();
+
   const handleStartProxy = async (): Promise<void> => {
+    setProxyBusy('starting');
     try {
-      const next = await startProxy();
+      const next = await withProgress(operationId.proxyStart, '프록시 시작 중', () => startProxy());
       toast.success('프록시 시작', { description: `포트 ${next?.port ?? ''} 수신 중` });
     } catch (e) {
       toast.error('프록시 시작 실패', { description: errMsg(e) });
+    } finally {
+      setProxyBusy(undefined);
     }
   };
 
   const handleStopProxy = async (): Promise<void> => {
-    await stopProxy();
-    toast('프록시 중지됨');
+    setProxyBusy('stopping');
+    try {
+      await withProgress(operationId.proxyStop, '프록시 중지 중', () => stopProxy());
+      toast('프록시 중지됨');
+    } catch (e) {
+      toast.error('프록시 중지 실패', { description: errMsg(e) });
+    } finally {
+      setProxyBusy(undefined);
+    }
   };
 
   const handleLoadSession = async (name: string): Promise<void> => {
@@ -332,6 +346,7 @@ function AppInner(): JSX.Element {
       <div className="flex h-full flex-col">
         <ProxyControls
           status={status}
+          busy={proxyBusy}
           count={exchanges.length}
           onStart={() => void handleStartProxy()}
           onStop={() => void handleStopProxy()}

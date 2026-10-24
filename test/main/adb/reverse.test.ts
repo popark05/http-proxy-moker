@@ -4,6 +4,7 @@ import * as net from 'node:net';
 import { Dadb } from '../../../src/main/adb/dadb';
 import { AdbOperationFailedException } from '../../../src/main/adb/results';
 import { AdbException } from '../../../src/main/adb/errors';
+import { CMD_CLSE } from '../../../src/main/adb/protocol/constants';
 import { FakeAndroid } from './fake-android';
 import { memoryDevice, tcpDevice, type FakeDeviceStream } from './fake-device';
 
@@ -120,6 +121,95 @@ describe('Dadb.reverse', () => {
     const closed = new Promise<void>((r) => local.sockets[1].on('close', () => r()));
     b.close();
     await closed;
+  });
+
+  /** 호스트가 이 기기 스트림으로 보낸 CLSE 수. */
+  const closesSent = (phone: FakeAndroid, app: FakeDeviceStream): number =>
+    app.device.received.filter((m) => m.command === CMD_CLSE && m.arg1 === app.deviceId).length;
+
+  it('프록시가 FIN으로만 닫아도 기기에 CLSE를 정확히 한 번 보낸다', async () => {
+    const { dadb, phone } = memDadb();
+    const local = await localServer();
+    await dadb.reverse('tcp:8080', `tcp:${local.port}`);
+    const app = (await phone.connectReverse(8080))!;
+    await wait();
+    local.sockets[0].end();
+    await wait(60);
+    expect(app.hostClosed).toBe(true);
+    expect(closesSent(phone, app)).toBe(1);
+  });
+
+  it('기기 OKAY를 기다리는 중에 프록시가 닫혀도 결국 CLSE한다(플러시 타임아웃)', async () => {
+    const { dadb, phone } = memDadb();
+    const local = await localServer('hi');
+    await dadb.reverse('tcp:8080', `tcp:${local.port}`);
+    const app = (await phone.connectReverse(8080))!;
+    app.device.autoAck = false;
+    await app.send('x');
+    await wait();
+    local.sockets[0].destroy();
+    await wait(1300);
+    expect(app.hostClosed).toBe(true);
+  });
+
+  it('동시 연결 48개가 응답 직후 로컬에서 닫혀도 데이터 유실 없이 모두 CLSE', async () => {
+    const { dadb, phone } = memDadb();
+    const body = Buffer.alloc(256 * 1024, 7);
+    const sockets: net.Socket[] = [];
+    const server = net.createServer((socket) => {
+      sockets.push(socket);
+      socket.on('error', () => {});
+      socket.on('data', () => {
+        socket.end(body);
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    cleanups.push(() => new Promise<void>((r) => { sockets.forEach((s) => s.destroy()); server.close(() => r()); }));
+    await dadb.reverse('tcp:8080', `tcp:${(server.address() as net.AddressInfo).port}`);
+
+    const apps = (await Promise.all(Array.from({ length: 48 }, () => phone.connectReverse(8080)))).map((a) => a!);
+    await Promise.all(apps.map((a) => a.send('go')));
+    // 모든 연결이 CLSE될 때까지 기다린다.
+    for (let i = 0; i < 100 && !apps.every((a) => a.hostClosed); i++) await wait(50);
+
+    for (const app of apps) {
+      expect(app.hostClosed).toBe(true);
+      expect(app.received.reduce((n, b) => n + b.length, 0)).toBe(body.length);
+      expect(closesSent(phone, app)).toBe(1);
+    }
+  });
+
+  it('프록시가 마지막 조각을 쓰고 곧바로 닫아도(FIN/RST) 기기 ack 뒤에 순서대로 전달한 다음 CLSE한다', async () => {
+    for (const reset of [false, true]) {
+      const { dadb, phone } = memDadb();
+      const sockets: net.Socket[] = [];
+      const server = net.createServer((socket) => {
+        sockets.push(socket);
+        socket.on('error', () => {});
+        setTimeout(() => socket.write(Buffer.alloc(1870, 1)), 20);
+        setTimeout(() => socket.write(Buffer.alloc(27, 2)), 50);
+        setTimeout(() => (reset ? socket.resetAndDestroy() : socket.end()), 55);
+      });
+      await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+      cleanups.push(() => new Promise<void>((r) => { sockets.forEach((s) => s.destroy()); server.close(() => r()); }));
+      await dadb.reverse('tcp:8080', `tcp:${(server.address() as net.AddressInfo).port}`);
+
+      const app = (await phone.connectReverse(8080))!;
+      app.device.autoAck = false;
+      await wait(150); // 프록시가 두 조각을 쓰고 닫을 때까지. 기기는 아직 아무것도 ack하지 않았다.
+      expect(app.received.map((b) => b.length)).toEqual([1870]);
+      expect(app.hostClosed).toBe(false);
+
+      app.ackOne(); // 첫 조각 ack → 두 번째(27바이트)가 이어서 전달돼야 한다.
+      await wait(60);
+      expect(app.received.map((b) => b.length)).toEqual([1870, 27]);
+      expect(app.hostClosed).toBe(false);
+
+      app.ackOne(); // 마지막 ack → 이제 CLSE.
+      await wait(60);
+      expect(app.hostClosed).toBe(true);
+      expect(closesSent(phone, app)).toBe(1);
+    }
   });
 
   it('adbd가 거부하면 AdbOperationFailedException(AdbException 아님)', async () => {

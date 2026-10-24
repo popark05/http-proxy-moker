@@ -14,6 +14,8 @@ import type {
   SetupStep
 } from './device';
 import type { OpenProject } from './project';
+import type { OperationProgress } from './progress';
+import type { InterceptionLiveness } from './interception-liveness';
 import type { ApplyMocksArgs } from './mock';
 import type { CaseLibrary, ScenarioFile } from './scenario-library';
 
@@ -34,6 +36,8 @@ export const IpcChannels = {
 
   /** main → renderer 캡처 이벤트 스트림(단방향 send). */
   captureEvent: 'capture:event',
+  /** 시작/해제 작업의 진행 단계 push(main → renderer). payload: OperationProgress */
+  operationProgress: 'operation:progress',
 
   /** CA 정보 조회 → CaInfo */
   caInfo: 'ca:info',
@@ -45,6 +49,8 @@ export const IpcChannels = {
   /** 기기 인터셉션 시작. arg: deviceId → InterceptionResult */
   deviceStartInterception: 'device:start-interception',
   /** 기기 인터셉션 해제. arg: deviceId */
+  /** 시작한 인터셉션이 기기에서 아직 살아 있는지 확인 → InterceptionLiveness */
+  deviceInterceptionStatus: 'device:interception-status',
   deviceStopInterception: 'device:stop-interception',
   /** iOS 등 수동 셋업 안내 조회. arg: platform → SetupStep[] */
   deviceSetupInstructions: 'device:setup-instructions',
@@ -107,6 +113,9 @@ export interface MokerApi {
   /** 캡처 이벤트 구독. 해제 함수를 반환. */
   onCaptureEvent(listener: (event: CaptureEvent) => void): () => void;
 
+  /** 시작/해제 작업의 진행 단계 구독(로딩 토스트용). 해제 함수를 반환. */
+  onOperationProgress(listener: (progress: OperationProgress) => void): () => void;
+
   ca: {
     info(): Promise<CaInfo>;
     /** CA를 파일로 저장. 저장한 경로 반환, 취소 시 null. */
@@ -121,6 +130,11 @@ export interface MokerApi {
       androidMode?: AndroidInterceptionMode,
       trafficPath?: AndroidTrafficPath
     ): Promise<InterceptionResult>;
+    interceptionStatus(
+      platform: DevicePlatform,
+      deviceId: string,
+      usedMode: InterceptionResult['usedMode']
+    ): Promise<InterceptionLiveness>;
     stopInterception(platform: DevicePlatform, deviceId: string): Promise<void>;
     setupInstructions(platform: DevicePlatform): Promise<SetupStep[]>;
   };

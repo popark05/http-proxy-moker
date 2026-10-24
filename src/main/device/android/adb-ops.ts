@@ -1,6 +1,8 @@
 import * as crypto from 'node:crypto';
 import type { AdbDevice } from '../adb-client';
 import { pemToDer } from '../../cert/ca-manager';
+import { COMPANION_PACKAGE } from '@shared/android-vpn';
+import type { InterceptionLiveness } from '@shared/interception-liveness';
 
 const ANDROID_TEMP = '/data/local/tmp';
 const SYSTEM_CACERTS = '/system/etc/security/cacerts';
@@ -63,6 +65,33 @@ export async function setProxy(device: AdbDevice, host: string, port: number): P
 export async function clearProxy(device: AdbDevice): Promise<void> {
   await device.shell('settings put global http_proxy :0');
   await device.shell('settings delete global http_proxy');
+}
+
+/**
+ * companion VPN 서비스가 실행 중인지(`dumpsys activity services`의 ServiceRecord로 판정).
+ * 앱 안에서 사용자가 "Disconnect"를 눌러 stopSelf되면 레코드가 사라진다. 출력을 해석할 수 없으면 unknown.
+ */
+export function parseCompanionVpnState(dumpsysOutput: string): InterceptionLiveness {
+  if (/ServiceRecord\{[^}]*ProxyVpnService/.test(dumpsysOutput)) return 'active';
+  // 권한/명령 오류 메시지는 "꺼짐"이 아니라 "알 수 없음"으로 본다.
+  if (/permission denial|unknown command|exception/i.test(dumpsysOutput)) return 'unknown';
+  return 'inactive';
+}
+
+export async function checkCompanionVpn(device: AdbDevice): Promise<InterceptionLiveness> {
+  return parseCompanionVpnState(await device.shell(`dumpsys activity services ${COMPANION_PACKAGE}`));
+}
+
+/** 전역 HTTP 프록시가 `host:port`로 설정돼 있는지(root 모드 판정). `null`/`:0`/빈 값은 해제 상태. */
+export function parseGlobalProxyState(settingsOutput: string): InterceptionLiveness {
+  const value = settingsOutput.trim();
+  if (/^[^\s:]+:[1-9]\d*$/.test(value)) return 'active';
+  if (value === '' || value === 'null' || value === ':0') return 'inactive';
+  return 'unknown';
+}
+
+export async function checkGlobalProxy(device: AdbDevice): Promise<InterceptionLiveness> {
+  return parseGlobalProxyState(await device.shell('settings get global http_proxy'));
 }
 
 /**

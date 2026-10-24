@@ -4,6 +4,9 @@ import * as monaco from 'monaco-editor';
 // Monaco 워커 (오프라인 데스크탑: CDN 대신 번들된 워커 사용).
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
 let configured = false;
 
@@ -23,7 +26,11 @@ export function setupMonaco(): void {
   // renderer 전역에 워커 팩토리 등록.
   (self as unknown as { MonacoEnvironment: monaco.Environment }).MonacoEnvironment = {
     getWorker(_moduleId, label) {
+      // 기본 워커는 ESM 번들에서 $loadForeignModule이 실패하므로 언어별 전용 워커를 쓴다.
       if (label === 'json') return new jsonWorker();
+      if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker();
+      if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker();
+      if (label === 'typescript' || label === 'javascript') return new tsWorker();
       return new editorWorker();
     }
   };

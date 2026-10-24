@@ -24,9 +24,27 @@ npm run verify:worker  # bundle the worker outside the repo, fork it with the pi
 node scripts/verify-worker-bundle.mjs --resources <installed app resources dir>   # same check against a packaged/installed app
 node scripts/verify-vpn.mjs <deviceId>           # real-device Android VPN capture check
 ADB_TEST_USB=1 npx vitest run test/main/adb/usb-device.test.ts   # real-device direct-USB ADB check (run `adb kill-server` first)
+EVERMOCK_ADB_TRACE=1 npm run dev 2>&1 | tee /tmp/evermock-adb.log   # packet/proxy trace on one time axis (see "Direct ADB layer")
+EVERMOCK_ADB=server npm run dev                   # control run: skip direct USB, use only the running adb server
 ```
 
 Tests live in `test/{main,renderer,shared}` and mirror `src/`. The default environment is jsdom. Tests that use real sockets or mockttp (for example `https-capture`) start with `// @vitest-environment node`.
+
+### Building behind corporate SSL interception (사내망)
+
+If `npm install` fails to download the Electron binary (`Error: Electron uninstall`), Node's TLS verification doesn't trust the intercepting proxy's CA. `.npmrc` `cafile` only covers npm registry traffic, so also set `NODE_EXTRA_CA_CERTS` to the CA bundle (PEM, HMG Secure ROOT CA + Zscaler) in the same shell:
+
+```bash
+export NODE_EXTRA_CA_CERTS=$HOME/.certs/all-system-certs.pem
+npm install
+npm run dist:mac     # → release/EverMock-0.1.0-mac-{arm64,x64}.dmg
+```
+
+- The same variable is needed for `dist:mac`/`dist:win`: `fetch-node`, `fetch-usb` and electron-builder's Electron download are plain Node HTTPS calls.
+- Use the bundle, not the HMG root CA alone: the network also uses Zscaler, and the HMG root CA by itself fails with `self-signed certificate in certificate chain` during electron-builder's download.
+- Electron zips are cached in `~/Library/Caches/electron`, so a cached version doesn't need a re-download.
+- Builds are unsigned (`identity: null`), so the DMG needs the usual Gatekeeper bypass on first launch.
+- At runtime the companion APK download (`ApkManager`) uses Electron's `net.fetch` (system certificate store) because Node `fetch` does not trust the interception CA.
 
 ## Architecture
 
@@ -35,7 +53,7 @@ It's a three-process Electron app plus a separate **proxy worker** process:
 - **`src/main/`**: the Electron main process. `index.ts` creates the window, and `ipc-handlers.ts` wires every service (`ProxyService`, `CaManager`, `DeviceService` with Android/iOS connectors, `ProjectStore`) to `ipcMain.handle` channels.
 - **`src/preload/`**: exposes `window.mokerApi` through contextBridge. It's built as **CJS (`index.cjs`)** because `package.json` has `"type": "module"`.
 - **`src/renderer/`**: the React UI. State lives in hooks under `state/` (`useCapture`, `useMocks`, `useProject`, `useTrafficFilter`, `useMockHits`, and the `app-mode` context: `'capture' | 'mock'`). `App.tsx` coordinates them. For example, an effect re-applies mocks to the proxy whenever the mode, the mocks or the unmatched policy change.
-- **`src/shared/`**: types and pure logic shared by main and renderer. `ipc.ts` is the single IPC contract (the `IpcChannels` names plus the `MokerApi` interface). Adding an IPC call means touching `shared/ipc.ts`, `preload/index.ts` and `main/ipc-handlers.ts` together. Pure logic (HAR conversion, capture→mock conversion, traffic filtering) lives here so it can be unit-tested.
+- **`src/shared/`**: types and pure logic shared by main and renderer. `ipc.ts` is the single IPC contract (the `IpcChannels` names plus the `MokerApi` interface). Adding an IPC call means touching `shared/ipc.ts`, `preload/index.ts` and `main/ipc-handlers.ts` together. Slow start/stop operations (proxy, device interception) report their current step through an optional `ProgressReporter` (`shared/progress.ts`; `ProxyService.start/stop`, `InterceptionOptions.report`, `DeviceConnector.stopInterception`), pushed to the renderer on `operationProgress` and shown by `withProgress` (`renderer/state/with-progress.ts`) as a loading toast, while the buttons switch to disabled "시작 중…/중지 중…/연결 중…/해제 중…" states. Pure logic (HAR conversion, capture→mock conversion, traffic filtering) lives here so it can be unit-tested.
 
 ### Proxy worker (important)
 
@@ -62,12 +80,17 @@ Devices are also identified by what the proxy actually sees, not only by transpo
 
 `main/device/device-connector.ts` defines the `DeviceConnector` interface, implemented by `android/android-connector.ts` and `ios/ios-connector.ts` and aggregated by `DeviceService`. Hardware access goes through thin interfaces (`adb-client.ts` and `usbmux-client.ts`, with adapters `direct-adb-adapter.ts` and `usbmux-adapter.ts`) so tests can inject fakes.
 
-- **Android** is fully automatic. The modes are `auto`, `system CA (root)` and `VPN (non-root)`. VPN mode reuses the HTTP Toolkit companion APK (`tech.httptoolkit.android.v1`, downloaded from GitHub releases by `apk-manager.ts`) and activates it with an intent that carries the proxy address and CA fingerprint. The proxy answers the companion's verification URLs with our CA.
+- **Android** is fully automatic. The modes are `auto`, `system CA (root)` and `VPN (non-root)`. The traffic path is a separate choice (`InterceptionOptions.trafficPath`): `usb` (default; `adb reverse` tunnel, the device talks to `127.0.0.1:<port>`) or `wifi` (no tunnel, an existing reverse rule is removed and the device uses the PC's LAN IP, so each device shows up under its own IP). Once started, `useDevices` re-checks Android interceptions every 5 s through `DeviceConnector.checkInterception` (VPN: the companion's `ProxyVpnService` record in `dumpsys activity services`; root: `settings get global http_proxy`) and drops one from the active list with a warning toast when it was seen active and then reports inactive twice in a row (`shared/interception-liveness.ts`: never before the first active sighting, because the VPN permission prompt keeps it inactive; check errors are `unknown` and change nothing). This is how a manual Disconnect inside the companion app shows up, since the app's own broadcasts are not observable over adb. A failed start (`interceptionStarted` in `useDevices.ts`: Android needs `proxyConfigured`) is reported with a warning toast and is not stored as an active interception. VPN mode reuses the HTTP Toolkit companion APK (`tech.httptoolkit.android.v1`, downloaded from GitHub releases by `apk-manager.ts`) and activates it with an intent that carries the proxy address and CA fingerprint. The proxy answers the companion's verification URLs with our CA.
 - **iOS** is semi-automatic: the device is detected over usbmux, and the user follows setup steps and installs a `.mobileconfig` CA profile.
+- **Connection wizard** (`components/device/ConnectionWizard.tsx`, `ConnectionScene.tsx`; hairline figures themed by `.hairline-theme`): tabs Android·USB, Android·Wi-Fi (USB control + Wi-Fi traffic, or manual proxy) and iPhone·Wi-Fi. Step state comes from the pure `shared/connection-progress.ts` (`connectionProgress`), which derives done/current/blocked from proxy status, device list, interception results and the connected-clients list; manual steps count as done when a later step has evidence.
 
 ### Direct ADB layer (`src/main/adb`, used by the app via `main/device/direct-adb-adapter.ts`)
 
 A TypeScript port of dadb (Apache-2.0, see `src/main/adb/NOTICE`) that replaces the adb binary (adbkit has been removed; no adb install is needed). `createDirectAdbClient` (the `AdbClient` implementation `AndroidConnector` uses) caches one `Dadb` per serial, probes connections to report `device`/`unauthorized`/`offline` + `statusDetail` in the device list, and is what `ipc-handlers.ts` registers. `Dadb` is the entry point: `fromUsb(serial)` (node-usb, WebUSB API), `fromEmulator(port)`, `create(host, port)`, `fromAdbServer(serial)`, and `list()`. Services (shell v2, sync push/pull, install, reverse, tcpForward, root) are written against `AdbSession`/`AdbStreamLike` (`protocol/session.ts`), so they run unchanged over a direct connection or a running adb server. The adb-server path is **opt-in** (`adbServerFallback: true` / `includeAdbServer: true`, both default `false`) so that development always exercises the direct layer; with it off, an unclaimable USB interface throws `AdbUsbAccessException` (adb server/Android Studio holds it, or a non-WinUSB driver on Windows). When on, `fromUsb` falls back to the adb server at `127.0.0.1:${ANDROID_ADB_SERVER_PORT:-5037}` and retries direct on every reconnect (`dadb.connectionKind` tells which path is in use). Transport failures throw `AdbException` subclasses; operation outcomes are returned as `*Result` values. USB binaries per target come from `npm run fetch-usb` (a plain `npm install` prunes the non-host ones). The fakes in `test/main/adb/` (`fake-android`, `fake-usb`, `fake-adb-server`) reproduce real adbd/node-usb/adb-server behavior.
+
+**Reverse/forward relay rule (`services/forward.ts`, `pipeSocketAndStream`).** The socket→device half must read eagerly and write to the device through an ordered queue, and send CLSE only after everything received has been written (or after `FLUSH_TIMEOUT_MS` if the device never acks, or immediately if a write fails). Pausing the socket on every chunk until the device's OKAY looks like backpressure but loses data: bytes still in the kernel buffer are dropped when the proxy closes (FIN/RST), so the final TLS record (the chunked terminator `0\r\n\r\n`) never reaches the device and the webview renders blank ("백화"). This showed up only on the direct-USB layer, never with the real adb server (which reads eagerly). Regression tests are in `test/main/adb/reverse.test.ts` (manual-ack fake device, FIN and RST variants, 48 concurrent connections). Do not reintroduce per-chunk `socket.pause()`.
+
+**Diagnostics (all off by default).** `EVERMOCK_ADB_TRACE=1` prints `[adb HH:MM:SS.mmm] ...` (UTC) lines: every packet in/out (`protocol/packet-io.ts`: `<- CMD[arg0, arg1] len=N`, `-> CMD[...]`), the open-stream count every 5 s (`protocol/connection.ts`) and the proxy's `req|res|abort <id8>` lines (`proxy-engine.ts`, the worker inherits the env), all through `src/main/adb/trace.ts`. A truncated response shows up as `-> WRTE` of the last bytes missing before `-> CLSE`. `EVERMOCK_ADB=server` (`createDirectAdbClient({ adbServerOnly })`) skips direct USB/emulator discovery and uses only the running adb server, as a control run; run `adb kill-server` before testing the direct path so the server doesn't hold the USB interface.
 
 ### UI
 

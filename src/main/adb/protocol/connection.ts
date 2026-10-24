@@ -10,6 +10,7 @@
  * 죽은 연결은 재사용하지 않는다 — 상위(Dadb)가 다음 작업에서 새로 연결한다(dadb DadbImpl과 동일).
  */
 
+import { ADB_TRACE, adbTrace } from '../trace';
 import type { AdbTransport } from '../transport/transport';
 import {
   AdbAuthException,
@@ -84,6 +85,8 @@ export class AdbConnection implements StreamHost, AdbSession {
    */
   private nextLocalId = 0;
   private openHandler: ((request: IncomingOpen) => void) | undefined;
+  /** 진단용(EVERMOCK_ADB_TRACE=1): 5초마다 열린 스트림 수를 출력한다. */
+  private traceTimer: ReturnType<typeof setInterval> | undefined;
 
   private constructor(
     readonly transport: AdbTransport,
@@ -96,6 +99,14 @@ export class AdbConnection implements StreamHost, AdbSession {
     readonly maxPayloadSize: number,
     readonly readTimeoutMs: number
   ) {}
+
+  private startTrace(): void {
+    if (!ADB_TRACE) return;
+    this.traceTimer = setInterval(() => {
+      adbTrace(`open streams=${this.streams.size} ids=[${[...this.streams.keys()].join(',')}]`);
+    }, 5_000);
+    this.traceTimer.unref();
+  }
 
   get isClosed(): boolean {
     return this.closed;
@@ -225,6 +236,7 @@ export class AdbConnection implements StreamHost, AdbSession {
 
   private failAll(error: AdbException): void {
     this.closed = true;
+    if (this.traceTimer) clearInterval(this.traceTimer);
     const streams = [...this.streams.values()];
     this.streams.clear();
     for (const stream of streams) stream.fail(error);
@@ -248,6 +260,7 @@ export class AdbConnection implements StreamHost, AdbSession {
         message.arg1,
         options.readTimeoutMs ?? 0
       );
+      connection.startTrace();
       void connection.dispatchLoop();
       return connection;
     } catch (e) {
