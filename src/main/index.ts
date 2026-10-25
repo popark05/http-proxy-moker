@@ -25,7 +25,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 600,
     show: false,
-    backgroundColor: '#16181e',
+    backgroundColor: '#181825',
     // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이는 TopBar와 동일).
     // 그 외(Linux)는 기본 프레임을 쓴다.
     ...(process.platform === 'darwin'

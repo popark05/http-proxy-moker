@@ -6,14 +6,14 @@ import { contrastRatio, meetsAA } from '../../src/renderer/src/theme/contrast';
  * 값이 바뀌면 여기도 함께 갱신해 접근성 회귀를 잡는다.
  */
 const dark = {
-  background: '220 26% 8%',
-  card: '219 24% 11%',
-  foreground: '214 24% 92%',
-  mutedForeground: '216 14% 60%',
-  primary: '218 90% 66%',
-  success: '158 42% 46%',
-  warning: '38 70% 56%',
-  destructive: '6 66% 58%'
+  background: '240 21% 12%',
+  card: '240 21% 15%',
+  foreground: '226 64% 88%',
+  mutedForeground: '228 17% 64%',
+  primary: '267 84% 81%',
+  success: '115 54% 76%',
+  warning: '23 92% 75%',
+  destructive: '343 81% 75%'
 };
 
 describe('contrastRatio', () => {
