@@ -279,14 +279,16 @@ function AppInner(): JSX.Element {
     }
     const targets = exchanges.filter((e) => checkedIds.has(e.id));
     try {
-      const { saved, skipped } = await contractState.saveFromExchanges(targets);
+      const { saved, merged, skipped } = await contractState.saveFromExchanges(targets);
       setCheckedIds(new Set());
-      const detail = skipped > 0 ? ` (응답이 없는 ${skipped}개는 건너뜀)` : '';
-      if (saved === 0) {
+      const detail =
+        (merged > 0 ? ` (이미 있는 ${merged}개는 응답 모양을 합침)` : '') +
+        (skipped > 0 ? ` (응답이 없는 ${skipped}개는 건너뜀)` : '');
+      if (saved === 0 && merged === 0) {
         toast.info('저장할 계약이 없습니다', { description: `응답이 있는 요청을 선택하세요${detail}` });
         return;
       }
-      toast.success(`${saved}개 계약으로 저장됨`, {
+      toast.success(saved > 0 ? `${saved}개 계약으로 저장됨` : '기존 계약에 합쳤습니다', {
         description: `contracts/ 폴더에 저장했습니다${detail}`,
         action: { label: '계약 테스트 열기', onClick: () => setContractsOpen(true) }
       });
@@ -529,6 +531,7 @@ function AppInner(): JSX.Element {
         onRemoveContract={(name) => {
           if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
         }}
+        onUpdateContract={(c) => void contractState.updateContract(c)}
         onUpsertServer={contractState.upsertServer}
         onRemoveServer={(name) => void contractState.removeServer(name)}
       />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Play, Trash2 } from 'lucide-react';
+import { Pencil, Play, Trash2 } from 'lucide-react';
 import {
   contractOrigins,
   looksLikeProduction,
@@ -11,6 +11,7 @@ import {
   type ContractServer
 } from '@shared/contract';
 import { Modal, methodTone } from '../primitives';
+import { ContractEditor } from './ContractEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface ContractModalProps {
   contracts: Contract[];
   servers: ContractServer[];
   onRemoveContract: (name: string) => void;
+  onUpdateContract: (contract: Contract) => void;
   onUpsertServer: (server: ContractServer) => Promise<boolean>;
   onRemoveServer: (name: string) => void;
 }
@@ -48,6 +50,7 @@ export function ContractModal({
   contracts,
   servers,
   onRemoveContract,
+  onUpdateContract,
   onUpsertServer,
   onRemoveServer
 }: ContractModalProps): JSX.Element {
@@ -59,6 +62,7 @@ export function ContractModal({
   const [results, setResults] = useState<ContractRunResult[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [editing, setEditing] = useState<Contract | undefined>();
   const [newServer, setNewServer] = useState({ name: '', baseUrl: '' });
 
   // 열 때 선택이 없으면 전부 선택해 바로 실행할 수 있게 한다.
@@ -227,6 +231,9 @@ export function ContractModal({
                   </span>
                   {!c.verifiable && <Badge variant="neutral">검증 제외</Badge>}
                   {!c.safeToRun && <Badge variant="warning">변경 요청</Badge>}
+                  <Button variant="ghost" size="sm" aria-label={`${c.name} 편집`} onClick={() => setEditing(c)}>
+                    <Pencil />
+                  </Button>
                   <Button variant="ghost" size="sm" aria-label={`${c.name} 삭제`} onClick={() => onRemoveContract(c.name)}>
                     <Trash2 />
                   </Button>
@@ -305,6 +312,7 @@ export function ContractModal({
           </section>
         )}
       </div>
+      <ContractEditor contract={editing} onClose={() => setEditing(undefined)} onSave={onUpdateContract} />
     </Modal>
   );
 }

@@ -40,6 +40,7 @@ function setup(servers = [{ name: 'dev', baseUrl: 'https://dev.example.com' }], 
       contracts={contracts}
       servers={servers}
       onRemoveContract={() => {}}
+      onUpdateContract={() => {}}
       onUpsertServer={async () => true}
       onRemoveServer={() => {}}
     />
@@ -86,5 +87,35 @@ describe('ContractModal', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     fireEvent.click(screen.getByRole('button', { name: /1개 실행/ }));
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+import { ContractEditor } from '../../src/renderer/src/components/contract/ContractEditor';
+
+describe('ContractEditor', () => {
+  it('필드를 무시로 바꿔 저장하면 fieldRules에 담긴다', () => {
+    const onSave = vi.fn();
+    const c = contract('users', {
+      expect: { status: 200, headers: ['content-type'], bodyShape: { kind: 'object', props: { at: { kind: 'string' } }, required: ['at'] } }
+    });
+    render(<ContractEditor contract={c} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('$.at 비교 방식'), { target: { value: 'ignore' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ expect: expect.objectContaining({ fieldRules: { '$.at': { mode: 'ignore' } } }) })
+    );
+  });
+
+  it('값 일치에 잘못된 JSON을 넣으면 저장하지 않는다', () => {
+    const onSave = vi.fn();
+    const c = contract('users', {
+      expect: { status: 200, headers: [], bodyShape: { kind: 'object', props: { code: { kind: 'string' } }, required: ['code'] } }
+    });
+    render(<ContractEditor contract={c} onClose={() => {}} onSave={onSave} />);
+    fireEvent.change(screen.getByLabelText('$.code 비교 방식'), { target: { value: 'equals' } });
+    fireEvent.change(screen.getByLabelText('$.code 기대 값'), { target: { value: 'OK' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('JSON');
   });
 });

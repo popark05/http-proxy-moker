@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CapturedExchange } from '@shared/capture';
 import {
   exchangeToContract,
+  mergeContractSample,
+  sameRequest,
   normalizeBaseUrl,
   uniqueContractName,
   type Contract,
@@ -16,7 +18,9 @@ export interface UseContractsResult {
   contracts: Contract[];
   servers: ContractServer[];
   /** 캡처 exchange들을 계약으로 저장. 응답이 없는 것은 skipped. */
-  saveFromExchanges: (exchanges: CapturedExchange[]) => Promise<{ saved: number; skipped: number }>;
+  saveFromExchanges: (exchanges: CapturedExchange[]) => Promise<{ saved: number; merged: number; skipped: number }>;
+  /** 편집한 계약을 같은 이름으로 저장. */
+  updateContract: (contract: Contract) => Promise<void>;
   removeContract: (name: string) => Promise<void>;
   /** 서버 등록/갱신. 주소가 올바르지 않으면 false. */
   upsertServer: (server: ContractServer) => Promise<boolean>;
@@ -51,8 +55,9 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
 
   const saveFromExchanges = useCallback(
     async (exchanges: CapturedExchange[]) => {
-      const names = contracts.map((c) => c.name);
-      const added: Contract[] = [];
+      let list = contracts;
+      let saved = 0;
+      let merged = 0;
       let skipped = 0;
       for (const exchange of exchanges) {
         const draft = exchangeToContract(exchange, randomId());
@@ -60,16 +65,30 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
           skipped++;
           continue;
         }
-        const name = uniqueContractName(names, draft.name);
-        names.push(name);
+        // 같은 요청을 다시 저장하면 새 계약을 늘리지 않고 기존 계약에 샘플을 합친다.
+        const same = list.find((c) => sameRequest(c, draft));
+        if (same) {
+          const next = mergeContractSample(same, draft);
+          await window.mokerApi.project.saveContract(next);
+          list = list.map((c) => (c.name === same.name ? next : c));
+          merged++;
+          continue;
+        }
+        const name = uniqueContractName(list.map((c) => c.name), draft.name);
         const savedName = await window.mokerApi.project.saveContract({ ...draft, name });
-        added.push({ ...draft, name: savedName });
+        list = [...list, { ...draft, name: savedName }];
+        saved++;
       }
-      setContracts((prev) => [...prev, ...added]);
-      return { saved: added.length, skipped };
+      setContracts(list);
+      return { saved, merged, skipped };
     },
     [contracts]
   );
+
+  const updateContract = useCallback(async (contract: Contract) => {
+    await window.mokerApi.project.saveContract(contract);
+    setContracts((prev) => prev.map((c) => (c.name === contract.name ? contract : c)));
+  }, []);
 
   const removeContract = useCallback(async (name: string) => {
     await window.mokerApi.project.deleteContract(name);
@@ -98,5 +117,5 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
     [servers]
   );
 
-  return { contracts, servers, saveFromExchanges, removeContract, upsertServer, removeServer };
+  return { contracts, servers, saveFromExchanges, updateContract, removeContract, upsertServer, removeServer };
 }

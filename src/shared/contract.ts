@@ -34,7 +34,12 @@ export interface ContractExpect {
   headers: string[];
   /** JSON 응답 모양. 추론 불가(비 JSON/생략)면 undefined → 상태/헤더만 검증. */
   bodyShape?: JsonShape;
+  /** 필드별 예외 규칙. 키는 `$.items[].id`처럼 배열 인덱스를 `[]`로 쓴 경로. 없으면 타입만 비교. */
+  fieldRules?: Record<string, FieldRule>;
 }
+
+/** 필드 비교 방식: 무시하거나, 특정 값과 같아야 한다(기본은 타입만 비교). */
+export type FieldRule = { mode: 'ignore' } | { mode: 'equals'; value: unknown };
 
 export interface Contract {
   version: 1;
@@ -178,17 +183,29 @@ function describeShape(shape: JsonShape): string {
 }
 
 /** 값이 모양과 맞는지 검증하고 위반 목록을 돌려준다(빈 배열이면 통과). */
-export function validateShape(value: unknown, shape: JsonShape, path = '$'): ShapeViolation[] {
+export function validateShape(
+  value: unknown,
+  shape: JsonShape,
+  path = '$',
+  rules?: Record<string, FieldRule>
+): ShapeViolation[] {
+  const rule = rules?.[normalizeFieldPath(path)];
+  if (rule?.mode === 'ignore') return [];
+  if (rule?.mode === 'equals') {
+    return deepEqual(value, rule.value)
+      ? []
+      : [{ path, message: `${JSON.stringify(rule.value)}이어야 함 (실제: ${JSON.stringify(value)})` }];
+  }
   switch (shape.kind) {
     case 'any':
       return [];
     case 'union': {
-      const ok = shape.of.some((member) => validateShape(value, member, path).length === 0);
+      const ok = shape.of.some((member) => validateShape(value, member, path, rules).length === 0);
       return ok ? [] : [{ path, message: `${describeShape(shape)}여야 함 (실제: ${KIND_LABEL[kindOf(value)]})` }];
     }
     case 'array': {
       if (!Array.isArray(value)) return [{ path, message: `배열이어야 함 (실제: ${KIND_LABEL[kindOf(value)]})` }];
-      return value.flatMap((item, i) => validateShape(item, shape.items, `${path}[${i}]`));
+      return value.flatMap((item, i) => validateShape(item, shape.items, `${path}[${i}]`, rules));
     }
     case 'object': {
       if (kindOf(value) !== 'object') {
@@ -197,10 +214,11 @@ export function validateShape(value: unknown, shape: JsonShape, path = '$'): Sha
       const obj = value as Record<string, unknown>;
       const violations: ShapeViolation[] = [];
       for (const key of shape.required) {
+        if (rules?.[normalizeFieldPath(`${path}.${key}`)]?.mode === 'ignore') continue;
         if (!(key in obj)) violations.push({ path: `${path}.${key}`, message: '필수 필드가 없음' });
       }
       for (const [key, sub] of Object.entries(shape.props)) {
-        if (key in obj) violations.push(...validateShape(obj[key], sub, `${path}.${key}`));
+        if (key in obj) violations.push(...validateShape(obj[key], sub, `${path}.${key}`, rules));
       }
       return violations;
     }
@@ -208,6 +226,48 @@ export function validateShape(value: unknown, shape: JsonShape, path = '$'): Sha
       return kindOf(value) === shape.kind
         ? []
         : [{ path, message: `${describeShape(shape)}여야 함 (실제: ${KIND_LABEL[kindOf(value)]})` }];
+  }
+}
+
+/** 규칙 조회용 경로: `$.items[3].id` → `$.items[].id`. */
+export function normalizeFieldPath(path: string): string {
+  return path.replace(/\[\d+\]/g, '[]');
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a as object);
+  const kb = Object.keys(b as object);
+  return ka.length === kb.length && ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
+
+export interface ShapeField {
+  /** 규칙 키로 쓰는 경로(`$.items[].id`). */
+  path: string;
+  /** 사람이 읽는 타입 이름. */
+  type: string;
+  required: boolean;
+}
+
+/** 편집 화면용: 모양을 필드 목록으로 펼친다(루트 제외, 배열 원소는 `[]`). */
+export function listShapeFields(shape: JsonShape, path = '$', required = true): ShapeField[] {
+  const own: ShapeField[] = path === '$' ? [] : [{ path, type: describeShape(shape), required }];
+  switch (shape.kind) {
+    case 'object':
+      return [
+        ...own,
+        ...Object.entries(shape.props).flatMap(([k, sub]) =>
+          listShapeFields(sub, `${path}.${k}`, shape.required.includes(k))
+        )
+      ];
+    case 'array':
+      return [...own, ...listShapeFields(shape.items, `${path}[]`, true)];
+    case 'union':
+      return [...own, ...shape.of.flatMap((m) => (m.kind === 'object' || m.kind === 'array' ? listShapeFields(m, path, required) : []))];
+    default:
+      return own;
   }
 }
 
@@ -241,6 +301,50 @@ function headerVariable(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
 }
 
+/** 값을 저장하지 않고 변수로만 두는 필드 이름(쿼리, 요청 본문). */
+const SENSITIVE_KEY =
+  /pass(word|wd)?|pwd|token|secret|api[-_]?key|apikey|auth|session|otp|pin(code)?$|ssn|jumin|rrn|card|cvc|cvv|account|phone|mobile|tel$|email|birth/i;
+
+function fieldVariable(key: string): string {
+  return key.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'value';
+}
+
+/** JSON 값 안의 민감 키의 문자열/숫자 값을 `{{키}}` 변수로 바꾼다(중첩 포함). */
+function maskJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(maskJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        SENSITIVE_KEY.test(k) && (typeof v === 'string' || typeof v === 'number') ? `{{${fieldVariable(k)}}}` : maskJson(v)
+      ])
+    );
+  }
+  return value;
+}
+
+/** 요청 본문에서 민감한 값을 변수로 치환한다. JSON/폼 인코딩만 다루고 나머지는 그대로 둔다. */
+export function maskRequestBody(content: string, contentType?: string): string {
+  const type = (contentType ?? '').toLowerCase();
+  try {
+    if (type.includes('json') || /^\s*[{[]/.test(content)) return JSON.stringify(maskJson(JSON.parse(content)));
+  } catch {
+    // JSON이 아니면 아래로.
+  }
+  if (type.includes('x-www-form-urlencoded')) {
+    const params = new URLSearchParams(content);
+    for (const [k] of [...params.entries()]) {
+      if (SENSITIVE_KEY.test(k)) params.set(k, `{{${fieldVariable(k)}}}`);
+    }
+    return params.toString().replace(/%7B%7B/g, '{{').replace(/%7D%7D/g, '}}');
+  }
+  return content;
+}
+
+function maskQuery(query: Array<[string, string]>): Array<[string, string]> {
+  return query.map(([k, v]): [string, string] => (SENSITIVE_KEY.test(k) ? [k, `{{${fieldVariable(k)}}}`] : [k, v]));
+}
+
 function parseJson(body: { encoding: string; content: string }): unknown | undefined {
   if (body.encoding !== 'text') return undefined;
   try {
@@ -263,7 +367,7 @@ export function exchangeToContract(exchange: CapturedExchange, id: string): Cont
   let origin: string | undefined;
   try {
     const parsed = new URL(request.url);
-    query = [...parsed.searchParams.entries()];
+    query = maskQuery([...parsed.searchParams.entries()]);
     origin = parsed.origin;
   } catch {
     // 상대 경로 등: 쿼리/서버 정보 없음으로 둔다.
@@ -291,7 +395,14 @@ export function exchangeToContract(exchange: CapturedExchange, id: string): Cont
       query,
       headers,
       ...(reqBody.encoding === 'text' || reqBody.encoding === 'base64'
-        ? { body: { encoding: reqBody.encoding, content: reqBody.content, contentType: reqBody.contentType } }
+        ? {
+            body: {
+              encoding: reqBody.encoding,
+              // 이진(base64)은 내용을 알 수 없어 그대로 두고, 텍스트만 민감 값을 가린다.
+              content: reqBody.encoding === 'text' ? maskRequestBody(reqBody.content, reqBody.contentType) : reqBody.content,
+              contentType: reqBody.contentType
+            }
+          }
         : {})
     },
     expect: {
@@ -350,7 +461,7 @@ export function checkResponse(expect: ContractExpect, actual: ActualResponse): C
         ok = false;
       }
     }
-    if (ok) violations.push(...validateShape(parsed, expect.bodyShape));
+    if (ok) violations.push(...validateShape(parsed, expect.bodyShape, '$', expect.fieldRules));
     else violations.push({ path: '$', message: 'JSON 본문이어야 함' });
   }
 
@@ -494,4 +605,24 @@ export function summarizeRun(results: ContractRunResult[]): Record<ContractRunSt
 /** 계약들이 캡처된 서버(origin) 목록. 출처 없는 계약은 포함하지 않는다. */
 export function contractOrigins(contracts: Contract[]): string[] {
   return [...new Set(contracts.flatMap((c) => (c.source?.origin ? [c.source.origin] : [])))].sort();
+}
+
+/** 같은 요청(엔드포인트 + 쿼리 키 + 메서드)이면 같은 계약으로 본다. */
+export function sameRequest(a: Contract, b: Contract): boolean {
+  const keys = (c: Contract): string => c.request.query.map(([k]) => k).sort().join('&');
+  return a.endpointId === b.endpointId && keys(a) === keys(b);
+}
+
+/** 같은 요청을 다시 캡처했을 때 기존 계약에 합친다: 응답 모양을 합쳐 선택 필드를 더 정확히 하고, 기대 헤더는 공통분만 남긴다. */
+export function mergeContractSample(existing: Contract, draft: Contract): Contract {
+  const { bodyShape } = existing.expect;
+  const merged = bodyShape && draft.expect.bodyShape ? mergeShapes(bodyShape, draft.expect.bodyShape) : (bodyShape ?? draft.expect.bodyShape);
+  return {
+    ...existing,
+    expect: {
+      ...existing.expect,
+      headers: existing.expect.headers.filter((h) => draft.expect.headers.includes(h)),
+      ...(merged ? { bodyShape: merged } : {})
+    }
+  };
 }

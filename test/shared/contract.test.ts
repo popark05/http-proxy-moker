@@ -213,3 +213,89 @@ describe('캡처한 서버(origin)', () => {
     expect(contractOrigins([c, c])).toEqual(['https://api.example.com']);
   });
 });
+
+import { listShapeFields, maskRequestBody, mergeContractSample, sameRequest } from '../../src/shared/contract';
+
+describe('민감 값 마스킹', () => {
+  it('요청 본문의 민감 키(중첩 포함)와 쿼리 값을 변수로 바꾼다', () => {
+    const c = exchangeToContract(
+      exchange({
+        method: 'POST',
+        url: 'https://api.example.com/login?access_token=abc&page=1',
+        body: {
+          encoding: 'text',
+          content: JSON.stringify({ userId: 'u1', password: 'pw1234', profile: { phone: '010-1234-5678', age: 30 } }),
+          byteLength: 10,
+          contentType: 'application/json'
+        }
+      }),
+      'c'
+    )!;
+    expect(c.request.query).toEqual([['access_token', '{{access_token}}'], ['page', '1']]);
+    expect(JSON.parse(c.request.body!.content)).toEqual({
+      userId: 'u1',
+      password: '{{password}}',
+      profile: { phone: '{{phone}}', age: 30 }
+    });
+    const dump = JSON.stringify(c);
+    for (const secret of ['pw1234', '010-1234-5678', 'abc']) expect(dump).not.toContain(secret);
+    expect(requiredVariables([c]).sort()).toEqual(['access_token', 'authorization', 'password', 'phone']);
+  });
+
+  it('폼 인코딩 본문도 가린다', () => {
+    expect(maskRequestBody('id=a&password=zzz', 'application/x-www-form-urlencoded')).toBe('id=a&password={{password}}');
+  });
+});
+
+describe('필드 규칙', () => {
+  const shape = inferShape({ items: [{ id: 1, at: 'x' }], code: 'OK' });
+
+  it('무시 규칙은 해당 필드의 누락·타입 불일치를 허용한다', () => {
+    const rules = { '$.items[].at': { mode: 'ignore' as const } };
+    expect(validateShape({ items: [{ id: 1 }], code: 'OK' }, shape, '$', rules)).toEqual([]);
+    expect(validateShape({ items: [{ id: 1, at: 5 }], code: 'OK' }, shape, '$', rules)).toEqual([]);
+  });
+
+  it('값 일치 규칙은 값까지 비교한다', () => {
+    const rules = { '$.code': { mode: 'equals' as const, value: 'OK' } };
+    expect(validateShape({ items: [], code: 'OK' }, shape, '$', rules)).toEqual([]);
+    expect(validateShape({ items: [], code: 'FAIL' }, shape, '$', rules)).toEqual([
+      { path: '$.code', message: '"OK"이어야 함 (실제: "FAIL")' }
+    ]);
+  });
+
+  it('checkResponse가 계약의 fieldRules를 적용한다', () => {
+    const c = exchangeToContract(exchange(), 'c')!;
+    c.expect.fieldRules = { '$.items[].name': { mode: 'ignore' } };
+    const r = checkResponse(c.expect, {
+      status: 200,
+      headers: [['content-type', 'x']],
+      body: '{"items":[{"id":1}],"next":null}'
+    });
+    expect(r.passed).toBe(true);
+  });
+
+  it('모양을 필드 목록으로 펼친다', () => {
+    expect(listShapeFields(shape).map((f) => f.path)).toEqual(['$.items', '$.items[]', '$.items[].id', '$.items[].at', '$.code']);
+  });
+});
+
+describe('같은 요청 합치기', () => {
+  it('같은 요청은 모양을 합치고 기대 헤더는 공통분만 남긴다', () => {
+    const a = exchangeToContract(exchange(), 'a')!;
+    const b = exchangeToContract(
+      exchange({}, {
+        statusCode: 200,
+        statusMessage: 'OK',
+        headers: [['Content-Type', 'x'], ['X-Extra', '1']],
+        body: { encoding: 'text', content: '{"items":[{"id":2}],"next":"n"}', byteLength: 1 }
+      }),
+      'b'
+    )!;
+    expect(sameRequest(a, b)).toBe(true);
+    const merged = mergeContractSample(a, b);
+    expect(merged.expect.headers).toEqual(['content-type']);
+    expect(validateShape({ items: [{ id: 1 }], next: 'z' }, merged.expect.bodyShape!)).toEqual([]);
+    expect(validateShape({ items: [{ id: 1 }] }, merged.expect.bodyShape!)).toHaveLength(0 + 1);
+  });
+});
