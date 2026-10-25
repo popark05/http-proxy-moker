@@ -36,7 +36,7 @@ describe('exportBrunoCollection', () => {
 
   it('컬렉션·요청·환경 파일을 만든다', () => {
     expect(Object.keys(byPath).sort()).toEqual([
-      'POST _v1_login.bru',
+      'api.example.com/POST _v1_login.bru',
       'bruno.json',
       'environments/captured-api_example_com.bru',
       'environments/dev.bru'
@@ -45,7 +45,7 @@ describe('exportBrunoCollection', () => {
   });
 
   it('요청 .bru에 주소·헤더·본문·assert가 들어간다', () => {
-    const bru = byPath['POST _v1_login.bru'];
+    const bru = byPath['api.example.com/POST _v1_login.bru'];
     expect(bru).toContain('post {\n  url: {{baseUrl}}/v1/login\n  body: json');
     expect(bru).toContain('params:query {\n  lang: ko\n}');
     expect(bru).toContain('  Authorization: {{authorization}}');

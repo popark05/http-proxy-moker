@@ -299,3 +299,13 @@ describe('같은 요청 합치기', () => {
     expect(validateShape({ items: [{ id: 1 }] }, merged.expect.bodyShape!)).toHaveLength(1);
   });
 });
+
+describe('contractsFromExchanges', () => {
+  it('같은 요청은 합치고 응답 없는 것은 센다', async () => {
+    const { contractsFromExchanges } = await import('../../src/shared/contract');
+    let n = 0;
+    const r = contractsFromExchanges([exchange(), exchange(), { ...exchange(), response: undefined }], () => `i${n++}`);
+    expect(r.contracts).toHaveLength(1);
+    expect(r.skipped).toBe(1);
+  });
+});

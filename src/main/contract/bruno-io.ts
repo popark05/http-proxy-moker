@@ -1,25 +1,58 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { brunoFileName, brunoToContract, exportBrunoCollection } from '@shared/bruno';
-import type { Contract, ContractServer } from '@shared/contract';
+import { sameRequest, type Contract, type ContractServer } from '@shared/contract';
 
-/** 부모 폴더 아래에 컬렉션 폴더를 만들어 계약을 내보낸다. 이미 있는 폴더는 건드리지 않고 이름 뒤에 번호를 붙인다. */
+export interface BrunoWriteResult {
+  dir: string;
+  /** 새로 쓴 파일 수(요청 + 환경 + bruno.json). */
+  files: number;
+  /** 기존 컬렉션에 추가했는가(true) / 새 컬렉션을 만들었는가(false). */
+  merged: boolean;
+  /** 추가한 요청 수. */
+  added: number;
+  /** 기존 컬렉션에 이미 같은 요청이 있어 건너뛴 수. */
+  existing: number;
+}
+
+/**
+ * 선택한 폴더가 이미 Bruno 컬렉션(bruno.json)이면 거기에 요청을 추가하고(같은 요청·기존 환경은 건드리지 않음),
+ * 아니면 그 아래에 컬렉션 폴더를 새로 만든다(같은 이름이 있으면 번호를 붙인다). 다시 내보내도 안전하다.
+ */
 export async function writeBrunoCollection(
-  parentDir: string,
+  chosenDir: string,
   name: string,
   contracts: Contract[],
   servers: ContractServer[]
-): Promise<{ dir: string; files: number }> {
-  const base = brunoFileName(name);
-  let dir = path.join(parentDir, base);
-  for (let n = 2; await exists(dir); n++) dir = path.join(parentDir, `${base} (${n})`);
-  const files = exportBrunoCollection(name, contracts, servers);
-  for (const file of files) {
-    const target = path.join(dir, file.path);
+): Promise<BrunoWriteResult> {
+  const merged = await exists(path.join(chosenDir, 'bruno.json'));
+  let dir = chosenDir;
+  let todo = contracts;
+  let existingCount = 0;
+  if (!merged) {
+    const base = brunoFileName(name);
+    dir = path.join(chosenDir, base);
+    for (let n = 2; await exists(dir); n++) dir = path.join(chosenDir, `${base} (${n})`);
+  } else {
+    const have = (await readBrunoCollection(chosenDir, () => 'existing')).contracts;
+    todo = contracts.filter((c) => !have.some((h) => sameRequest(h, c)));
+    existingCount = contracts.length - todo.length;
+  }
+
+  let written = 0;
+  for (const file of exportBrunoCollection(name, todo, servers)) {
+    if (merged && file.path === 'bruno.json') continue;
+    let target = path.join(dir, file.path);
+    if (merged && file.path.startsWith('environments/') && (await exists(target))) continue;
+    // 요청 파일 이름이 겹치면(다른 요청이 같은 파일명) 번호를 붙인다.
+    for (let n = 2; file.path.endsWith('.bru') && !file.path.startsWith('environments/') && (await exists(target)); n++) {
+      target = path.join(dir, file.path.replace(/\.bru$/, ` (${n}).bru`));
+    }
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, file.content, 'utf-8');
+    written++;
   }
-  return { dir, files: files.length };
+  return { dir, files: written, merged, added: todo.length, existing: existingCount };
 }
 
 async function exists(p: string): Promise<boolean> {

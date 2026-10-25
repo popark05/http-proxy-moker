@@ -638,3 +638,23 @@ export function mergeContractSample(existing: Contract, draft: Contract): Contra
     }
   };
 }
+
+/** 캡처 exchange들을 계약으로 바꾼다. 같은 요청은 하나로 합치고, 응답이 없는 것은 skipped로 센다. */
+export function contractsFromExchanges(
+  exchanges: CapturedExchange[],
+  newId: () => string
+): { contracts: Contract[]; skipped: number } {
+  const contracts: Contract[] = [];
+  let skipped = 0;
+  for (const exchange of exchanges) {
+    const draft = exchangeToContract(exchange, newId());
+    if (!draft) {
+      skipped++;
+      continue;
+    }
+    const i = contracts.findIndex((c) => sameRequest(c, draft));
+    if (i >= 0) contracts[i] = mergeContractSample(contracts[i], draft);
+    else contracts.push(draft);
+  }
+  return { contracts, skipped };
+}

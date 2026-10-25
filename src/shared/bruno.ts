@@ -170,10 +170,13 @@ export function exportBrunoCollection(name: string, contracts: Contract[], serve
   ];
   const used = new Set<string>();
   contracts.forEach((contract, i) => {
+    // 서버(호스트)별 폴더로 나눠 Bruno 사이드바에서 한눈에 보이게 한다.
+    const host = contract.source?.origin ? brunoFileName(new URL(contract.source.origin).host.replace(/:/g, '_')) : '';
+    const dir = host ? `${host}/` : '';
     let base = brunoFileName(contract.name);
-    for (let n = 2; used.has(base.toLowerCase()); n++) base = `${brunoFileName(contract.name)} (${n})`;
-    used.add(base.toLowerCase());
-    files.push({ path: `${base}.bru`, content: contractToBru(contract, i + 1) });
+    for (let n = 2; used.has(`${dir}${base}`.toLowerCase()); n++) base = `${brunoFileName(contract.name)} (${n})`;
+    used.add(`${dir}${base}`.toLowerCase());
+    files.push({ path: `${dir}${base}.bru`, content: contractToBru(contract, i + 1) });
   });
 
   const secrets = requiredVariables(contracts);

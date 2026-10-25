@@ -1,4 +1,4 @@
-import { Copy, FileCheck, Layers, List } from 'lucide-react';
+import { Copy, FileCheck, Layers, List, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SelectionBarProps {
@@ -13,6 +13,8 @@ interface SelectionBarProps {
   onCloneChecked: () => void;
   /** 선택한 요청을 계약으로 저장(프로젝트가 없으면 호출 쪽에서 안내). */
   onSaveContracts?: () => void;
+  /** 선택한 요청을 Bruno 컬렉션으로 내보내기(프로젝트 없이도 가능). */
+  onExportBruno?: () => void;
   /** 목록 보기 방식: 호스트 그룹 / 시간순 평면. */
   view: 'group' | 'flat';
   onViewChange: (view: 'group' | 'flat') => void;
@@ -27,6 +29,7 @@ export function SelectionBar({
   onClear,
   onCloneChecked,
   onSaveContracts,
+  onExportBruno,
   view,
   onViewChange
 }: SelectionBarProps): JSX.Element | null {
@@ -53,6 +56,11 @@ export function SelectionBar({
             해제
           </Button>
           <div className="flex-1" />
+          {onExportBruno && (
+            <Button variant="outline" size="sm" onClick={onExportBruno}>
+              <Send /> Bruno로 내보내기
+            </Button>
+          )}
           {onSaveContracts && (
             <Button variant="outline" size="sm" onClick={onSaveContracts}>
               <FileCheck /> 계약으로 저장

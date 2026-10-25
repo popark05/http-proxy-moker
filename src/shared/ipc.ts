@@ -189,8 +189,8 @@ export interface MokerApi {
     run(contracts: Contract[], options: ContractRunOptions): Promise<ContractRunResult[]>;
     /** 실행 중 계약 하나가 끝날 때마다 호출. 구독 해제 함수를 반환. */
     onResult(listener: (result: ContractRunResult) => void): () => void;
-    /** 계약을 Bruno 컬렉션 폴더로 내보낸다. 취소하면 null. */
-    exportBruno(name: string, contracts: Contract[], servers: ContractServer[]): Promise<{ dir: string; files: number } | null>;
+    /** 계약을 Bruno 컬렉션으로 내보낸다(이미 컬렉션인 폴더를 고르면 거기에 추가). 취소하면 null. */
+    exportBruno(name: string, contracts: Contract[], servers: ContractServer[]): Promise<{ dir: string; files: number; merged: boolean; added: number; existing: number } | null>;
     /** Bruno 컬렉션 폴더를 계약으로 가져온다(저장은 하지 않음). 취소하면 null. */
     importBruno(): Promise<{ contracts: Contract[]; notes: string[]; skippedFiles: number } | null>;
   };

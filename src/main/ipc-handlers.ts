@@ -246,7 +246,7 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
     IpcChannels.contractExportBruno,
     async (_event, arg: { name: string; contracts: Contract[]; servers: ContractServer[] }) => {
       const result = await dialog.showOpenDialog(getWindow() ?? undefined!, {
-        title: 'Bruno 컬렉션을 만들 폴더 선택',
+        title: 'Bruno 컬렉션을 만들 폴더(또는 기존 컬렉션 폴더) 선택',
         properties: ['openDirectory', 'createDirectory']
       });
       if (result.canceled || result.filePaths.length === 0) return null;

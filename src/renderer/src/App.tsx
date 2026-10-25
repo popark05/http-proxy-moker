@@ -10,6 +10,7 @@ import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
+import { contractsFromExchanges } from '@shared/contract';
 import { useContracts } from './state/useContracts';
 import { ContractModal } from './components/contract/ContractModal';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
@@ -297,6 +298,29 @@ function AppInner(): JSX.Element {
     }
   };
 
+  /** 체크된 요청들을 Bruno 컬렉션으로 바로 내보낸다(프로젝트 없이도 가능). 기존 컬렉션 폴더를 고르면 거기에 추가한다. */
+  const handleExportBruno = async (): Promise<void> => {
+    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+    const { contracts, skipped } = contractsFromExchanges(targets, () => `br-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+    if (contracts.length === 0) {
+      toast.info('내보낼 요청이 없습니다', { description: '응답이 있는 요청을 선택하세요' });
+      return;
+    }
+    try {
+      const out = await window.mokerApi.contract.exportBruno(project?.meta.name ?? 'EverMock', contracts, contractState.servers);
+      if (!out) return;
+      const notes = [
+        out.existing > 0 ? `이미 있는 ${out.existing}개는 건너뜀` : '',
+        skipped > 0 ? `응답 없는 ${skipped}개 제외` : ''
+      ].filter(Boolean);
+      toast.success(out.merged ? `기존 Bruno 컬렉션에 ${out.added}개 추가` : `Bruno 컬렉션 만듦 (${out.added}개 요청)`, {
+        description: [out.dir, ...notes].join(' · ')
+      });
+    } catch (e) {
+      toast.error('Bruno 내보내기 실패', { description: errMsg(e) });
+    }
+  };
+
   const handleCloneToMock = (exchange: CapturedExchange): void => {
     cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
@@ -346,6 +370,7 @@ function AppInner(): JSX.Element {
         onClear={() => setCheckedIds(new Set())}
         onCloneChecked={handleCloneChecked}
         onSaveContracts={() => void handleSaveContracts()}
+        onExportBruno={() => void handleExportBruno()}
         view={trafficView}
         onViewChange={setTrafficView}
       />

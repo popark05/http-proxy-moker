@@ -40,3 +40,22 @@ describe('Bruno 폴더 입출력', () => {
     expect(read.notes).toEqual([]);
   });
 });
+
+describe('기존 컬렉션에 추가', () => {
+  it('같은 요청은 건너뛰고 새 요청만 추가하며 기존 파일과 환경은 건드리지 않는다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-bruno-merge-'));
+    const first = await writeBrunoCollection(dir, 'QA', [contract('GET /a', '/a')], []);
+    expect(first).toMatchObject({ merged: false, added: 1, existing: 0 });
+    const envDir = path.join(first.dir, 'environments');
+    const envBefore = await fs.readdir(envDir);
+    await fs.writeFile(path.join(envDir, envBefore[0]), 'vars {\n  baseUrl: https://edited\n}\n');
+
+    const second = await writeBrunoCollection(first.dir, 'QA', [contract('GET /a', '/a'), contract('GET /b', '/b')], []);
+    expect(second).toMatchObject({ dir: first.dir, merged: true, added: 1, existing: 1 });
+    let n = 0;
+    const all = await readBrunoCollection(first.dir, () => `i${n++}`);
+    expect(all.contracts.map((c) => c.endpointId).sort()).toEqual(['GET /a', 'GET /b']);
+    expect(await fs.readFile(path.join(envDir, envBefore[0]), 'utf-8')).toContain('https://edited');
+    expect(await fs.readdir(dir)).toEqual(['QA']); // 새 폴더를 또 만들지 않았다
+  });
+});
