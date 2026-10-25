@@ -296,6 +296,6 @@ describe('같은 요청 합치기', () => {
     const merged = mergeContractSample(a, b);
     expect(merged.expect.headers).toEqual(['content-type']);
     expect(validateShape({ items: [{ id: 1 }], next: 'z' }, merged.expect.bodyShape!)).toEqual([]);
-    expect(validateShape({ items: [{ id: 1 }] }, merged.expect.bodyShape!)).toHaveLength(0 + 1);
+    expect(validateShape({ items: [{ id: 1 }] }, merged.expect.bodyShape!)).toHaveLength(1);
   });
 });
