@@ -509,7 +509,9 @@ export interface PlannedRequest {
 }
 
 /** 실행 계획: 보낼 요청, 또는 건너뛰는 이유. */
-export type RequestPlan = { ok: true; request: PlannedRequest } | { ok: false; reason: string };
+export type RequestPlan =
+  | { ok: true; request: PlannedRequest; /** 값이 비어 있어 뺀 헤더 이름. */ omittedHeaders: string[] }
+  | { ok: false; reason: string };
 
 /** 계약과 실행 옵션으로 실제 보낼 요청을 만든다. 안전장치(검증 불가/위험 메서드/변수 누락)는 여기서 건다. */
 export function planRequest(contract: Contract, options: ContractRunOptions): RequestPlan {
@@ -536,13 +538,23 @@ export function planRequest(contract: Contract, options: ContractRunOptions): Re
     for (const [k, v] of contract.request.query) qs.append(sub(k), sub(v));
     url += (url.includes('?') ? '&' : '?') + qs.toString();
   }
-  const headers = contract.request.headers.map(([n, v]): [string, string] => [n, sub(v)]);
+  // 값이 통째로 비어 있는 변수({{cookie}} 등)인 헤더는 건너뛰지 않고 헤더만 뺀다(쿠키 없이도 받을 수 있는 요청이 많다).
+  const omittedHeaders: string[] = [];
+  const headers: Array<[string, string]> = [];
+  for (const [n, v] of contract.request.headers) {
+    const whole = /^\s*\{\{\s*([\w.-]+)\s*\}\}\s*$/.exec(v);
+    if (whole && !vars[whole[1]]) {
+      omittedHeaders.push(n);
+      continue;
+    }
+    headers.push([n, sub(v)]);
+  }
   const body = contract.request.body
     ? { encoding: contract.request.body.encoding, content: sub(contract.request.body.content) }
     : undefined;
 
   if (missing.size > 0) return { ok: false, reason: `변수 값이 필요함: ${[...missing].join(', ')}` };
-  return { ok: true, request: { method: contract.request.method, url, headers, ...(body ? { body } : {}) } };
+  return { ok: true, request: { method: contract.request.method, url, headers, ...(body ? { body } : {}) }, omittedHeaders };
 }
 
 // ---------- 서버 등록 / 실행 폼 보조 ----------

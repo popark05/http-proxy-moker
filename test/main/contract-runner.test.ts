@@ -66,14 +66,27 @@ describe('runContract', () => {
     expect(r.violations[0].path).toBe('$.id');
   });
 
-  it('위험 메서드·검증 불가·변수 누락은 서버로 보내지 않고 건너뛴다', async () => {
+  it('위험 메서드·검증 불가 계약은 서버로 보내지 않고 건너뛴다', async () => {
     const baseUrl = await start();
     const post = contract({ safeToRun: false });
     post.request.method = 'POST';
     expect((await runContract(post, { baseUrl, vars: { authorization: 'x' } })).status).toBe('skipped');
     expect((await runContract(contract({ verifiable: false }), { baseUrl, vars: {} })).status).toBe('skipped');
-    const missing = await runContract(contract(), { baseUrl, vars: {} });
-    expect(missing).toMatchObject({ status: 'skipped', reason: '변수 값이 필요함: authorization' });
+    expect(seen).toHaveLength(0);
+  });
+
+  it('값이 비어 있는 변수 헤더는 건너뛰지 않고 헤더만 빼서 보낸다', async () => {
+    const baseUrl = await start();
+    const r = await runContract(contract(), { baseUrl, vars: {} });
+    expect(r).toMatchObject({ status: 'passed', reason: '값이 없어 헤더 생략: Authorization' });
+    expect(seen[0].auth).toBeUndefined();
+  });
+
+  it('주소·쿼리·본문의 변수가 비어 있으면 건너뛴다', async () => {
+    const baseUrl = await start();
+    const c = contract();
+    c.request.query = [['t', '{{token}}']];
+    expect(await runContract(c, { baseUrl, vars: {} })).toMatchObject({ status: 'skipped', reason: '변수 값이 필요함: token' });
     expect(seen).toHaveLength(0);
   });
 

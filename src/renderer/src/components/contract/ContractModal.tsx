@@ -336,6 +336,11 @@ export function ContractModal({
                 <summary className="flex cursor-pointer items-center gap-2">
                   <Badge variant={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                   <span className="min-w-0 flex-1 truncate font-mono">{r.endpointId}</span>
+                  {r.reason && (
+                    <span className="max-w-[45%] truncate text-xs text-muted-foreground" title={r.reason}>
+                      {r.reason}
+                    </span>
+                  )}
                   {r.httpStatus !== undefined && <span className="text-xs text-muted-foreground">{r.httpStatus}</span>}
                   {r.durationMs !== undefined && <span className="text-xs text-muted-foreground">{r.durationMs}ms</span>}
                 </summary>

@@ -74,6 +74,7 @@ export async function runContract(contract: Contract, options: ContractRunOption
     });
     return {
       ...base,
+      ...(plan.omittedHeaders.length > 0 ? { reason: `값이 없어 헤더 생략: ${plan.omittedHeaders.join(', ')}` } : {}),
       status: check.passed ? 'passed' : 'failed',
       violations: check.violations,
       httpStatus: res.status,
