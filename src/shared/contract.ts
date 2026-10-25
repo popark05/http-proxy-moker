@@ -524,7 +524,7 @@ export function planRequest(contract: Contract, options: ContractRunOptions): Re
   if (!baseUrl) return { ok: false, reason: '대상 서버를 알 수 없음(캡처 출처 없음 — 서버를 지정해야 함)' };
   if (!/^https?:\/\//i.test(baseUrl)) return { ok: false, reason: '서버 주소가 http(s)://로 시작해야 함' };
 
-  const vars = { ...options.vars, baseUrl: baseUrl.replace(/\/+$/, '') };
+  const vars: Record<string, string> = { ...options.vars, baseUrl: baseUrl.replace(/\/+$/, '') };
   const missing = new Set<string>();
   const sub = (text: string): string => {
     const r = applyVariables(text, vars);
