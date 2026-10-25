@@ -83,7 +83,11 @@ export const IpcChannels = {
   projectLoadContractServers: 'project:load-contract-servers',
   projectSaveContractServers: 'project:save-contract-servers',
   contractRun: 'contract:run',
-  contractResult: 'contract:result'
+  contractResult: 'contract:result',
+  /** Bruno 컬렉션 내보내기(폴더 선택) → {dir, files} | null. arg: {name, contracts, servers} */
+  contractExportBruno: 'contract:export-bruno',
+  /** Bruno 컬렉션 가져오기(폴더 선택) → {contracts, notes, skippedFiles} | null */
+  contractImportBruno: 'contract:import-bruno'
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -185,6 +189,10 @@ export interface MokerApi {
     run(contracts: Contract[], options: ContractRunOptions): Promise<ContractRunResult[]>;
     /** 실행 중 계약 하나가 끝날 때마다 호출. 구독 해제 함수를 반환. */
     onResult(listener: (result: ContractRunResult) => void): () => void;
+    /** 계약을 Bruno 컬렉션 폴더로 내보낸다. 취소하면 null. */
+    exportBruno(name: string, contracts: Contract[], servers: ContractServer[]): Promise<{ dir: string; files: number } | null>;
+    /** Bruno 컬렉션 폴더를 계약으로 가져온다(저장은 하지 않음). 취소하면 null. */
+    importBruno(): Promise<{ contracts: Contract[]; notes: string[]; skippedFiles: number } | null>;
   };
 }
 

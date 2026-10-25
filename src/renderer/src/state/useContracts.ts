@@ -18,6 +18,8 @@ export interface UseContractsResult {
   contracts: Contract[];
   servers: ContractServer[];
   /** 캡처 exchange들을 계약으로 저장. 응답이 없는 것은 skipped. */
+  /** 만들어 둔 계약(가져오기 등)을 저장. 같은 요청이면 합친다. */
+  saveDrafts: (drafts: Contract[]) => Promise<{ saved: number; merged: number }>;
   saveFromExchanges: (exchanges: CapturedExchange[]) => Promise<{ saved: number; merged: number; skipped: number }>;
   /** 편집한 계약을 같은 이름으로 저장. */
   updateContract: (contract: Contract) => Promise<void>;
@@ -53,18 +55,12 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
     };
   }, [projectDir]);
 
-  const saveFromExchanges = useCallback(
-    async (exchanges: CapturedExchange[]) => {
+  const saveDrafts = useCallback(
+    async (drafts: Contract[]) => {
       let list = contracts;
       let saved = 0;
       let merged = 0;
-      let skipped = 0;
-      for (const exchange of exchanges) {
-        const draft = exchangeToContract(exchange, randomId());
-        if (!draft) {
-          skipped++;
-          continue;
-        }
+      for (const draft of drafts) {
         // 같은 요청을 다시 저장하면 새 계약을 늘리지 않고 기존 계약에 샘플을 합친다.
         const same = list.find((c) => sameRequest(c, draft));
         if (same) {
@@ -80,9 +76,21 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
         saved++;
       }
       setContracts(list);
-      return { saved, merged, skipped };
+      return { saved, merged };
     },
     [contracts]
+  );
+
+  const saveFromExchanges = useCallback(
+    async (exchanges: CapturedExchange[]) => {
+      const drafts = exchanges.flatMap((e) => {
+        const d = exchangeToContract(e, randomId());
+        return d ? [d] : [];
+      });
+      const { saved, merged } = await saveDrafts(drafts);
+      return { saved, merged, skipped: exchanges.length - drafts.length };
+    },
+    [saveDrafts]
   );
 
   const updateContract = useCallback(async (contract: Contract) => {
@@ -117,5 +125,5 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
     [servers]
   );
 
-  return { contracts, servers, saveFromExchanges, updateContract, removeContract, upsertServer, removeServer };
+  return { contracts, servers, saveDrafts, saveFromExchanges, updateContract, removeContract, upsertServer, removeServer };
 }

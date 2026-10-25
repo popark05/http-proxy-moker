@@ -41,6 +41,7 @@ function setup(servers = [{ name: 'dev', baseUrl: 'https://dev.example.com' }], 
       servers={servers}
       onRemoveContract={() => {}}
       onUpdateContract={() => {}}
+      onImportContracts={async () => ({ saved: 0, merged: 0 })}
       onUpsertServer={async () => true}
       onRemoveServer={() => {}}
     />
@@ -117,5 +118,29 @@ describe('ContractEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toContain('JSON');
+  });
+});
+
+describe('Bruno 가져오기', () => {
+  it('가져온 계약을 저장하고 결과를 알려준다', async () => {
+    const importBruno = vi.fn(async () => ({ contracts: [contract('a')], notes: ['x.bru: 지원하지 않는 assert 1개 제외'], skippedFiles: 2 }));
+    (window as unknown as { mokerApi: unknown }).mokerApi = { contract: { run: vi.fn(), onResult: () => () => {}, importBruno } };
+    const onImport = vi.fn(async () => ({ saved: 1, merged: 0 }));
+    render(
+      <ContractModal
+        open
+        onOpenChange={() => {}}
+        contracts={[]}
+        servers={[]}
+        onRemoveContract={() => {}}
+        onUpdateContract={() => {}}
+        onImportContracts={onImport}
+        onUpsertServer={async () => true}
+        onRemoveServer={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Bruno 가져오기/ }));
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith([expect.objectContaining({ name: 'a' })]));
+    expect((await screen.findByRole('status')).textContent).toContain('새 계약 1개');
   });
 });

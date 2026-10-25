@@ -38,6 +38,9 @@ const api: MokerApi = {
   contract: {
     run: (contracts: Contract[], options: ContractRunOptions) =>
       ipcRenderer.invoke(IpcChannels.contractRun, { contracts, options }),
+    exportBruno: (name: string, contracts: Contract[], servers: ContractServer[]) =>
+      ipcRenderer.invoke(IpcChannels.contractExportBruno, { name, contracts, servers }),
+    importBruno: () => ipcRenderer.invoke(IpcChannels.contractImportBruno),
     onResult: (listener: (result: ContractRunResult) => void) => {
       const handler = (_event: IpcRendererEvent, payload: ContractRunResult): void => listener(payload);
       ipcRenderer.on(IpcChannels.contractResult, handler);

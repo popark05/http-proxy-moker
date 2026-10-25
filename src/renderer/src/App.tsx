@@ -532,6 +532,8 @@ function AppInner(): JSX.Element {
           if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
         }}
         onUpdateContract={(c) => void contractState.updateContract(c)}
+        onImportContracts={contractState.saveDrafts}
+        projectName={project?.meta.name}
         onUpsertServer={contractState.upsertServer}
         onRemoveServer={(name) => void contractState.removeServer(name)}
       />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil, Play, Trash2 } from 'lucide-react';
+import { Download, Pencil, Play, Trash2, Upload } from 'lucide-react';
 import {
   contractOrigins,
   looksLikeProduction,
@@ -23,6 +23,10 @@ interface ContractModalProps {
   servers: ContractServer[];
   onRemoveContract: (name: string) => void;
   onUpdateContract: (contract: Contract) => void;
+  /** 가져온 계약을 저장하고 {저장,합침} 개수를 돌려준다. */
+  onImportContracts: (contracts: Contract[]) => Promise<{ saved: number; merged: number }>;
+  /** 컬렉션 이름으로 쓸 프로젝트 이름. */
+  projectName?: string;
   onUpsertServer: (server: ContractServer) => Promise<boolean>;
   onRemoveServer: (name: string) => void;
 }
@@ -51,6 +55,8 @@ export function ContractModal({
   servers,
   onRemoveContract,
   onUpdateContract,
+  onImportContracts,
+  projectName,
   onUpsertServer,
   onRemoveServer
 }: ContractModalProps): JSX.Element {
@@ -62,6 +68,7 @@ export function ContractModal({
   const [results, setResults] = useState<ContractRunResult[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [info, setInfo] = useState<string | undefined>();
   const [editing, setEditing] = useState<Contract | undefined>();
   const [newServer, setNewServer] = useState({ name: '', baseUrl: '' });
 
@@ -115,6 +122,32 @@ export function ContractModal({
     } finally {
       off();
       setRunning(false);
+    }
+  };
+
+  const exportBruno = async (): Promise<void> => {
+    setError(undefined);
+    setInfo(undefined);
+    try {
+      const list = selected.length > 0 ? selected : contracts;
+      const out = await window.mokerApi.contract.exportBruno(projectName ?? 'EverMock', list, servers);
+      if (out) setInfo(`Bruno 컬렉션 ${list.length}개 요청을 내보냈습니다: ${out.dir}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const importBruno = async (): Promise<void> => {
+    setError(undefined);
+    setInfo(undefined);
+    try {
+      const out = await window.mokerApi.contract.importBruno();
+      if (!out) return;
+      const { saved, merged } = await onImportContracts(out.contracts);
+      const extra = out.notes.length > 0 ? ` · 건너뛴 항목 ${out.notes.length}개: ${out.notes.slice(0, 3).join(' / ')}${out.notes.length > 3 ? ' …' : ''}` : '';
+      setInfo(`가져옴: 새 계약 ${saved}개, 기존에 합침 ${merged}개, 요청이 아닌 파일 ${out.skippedFiles}개 제외${extra}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -202,6 +235,13 @@ export function ContractModal({
               />
               계약 {contracts.length}개 · {checked.size}개 선택
             </label>
+            <div className="flex-1" />
+            <Button variant="ghost" size="sm" onClick={() => void importBruno()}>
+              <Upload /> Bruno 가져오기
+            </Button>
+            <Button variant="ghost" size="sm" disabled={contracts.length === 0} onClick={() => void exportBruno()}>
+              <Download /> Bruno 내보내기
+            </Button>
           </div>
           {contracts.length === 0 ? (
             <p className="p-4 text-center text-muted-foreground">
@@ -286,6 +326,7 @@ export function ContractModal({
           )}
           {error && <span role="alert" className="text-xs text-destructive">{error}</span>}
         </div>
+        {info && <p role="status" className="text-xs text-muted-foreground">{info}</p>}
 
         {/* 4. 결과 */}
         {results.length > 0 && (
