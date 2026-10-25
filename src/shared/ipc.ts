@@ -18,6 +18,7 @@ import type { OperationProgress } from './progress';
 import type { InterceptionLiveness } from './interception-liveness';
 import type { ApplyMocksArgs } from './mock';
 import type { CaseLibrary, ScenarioFile } from './scenario-library';
+import type { Contract, ContractRunOptions, ContractRunResult, ContractServer } from './contract';
 
 export const IpcChannels = {
   /** 연결 확인용 왕복(핑퐁). Task 1 데모용. */
@@ -73,7 +74,16 @@ export const IpcChannels = {
   projectLoadAllScenarios: 'project:load-all-scenarios',
   /** 케이스 라이브러리 로드/저장. */
   projectLoadLibrary: 'project:load-library',
-  projectSaveLibrary: 'project:save-library'
+  projectSaveLibrary: 'project:save-library',
+  /** 계약 저장(arg: contract → 저장된 이름)/전체 로드/삭제(arg: name). */
+  projectSaveContract: 'project:save-contract',
+  projectLoadAllContracts: 'project:load-all-contracts',
+  projectDeleteContract: 'project:delete-contract',
+  /** 계약 실행. arg: {contracts, options} → ContractRunResult[] (개별 결과는 contractResult로 push). */
+  projectLoadContractServers: 'project:load-contract-servers',
+  projectSaveContractServers: 'project:save-contract-servers',
+  contractRun: 'contract:run',
+  contractResult: 'contract:result'
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -160,6 +170,21 @@ export interface MokerApi {
     saveLibrary(library: CaseLibrary): Promise<void>;
     /** 목 시나리오 삭제. */
     deleteScenario(name: string): Promise<void>;
+    /** 계약 저장. 파일 기준(살균된) 계약명 반환. */
+    saveContract(contract: Contract): Promise<string>;
+    /** 모든 계약 로드. */
+    loadAllContracts(): Promise<Contract[]>;
+    /** 계약 삭제. */
+    deleteContract(name: string): Promise<void>;
+    /** 계약 실행 대상 서버 목록 로드/저장. */
+    loadContractServers(): Promise<ContractServer[]>;
+    saveContractServers(servers: ContractServer[]): Promise<void>;
+  };
+  contract: {
+    /** 계약을 실제 서버로 실행(순정 Node 워커). 전체 결과 반환. */
+    run(contracts: Contract[], options: ContractRunOptions): Promise<ContractRunResult[]>;
+    /** 실행 중 계약 하나가 끝날 때마다 호출. 구독 해제 함수를 반환. */
+    onResult(listener: (result: ContractRunResult) => void): () => void;
   };
 }
 

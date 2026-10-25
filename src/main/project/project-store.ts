@@ -4,6 +4,8 @@ import {
   PROJECT_FILE,
   CAPTURES_DIR,
   SCENARIOS_DIR,
+  CONTRACTS_DIR,
+  CONTRACT_SERVERS_FILE,
   LIBRARY_FILE,
   type ProjectMeta,
   type OpenProject
@@ -11,6 +13,7 @@ import {
 import type { CapturedExchange } from '@shared/capture';
 import { exchangesToHar, harToExchanges, type Har } from '@shared/har';
 import { EMPTY_LIBRARY, parseLibrary, type CaseLibrary, type ScenarioFile } from '@shared/scenario-library';
+import { normalizeBaseUrl, type Contract, type ContractServer } from '@shared/contract';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 
 /** Windows 예약 장치 이름(확장자가 있어도 예약됨). */
@@ -149,5 +152,52 @@ export class ProjectStore {
     const safe = sanitizeName(name);
     const filePath = path.join(dir, SCENARIOS_DIR, `${safe}.json`);
     await fs.rm(filePath, { force: true });
+  }
+
+  /** 계약을 contracts/<이름>.json으로 저장하고 파일 기준(살균된) 이름을 반환한다. */
+  async saveContract(dir: string, contract: Contract): Promise<string> {
+    const safe = sanitizeName(contract.name);
+    const filePath = path.join(dir, CONTRACTS_DIR, `${safe}.json`);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify({ ...contract, name: safe }, null, 2), 'utf-8');
+    return safe;
+  }
+
+  /** contracts/ 의 모든 계약(깨진 파일·알 수 없는 버전은 건너뜀). */
+  async loadAllContracts(dir: string): Promise<Contract[]> {
+    const names = await this.listNames(path.join(dir, CONTRACTS_DIR), '.json');
+    const loaded = await Promise.all(
+      names.map(async (n) => {
+        try {
+          const c = JSON.parse(await fs.readFile(path.join(dir, CONTRACTS_DIR, `${n}.json`), 'utf-8')) as Contract;
+          return c.version === 1 ? { ...c, name: n } : undefined;
+        } catch {
+          return undefined;
+        }
+      })
+    );
+    return loaded.filter((c): c is Contract => !!c);
+  }
+
+  async deleteContract(dir: string, name: string): Promise<void> {
+    await fs.rm(path.join(dir, CONTRACTS_DIR, `${sanitizeName(name)}.json`), { force: true });
+  }
+
+  /** 계약 실행 대상 서버 목록. 없거나 깨졌으면 빈 목록. */
+  async loadContractServers(dir: string): Promise<ContractServer[]> {
+    try {
+      const raw = JSON.parse(await fs.readFile(path.join(dir, CONTRACT_SERVERS_FILE), 'utf-8')) as unknown;
+      if (!Array.isArray(raw)) return [];
+      return raw.flatMap((s: { name?: unknown; baseUrl?: unknown }) => {
+        const baseUrl = typeof s?.baseUrl === 'string' ? normalizeBaseUrl(s.baseUrl) : null;
+        return typeof s?.name === 'string' && s.name.trim() && baseUrl ? [{ name: s.name.trim(), baseUrl }] : [];
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  async saveContractServers(dir: string, servers: ContractServer[]): Promise<void> {
+    await fs.writeFile(path.join(dir, CONTRACT_SERVERS_FILE), JSON.stringify(servers, null, 2), 'utf-8');
   }
 }

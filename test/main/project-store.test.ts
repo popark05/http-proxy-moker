@@ -243,3 +243,50 @@ describe('ProjectStore: 케이스 라이브러리/시나리오 v2', () => {
     expect(JSON.parse(await fs.readFile(path.join(dir, 'scenarios', 'old.v1.bak'), 'utf-8')).version).toBe(1);
   });
 });
+
+describe('ProjectStore 계약 저장', () => {
+  const contract = (name: string, version: 1 = 1) =>
+    ({
+      version,
+      id: name,
+      endpointId: 'GET /a',
+      name,
+      request: { method: 'GET', urlTemplate: '{{baseUrl}}/a', query: [], headers: [] },
+      expect: { status: 200, headers: [] },
+      verifiable: true,
+      safeToRun: true
+    }) as import('../../src/shared/contract').Contract;
+
+  it('저장·로드·삭제하고 이름을 살균한다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-contract-'));
+    const store = new ProjectStore();
+    expect(await store.saveContract(dir, contract('GET /a'))).toBe('GET__a');
+    await store.saveContract(dir, contract('두번째'));
+    const all = await store.loadAllContracts(dir);
+    expect(all.map((c) => c.name).sort()).toEqual(['GET__a', '두번째'].sort());
+    await store.deleteContract(dir, 'GET /a');
+    expect((await store.loadAllContracts(dir)).map((c) => c.name)).toEqual(['두번째']);
+  });
+
+  it('깨진 파일과 알 수 없는 버전은 건너뛴다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-contract-'));
+    const store = new ProjectStore();
+    await store.saveContract(dir, contract('ok'));
+    await fs.writeFile(path.join(dir, 'contracts', 'broken.json'), '{nope', 'utf-8');
+    await fs.writeFile(path.join(dir, 'contracts', 'v9.json'), JSON.stringify({ version: 9 }), 'utf-8');
+    expect((await store.loadAllContracts(dir)).map((c) => c.name)).toEqual(['ok']);
+  });
+});
+
+describe('ProjectStore 계약 서버', () => {
+  it('저장·로드하고 잘못된 항목은 버린다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-servers-'));
+    const store = new ProjectStore();
+    expect(await store.loadContractServers(dir)).toEqual([]);
+    await store.saveContractServers(dir, [
+      { name: 'dev', baseUrl: 'https://dev.example.com' },
+      { name: 'bad', baseUrl: 'nope' }
+    ]);
+    expect(await store.loadContractServers(dir)).toEqual([{ name: 'dev', baseUrl: 'https://dev.example.com' }]);
+  });
+});

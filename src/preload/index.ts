@@ -10,6 +10,7 @@ import type {
 import type { OperationProgress } from '@shared/progress';
 import type { ApplyMocksArgs } from '@shared/mock';
 import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
+import type { Contract, ContractRunOptions, ContractRunResult, ContractServer } from '@shared/contract';
 
 const api: MokerApi = {
   ping: (request: PingRequest) => ipcRenderer.invoke(IpcChannels.ping, request),
@@ -32,6 +33,16 @@ const api: MokerApi = {
     const handler = (_event: IpcRendererEvent, payload: OperationProgress): void => listener(payload);
     ipcRenderer.on(IpcChannels.operationProgress, handler);
     return () => ipcRenderer.removeListener(IpcChannels.operationProgress, handler);
+  },
+
+  contract: {
+    run: (contracts: Contract[], options: ContractRunOptions) =>
+      ipcRenderer.invoke(IpcChannels.contractRun, { contracts, options }),
+    onResult: (listener: (result: ContractRunResult) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: ContractRunResult): void => listener(payload);
+      ipcRenderer.on(IpcChannels.contractResult, handler);
+      return () => ipcRenderer.removeListener(IpcChannels.contractResult, handler);
+    }
   },
 
   ca: {
@@ -73,6 +84,12 @@ const api: MokerApi = {
     loadScenario: (name: string) => ipcRenderer.invoke(IpcChannels.projectLoadScenario, name),
     deleteScenario: (name: string) => ipcRenderer.invoke(IpcChannels.projectDeleteScenario, name),
     loadAllScenarios: () => ipcRenderer.invoke(IpcChannels.projectLoadAllScenarios),
+    saveContract: (contract: Contract) => ipcRenderer.invoke(IpcChannels.projectSaveContract, contract),
+    loadAllContracts: () => ipcRenderer.invoke(IpcChannels.projectLoadAllContracts),
+    deleteContract: (name: string) => ipcRenderer.invoke(IpcChannels.projectDeleteContract, name),
+    loadContractServers: () => ipcRenderer.invoke(IpcChannels.projectLoadContractServers),
+    saveContractServers: (servers: ContractServer[]) =>
+      ipcRenderer.invoke(IpcChannels.projectSaveContractServers, servers),
     loadLibrary: () => ipcRenderer.invoke(IpcChannels.projectLoadLibrary),
     saveLibrary: (library: CaseLibrary) => ipcRenderer.invoke(IpcChannels.projectSaveLibrary, library)
   }

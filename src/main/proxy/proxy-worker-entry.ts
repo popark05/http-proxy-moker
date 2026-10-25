@@ -10,6 +10,7 @@
 import { promises as fs } from 'node:fs';
 import type { CaptureEvent, ProxyStatus } from '@shared/capture';
 import type { WorkerCommand, WorkerMessage } from '@shared/proxy-worker';
+import { runContracts } from '../contract/contract-runner';
 import { ProxyEngine, type EngineCa } from './proxy-engine';
 
 let engine: ProxyEngine | undefined;
@@ -59,6 +60,13 @@ async function handleCommand(cmd: WorkerCommand): Promise<void> {
         await engine.applyMocks(cmd.mocks, cmd.unmatchedPolicy);
         send({ kind: 'result', requestId: cmd.requestId, ok: true });
         break;
+      case 'runContracts': {
+        const results = await runContracts(cmd.contracts, cmd.options, (result) =>
+          send({ kind: 'contract-result', requestId: cmd.requestId, result })
+        );
+        send({ kind: 'result', requestId: cmd.requestId, ok: true, results });
+        break;
+      }
       case 'clearMocks':
         if (engine) await engine.clearMocks();
         send({ kind: 'result', requestId: cmd.requestId, ok: true });

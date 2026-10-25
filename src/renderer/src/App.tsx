@@ -10,6 +10,8 @@ import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
+import { useContracts } from './state/useContracts';
+import { ContractModal } from './components/contract/ContractModal';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
 import { useClients } from './state/useClients';
 import { clientLabel, countWithoutClientIp } from '@shared/clients';
@@ -52,6 +54,8 @@ function AppInner(): JSX.Element {
   const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, replaceMocks } = useMocks();
   const scenarioLib = useScenarioLibrary({ projectDir: project?.dir, mocks, replaceMocks });
   const { activeScenario } = scenarioLib;
+  const contractState = useContracts(project?.dir);
+  const [contractsOpen, setContractsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [editorTarget, setEditorTarget] = useState<{ scenario: ScenarioV2 | undefined } | undefined>(undefined);
   const { mode, setMode } = useAppMode();
@@ -267,6 +271,30 @@ function AppInner(): JSX.Element {
     }
   };
 
+  /** 체크된 요청들을 계약으로 저장. */
+  const handleSaveContracts = async (): Promise<void> => {
+    if (!project) {
+      toast.error('계약 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+      return;
+    }
+    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+    try {
+      const { saved, skipped } = await contractState.saveFromExchanges(targets);
+      setCheckedIds(new Set());
+      const detail = skipped > 0 ? ` (응답이 없는 ${skipped}개는 건너뜀)` : '';
+      if (saved === 0) {
+        toast.info('저장할 계약이 없습니다', { description: `응답이 있는 요청을 선택하세요${detail}` });
+        return;
+      }
+      toast.success(`${saved}개 계약으로 저장됨`, {
+        description: `contracts/ 폴더에 저장했습니다${detail}`,
+        action: { label: '계약 테스트 열기', onClick: () => setContractsOpen(true) }
+      });
+    } catch (e) {
+      toast.error('계약 저장 실패', { description: errMsg(e) });
+    }
+  };
+
   const handleCloneToMock = (exchange: CapturedExchange): void => {
     cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
@@ -315,6 +343,7 @@ function AppInner(): JSX.Element {
         }
         onClear={() => setCheckedIds(new Set())}
         onCloneChecked={handleCloneChecked}
+        onSaveContracts={() => void handleSaveContracts()}
         view={trafficView}
         onViewChange={setTrafficView}
       />
@@ -385,6 +414,8 @@ function AppInner(): JSX.Element {
         onOpen={() => void handleOpenProject()}
         onSave={(name) => void handleSaveCapture(name)}
         onLoadSession={(name) => void handleLoadSession(name)}
+        onOpenContracts={() => setContractsOpen(true)}
+        contractCount={contractState.contracts.length}
       />
 
       {mode === 'capture' ? (
@@ -489,6 +520,17 @@ function AppInner(): JSX.Element {
             })
             .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
         }}
+      />
+      <ContractModal
+        open={contractsOpen}
+        onOpenChange={setContractsOpen}
+        contracts={contractState.contracts}
+        servers={contractState.servers}
+        onRemoveContract={(name) => {
+          if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
+        }}
+        onUpsertServer={contractState.upsertServer}
+        onRemoveServer={(name) => void contractState.removeServer(name)}
       />
       <Toaster />
       <SplashScreen />
