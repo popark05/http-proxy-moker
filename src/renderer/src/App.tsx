@@ -4,10 +4,12 @@ import { AppModeProvider, useAppMode } from './state/app-mode';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { TopBar } from './components/layout/TopBar';
-import { LeftColumn } from './components/layout/LeftColumn';
+import { AppShell } from './components/layout/AppShell';
+import { Sidebar } from './components/layout/Sidebar';
+import { useSidebarLayout } from './state/useSidebarLayout';
+import { StatusBar } from './components/layout/StatusBar';
 import { MockWorkspace } from './components/layout/MockWorkspace';
 import { TrafficPanel } from './components/layout/TrafficPanel';
-import { SplitPane } from './components/primitives';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
@@ -64,6 +66,7 @@ function AppInner(): JSX.Element {
   const [trafficView, setTrafficView] = useState<'group' | 'flat'>('group');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
+  const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
   const selected = exchanges.find((e) => e.id === selectedId);
 
@@ -122,8 +125,9 @@ function AppInner(): JSX.Element {
     />
   );
 
-  const leftColumn = (
-    <LeftColumn
+  const sidebar = (
+    <Sidebar
+      section={section}
       proxyProps={{
         status,
         busy: proxyBusy,
@@ -142,12 +146,66 @@ function AppInner(): JSX.Element {
         proxyRunning: status.running,
         activeClientFilter: filter.client,
         untrackedCount: countWithoutClientIp(exchanges),
-        onFilterClient: (ip) => patchFilter({ client: ip })
+        onFilterClient: (ip) => {
+          patchFilter({ client: ip });
+          // 기기를 골랐으면 그 기기의 트래픽을 바로 볼 수 있게 트래픽 섹션으로 돌아간다.
+          openSection('traffic');
+        }
       }}
-    >
-      {trafficPanel}
-    </LeftColumn>
+      traffic={trafficPanel}
+    />
   );
+
+  const workspace =
+    mode === 'capture' ? (
+      /* 캡처 모드: 요청·응답 상세 */
+      <div className="h-full overflow-auto">
+        <ExchangeDetail
+          exchange={selected}
+          clientDescription={clientDescriptionOf(selected)}
+          onCloneToMock={exchangeActions.cloneToMock}
+          onAddTag={handleAddTag}
+          onRemoveTag={handleRemoveTag}
+        />
+      </div>
+    ) : (
+      /* 목킹 모드: 복제 소스 + 목 정의/편집 + 시나리오 */
+      <MockWorkspace
+        selected={selected}
+        cloneSourceProps={{
+          clientDescription: clientDescriptionOf(selected),
+          onCloneToMock: exchangeActions.cloneToMock,
+          onAddTag: handleAddTag,
+          onRemoveTag: handleRemoveTag
+        }}
+        mockProps={{
+          mocks,
+          mode,
+          blockUnmatched,
+          onBlockUnmatchedChange: setBlockUnmatched,
+          onUpdate: updateMock,
+          onRemove: removeMock,
+          onSaveScenario: (name) => void scenarioActions.saveScenario(name),
+          onSaveCase: (mock) => void scenarioActions.saveMockAsCase(mock),
+          caseNameOf: scenarioActions.caseNameOf,
+          hitCounts: mockHits.counts,
+          lastHitAt: mockHits.lastHitAt,
+          onResetHits: mockHits.reset
+        }}
+        scenarioProps={{
+          scenarios: scenarioLib.scenarios,
+          activeScenario,
+          diff: scenarioLib.diff,
+          hasLibrary: scenarioLib.library.endpoints.length > 0,
+          onActivate: scenarioActions.activateScenario,
+          onEdit: (scenario) => setEditorTarget({ scenario }),
+          onDelete: (name) => void scenarioActions.deleteScenario(name),
+          onUpdateActive: () => void scenarioActions.updateActiveScenario(),
+          onNew: () => setEditorTarget({ scenario: undefined }),
+          onOpenLibrary: () => setLibraryOpen(true)
+        }}
+      />
+    );
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
@@ -167,70 +225,16 @@ function AppInner(): JSX.Element {
         contractCount={contractState.contracts.length}
       />
 
-      {mode === 'capture' ? (
-        /* 캡처 모드: 좌(프록시+기기+트래픽) | 우(상세 풀높이) */
-        <div className="min-h-0 flex-1">
-          <SplitPane
-            left={leftColumn}
-            right={
-              <div className="h-full overflow-auto">
-                <ExchangeDetail
-                  exchange={selected}
-                  clientDescription={clientDescriptionOf(selected)}
-                  onCloneToMock={exchangeActions.cloneToMock}
-                  onAddTag={handleAddTag}
-                  onRemoveTag={handleRemoveTag}
-                />
-              </div>
-            }
-          />
-        </div>
-      ) : (
-        /* 목킹 모드: 좌(트래픽 - 복제 소스) | 우(목 정의+편집 + 시나리오) */
-        <div className="min-h-0 flex-1">
-          <SplitPane
-            initialLeftWidth={360}
-            left={leftColumn}
-            right={
-              <MockWorkspace
-                selected={selected}
-                cloneSourceProps={{
-                  clientDescription: clientDescriptionOf(selected),
-                  onCloneToMock: exchangeActions.cloneToMock,
-                  onAddTag: handleAddTag,
-                  onRemoveTag: handleRemoveTag
-                }}
-                mockProps={{
-                  mocks,
-                  mode,
-                  blockUnmatched,
-                  onBlockUnmatchedChange: setBlockUnmatched,
-                  onUpdate: updateMock,
-                  onRemove: removeMock,
-                  onSaveScenario: (name) => void scenarioActions.saveScenario(name),
-                  onSaveCase: (mock) => void scenarioActions.saveMockAsCase(mock),
-                  caseNameOf: scenarioActions.caseNameOf,
-                  hitCounts: mockHits.counts,
-                  lastHitAt: mockHits.lastHitAt,
-                  onResetHits: mockHits.reset
-                }}
-                scenarioProps={{
-                  scenarios: scenarioLib.scenarios,
-                  activeScenario,
-                  diff: scenarioLib.diff,
-                  hasLibrary: scenarioLib.library.endpoints.length > 0,
-                  onActivate: scenarioActions.activateScenario,
-                  onEdit: (scenario) => setEditorTarget({ scenario }),
-                  onDelete: (name) => void scenarioActions.deleteScenario(name),
-                  onUpdateActive: () => void scenarioActions.updateActiveScenario(),
-                  onNew: () => setEditorTarget({ scenario: undefined }),
-                  onOpenLibrary: () => setLibraryOpen(true)
-                }}
-              />
-            }
-          />
-        </div>
-      )}
+      <AppShell section={section} collapsed={collapsed} onToggleSection={toggleSection} sidebar={sidebar} workspace={workspace} />
+      <StatusBar
+        proxy={status}
+        mode={mode}
+        clientCount={clients.length}
+        activeMockCount={mocks.filter((m) => m.enabled).length}
+        activeScenario={activeScenario}
+        scenarioDirty={scenarioLib.diff?.dirty}
+        onOpenConnect={() => openSection('connect')}
+      />
 
       <LibraryModal
         open={libraryOpen}
