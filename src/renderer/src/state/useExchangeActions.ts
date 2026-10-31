@@ -107,7 +107,7 @@ export function useExchangeActions({
     mocksState.cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
     if (mode === 'mock') {
-      toast.success('목으로 복제됨', { description: `${desc} · 아래 목 정의에 추가됨` });
+      toast.success('목으로 복제됨', { description: `${desc} · 목 정의에 추가됨(왼쪽 프로젝트 > 목)` });
     } else {
       // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
       toast.success('목으로 복제됨', {

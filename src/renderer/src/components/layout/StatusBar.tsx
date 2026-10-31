@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import type { ProxyStatus } from '@shared/capture';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { cn, restartAnimation } from '@/lib/utils';
 import type { AppMode } from '../../state/app-mode';
 
 interface StatusBarProps {
@@ -11,6 +14,8 @@ interface StatusBarProps {
   activeScenario?: string;
   /** 활성 시나리오에서 작업 공간이 수정되었는가. */
   scenarioDirty?: boolean;
+  /** 마지막 mock-hit 시각(활성 목 배지 pulse 트리거). */
+  lastHitAt?: number;
   onOpenConnect: () => void;
 }
 
@@ -22,9 +27,20 @@ export function StatusBar({
   activeMockCount,
   activeScenario,
   scenarioDirty,
+  lastHitAt,
   onOpenConnect
 }: StatusBarProps): JSX.Element {
   const isMock = mode === 'mock';
+
+  // mock-hit이 발생하면 활성 목 배지를 잠깐 pulse한다.
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const prevHit = useRef(lastHitAt ?? 0);
+  useEffect(() => {
+    if (lastHitAt && lastHitAt !== prevHit.current) {
+      prevHit.current = lastHitAt;
+      restartAnimation(badgeRef.current, 'animate-mock-hit-pulse');
+    }
+  }, [lastHitAt]);
   return (
     <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
@@ -35,13 +51,19 @@ export function StatusBar({
         접속 기기 {clientCount}
       </button>
       <span className={cn(isMock && 'text-[hsl(var(--warning))]')}>{isMock ? '목킹 모드' : '캡처 모드'}</span>
-      {isMock && (
-        <span>
-          목 {activeMockCount}개 활성
-          {activeScenario ? ` · ${activeScenario}` : ''}
-          {activeScenario && scenarioDirty ? ' · 수정됨' : ''}
-        </span>
-      )}
+      {isMock &&
+        (activeMockCount > 0 ? (
+          <Badge ref={badgeRef} variant="warning" className="h-4 rounded-full px-2 py-0 text-2xs">
+            목 {activeMockCount}개 활성
+            {activeScenario ? ` · ${activeScenario}` : ''}
+            {activeScenario && scenarioDirty ? ' · 수정됨' : ''}
+          </Badge>
+        ) : (
+          <Badge variant="error" className="h-4 px-2 py-0 text-2xs">
+            <AlertTriangle className="mr-1 size-3" />
+            활성 목 없음 — 응답이 그대로 통과됩니다
+          </Badge>
+        ))}
     </footer>
   );
 }

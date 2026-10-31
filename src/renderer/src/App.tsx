@@ -85,10 +85,10 @@ function AppInner(): JSX.Element {
 
   const selected = exchanges.find((e) => e.id === selectedId);
 
-  /** 트래픽 행 선택. 캡처 모드에서는 상세를 미리보기 탭으로 연다(목킹 모드에서는 복제 소스 선택일 뿐이라 탭을 바꾸지 않는다). */
+  /** 트래픽 행 선택. 모드와 무관하게 상세를 미리보기 탭으로 연다. */
   const handleSelect = (id: string | undefined): void => {
     setSelectedId(id);
-    if (id && mode === 'capture') workbench.open({ kind: 'exchange', id });
+    if (id) workbench.open({ kind: 'exchange', id });
   };
 
   const handleCloseTab = (key: string): void => {
@@ -97,11 +97,6 @@ function AppInner(): JSX.Element {
   };
 
   const closeExchangeTabs = (): void => workbench.closeWhere((t) => t.target.kind === 'exchange');
-
-  // 목킹 모드로 바꾸면 목 · 시나리오 탭을 열어 보여 준다.
-  useEffect(() => {
-    if (mode === 'mock') workbench.open({ kind: 'mocks' }, { pin: true });
-  }, [mode, workbench.open]);
 
   // 요청 탭을 활성화하면 트래픽 목록의 선택도 따라간다.
   const activeKey = workbench.state.activeKey;
@@ -450,11 +445,7 @@ function AppInner(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TopBar
-        activeMockCount={mocks.filter((m) => m.enabled).length}
-        activeScenario={activeScenario}
-        lastHitAt={mockHits.lastHitOverall}
-      />
+      <TopBar />
       <ProjectBar
         project={project}
         exchanges={exchanges}
@@ -480,6 +471,7 @@ function AppInner(): JSX.Element {
         activeMockCount={mocks.filter((m) => m.enabled).length}
         activeScenario={activeScenario}
         scenarioDirty={scenarioLib.diff?.dirty}
+        lastHitAt={mockHits.lastHitOverall}
         onOpenConnect={() => openSection('connect')}
       />
 
