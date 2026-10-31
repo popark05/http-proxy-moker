@@ -11,8 +11,7 @@ interface WorkspaceProps {
   activeKey: string | undefined;
   tabBarProps: Omit<ComponentProps<typeof TabBar>, 'tabs' | 'activeKey'>;
   /**
-   * 탭 내용. 요청 상세는 활성일 때만 그리지만, 편집 화면(목·시나리오·라이브러리)은
-   * 다른 탭으로 옮겨도 입력 중인 내용이 사라지지 않도록 숨긴 채 유지한다.
+   * 탭 내용. 요청 상세는 활성일 때만 그린다.
    */
   renderContent: (tab: Tab) => ReactNode;
   /** 열린 탭이 없을 때 보여 줄 안내 문구(지금 상황에 맞는 다음 행동). */
@@ -44,7 +43,7 @@ export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyDe
       <div className="min-h-0 flex-1">
         {tabs.map((tab) => {
           const active = tab.key === activeKey;
-          if (!active && tab.target.kind === 'exchange') return null;
+          if (!active) return null;
           return (
             <div
               key={tab.key}

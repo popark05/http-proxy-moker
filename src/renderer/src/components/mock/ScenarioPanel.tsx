@@ -114,7 +114,7 @@ export function ScenarioPanel({
                     <Button variant="outline" size="sm" onClick={() => onActivate(s.name)} title="저장된 시나리오 내용으로 현재 목을 되돌립니다">
                       <RotateCcw /> 되돌리기
                     </Button>
-                    <Button size="sm" onClick={onUpdateActive} title="현재 현재 목 내용을 이 시나리오에 저장합니다">
+                    <Button size="sm" onClick={onUpdateActive} title="현재 목 내용을 이 시나리오에 저장합니다">
                       <Upload /> 현재 작업 반영
                     </Button>
                   </>

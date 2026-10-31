@@ -21,6 +21,8 @@ interface StatusBarProps {
   /** 마지막 mock-hit 시각(활성 목 배지 pulse 트리거). */
   lastHitAt?: number;
   onOpenConnect: () => void;
+  /** 목킹 화면 열기. */
+  onOpenMocking: () => void;
 }
 
 /** 하단 상태바. 프록시·기기·목킹 상태를 항상 보여 준다. */
@@ -34,7 +36,8 @@ export function StatusBar({
   activeScenario,
   scenarioDirty,
   lastHitAt,
-  onOpenConnect
+  onOpenConnect,
+  onOpenMocking
 }: StatusBarProps): JSX.Element {
   const isMock = mode === 'mock';
 
@@ -81,7 +84,16 @@ export function StatusBar({
       >
         접속 기기 {clientCount}
       </button>
-      <span className={cn(isMock && 'text-[hsl(var(--warning))]')}>{isMock ? '목킹 모드' : '캡처 모드'}</span>
+      <button
+        type="button"
+        onClick={onOpenMocking}
+        className={cn(
+          'rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          isMock && 'text-[hsl(var(--warning))]'
+        )}
+      >
+        {isMock ? '목킹 모드' : '캡처 모드'}
+      </button>
       <span role="status" className="contents">
         {isMock &&
           (activeMockCount > 0 ? (

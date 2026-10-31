@@ -10,7 +10,10 @@ import { DevicePanel } from './components/device/DevicePanel';
 import { ProxyPanel } from './components/layout/ProxyPanel';
 import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
-import { MockWorkspace } from './components/layout/MockWorkspace';
+import { MockingView, type MockingTab } from './components/mock/MockingView';
+import { CloneSourceBar } from './components/mock/CloneSourceBar';
+import { MockPanel } from './components/mock/MockPanel';
+import { ScenarioPanel } from './components/mock/ScenarioPanel';
 import { TrafficPanel } from './components/layout/TrafficPanel';
 import { ProjectTree } from './components/project/ProjectTree';
 import { Workspace } from './components/layout/Workspace';
@@ -83,10 +86,20 @@ function AppInner(): JSX.Element {
   const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
   const workbench = useWorkbench();
-  // 편집 화면은 입력 중인 내용이 미리보기 교체로 사라지지 않도록 항상 고정 탭으로 연다.
-  const openMocksTab = (): void => workbench.open({ kind: 'mocks' }, { pin: true });
-  const openScenarioTab = (name: string | null): void => workbench.open({ kind: 'scenario', name }, { pin: true });
-  const openLibraryTab = (): void => workbench.open({ kind: 'library' }, { pin: true });
+  // 목·시나리오·응답 케이스는 목킹 화면에서 다룬다(트래픽 섹션의 탭은 요청 상세뿐).
+  const [mockingTab, setMockingTab] = useState<MockingTab>('mocks');
+  /** 시나리오 탭에서 편집 중인 시나리오. undefined면 목록, null이면 새 시나리오. */
+  const [editingScenario, setEditingScenario] = useState<string | null | undefined>(undefined);
+  const openMocking = (tab: MockingTab): void => {
+    setMockingTab(tab);
+    openSection('mocking');
+  };
+  const openMocksTab = (): void => openMocking('mocks');
+  const openScenarioTab = (name: string | null): void => {
+    setEditingScenario(name);
+    openMocking('scenarios');
+  };
+  const openLibraryTab = (): void => openMocking('library');
   const openCollection = (): void => openSection('collection');
 
   const selected = exchanges.find((e) => e.id === selectedId);
@@ -156,7 +169,8 @@ function AppInner(): JSX.Element {
     mocksState,
     contractState,
     project,
-    openCollection
+    openCollection,
+    openMocking: openMocksTab
   });
 
   const handleAddTag = (id: string, tag: string): void => {
@@ -218,8 +232,6 @@ function AppInner(): JSX.Element {
     () => ({
       hasProject: !!project,
       captureSessions: project?.captureSessions ?? [],
-      mocks,
-      hitCounts: mockHits.counts,
       scenarios: scenarioLib.scenarios,
       activeScenario,
       scenarioDirty: !!scenarioLib.diff?.dirty,
@@ -227,8 +239,6 @@ function AppInner(): JSX.Element {
     }),
     [
       project,
-      mocks,
-      mockHits.counts,
       scenarioLib.scenarios,
       activeScenario,
       scenarioLib.diff?.dirty,
@@ -239,20 +249,7 @@ function AppInner(): JSX.Element {
   const projectTree = (
     <ProjectTree
       input={treeInput}
-      onOpenMocks={openMocksTab}
       onLoadSession={loadSessionConfirmed}
-      onToggleMock={(id, enabled) => {
-        const mock = mocks.find((m) => m.id === id);
-        if (mock) updateMock({ ...mock, enabled });
-      }}
-      onSaveMockAsCase={(id) => {
-        const mock = mocks.find((m) => m.id === id);
-        if (mock) void scenarioActions.saveMockAsCase(mock);
-      }}
-      onRemoveMock={(id) => {
-        const mock = mocks.find((m) => m.id === id);
-        if (mock && window.confirm(`"${mock.method} ${mock.host}${mock.path}" 목을 삭제할까요?`)) removeMock(id);
-      }}
       onActivateScenario={(name) => {
         scenarioActions.activateScenario(name);
         openMocksTab();
@@ -312,21 +309,10 @@ function AppInner(): JSX.Element {
   );
 
   const describeTab = (tab: Tab): { label: string; method?: string } => {
-    const target = tab.target;
-    switch (target.kind) {
-      case 'mocks':
-        return { label: '목 · 시나리오' };
-      case 'scenario':
-        return { label: target.name ?? '새 시나리오' };
-      case 'library':
-        return { label: '응답 케이스' };
-      case 'exchange': {
-        const exchange = exchanges.find((e) => e.id === target.id);
-        return exchange
-          ? { method: exchange.request.method, label: exchange.request.path }
-          : { label: '(지워진 요청)' };
-      }
-    }
+    const exchange = exchanges.find((e) => e.id === tab.target.id);
+    return exchange
+      ? { method: exchange.request.method, label: exchange.request.path }
+      : { label: '(지워진 요청)' };
   };
 
   const handleSaveScenario = (scenario: ScenarioV2): void => {
@@ -345,98 +331,117 @@ function AppInner(): JSX.Element {
   };
 
   const renderTabContent = (tab: Tab): JSX.Element => {
-    const target = tab.target;
-    switch (target.kind) {
-      case 'exchange': {
-        const exchange = exchanges.find((e) => e.id === target.id);
-        return (
-          <ExchangeDetail
-            exchange={exchange}
-            clientDescription={clientDescriptionOf(exchange)}
-            onCloneToMock={exchangeActions.cloneToMock}
-            onAddTag={handleAddTag}
-            onRemoveTag={handleRemoveTag}
-          />
-        );
-      }
-      case 'mocks':
-        return (
-          <MockWorkspace
-            selected={selected}
-            cloneSourceProps={{
-              clientDescription: clientDescriptionOf(selected),
-              onCloneToMock: exchangeActions.cloneToMock,
-              onAddTag: handleAddTag,
-              onRemoveTag: handleRemoveTag
-            }}
-            mockProps={{
-              mocks,
-              mode,
-              blockUnmatched,
-              onBlockUnmatchedChange: setBlockUnmatched,
-              onUpdate: updateMock,
-              onRemove: removeMock,
-              onSaveScenario: (name) => void scenarioActions.saveScenario(name),
-              onSaveCase: (mock) => void scenarioActions.saveMockAsCase(mock),
-              caseNameOf: scenarioActions.caseNameOf,
-              hitCounts: mockHits.counts,
-              lastHitAt: mockHits.lastHitAt,
-              onResetHits: mockHits.reset
-            }}
-            scenarioProps={{
-              scenarios: scenarioLib.scenarios,
-              activeScenario,
-              diff: scenarioLib.diff,
-              hasLibrary: scenarioLib.library.endpoints.length > 0,
-              onActivate: scenarioActions.activateScenario,
-              onEdit: (scenario) => openScenarioTab(scenario.name),
-              onDelete: (name) => void scenarioActions.deleteScenario(name),
-              onUpdateActive: () => void scenarioActions.updateActiveScenario(),
-              onNew: () => openScenarioTab(null),
-              onOpenLibrary: openLibraryTab
-            }}
-          />
-        );
-      case 'scenario': {
-        const scenario = target.name === null ? undefined : scenarioLib.scenarios.find((s) => s.name === target.name);
-        if (target.name !== null && !scenario) {
-          return (
-            <EmptyState
-              icon={Layers}
-              title="시나리오를 찾을 수 없습니다"
-              description="삭제되었거나 다른 프로젝트의 시나리오입니다. 탭을 닫아 주세요."
+    const exchange = exchanges.find((e) => e.id === tab.target.id);
+    return (
+      <ExchangeDetail
+        exchange={exchange}
+        clientDescription={clientDescriptionOf(exchange)}
+        onCloneToMock={exchangeActions.cloneToMock}
+        onAddTag={handleAddTag}
+        onRemoveTag={handleRemoveTag}
+      />
+    );
+  };
+
+  const editingScenarioValue =
+    editingScenario === null || editingScenario === undefined
+      ? undefined
+      : scenarioLib.scenarios.find((s) => s.name === editingScenario);
+
+  const mockingView = (
+    <MockingView
+      tab={mockingTab}
+      onTabChange={setMockingTab}
+      counts={{
+        mocks: mocks.length,
+        scenarios: scenarioLib.scenarios.length,
+        cases: scenarioLib.library.endpoints.length
+      }}
+      activeScenario={activeScenario}
+      scenarioDirty={!!scenarioLib.diff?.dirty}
+      mocks={
+        <div className="flex h-full flex-col overflow-auto">
+          {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
+          {selected && (
+            <CloneSourceBar
+              exchange={selected}
+              clientDescription={clientDescriptionOf(selected)}
+              onCloneToMock={exchangeActions.cloneToMock}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
             />
-          );
-        }
-        return (
+          )}
+          <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+            <MockPanel
+              mocks={mocks}
+              mode={mode}
+              blockUnmatched={blockUnmatched}
+              onBlockUnmatchedChange={setBlockUnmatched}
+              onUpdate={updateMock}
+              onRemove={removeMock}
+              onSaveScenario={(name) => void scenarioActions.saveScenario(name)}
+              onSaveCase={(mock) => void scenarioActions.saveMockAsCase(mock)}
+              caseNameOf={scenarioActions.caseNameOf}
+              hitCounts={mockHits.counts}
+              lastHitAt={mockHits.lastHitAt}
+              onResetHits={mockHits.reset}
+            />
+          </div>
+        </div>
+      }
+      scenarios={
+        editingScenario === undefined ? (
+          <div className="px-4 py-3">
+            <ScenarioPanel
+              scenarios={scenarioLib.scenarios}
+              activeScenario={activeScenario}
+              diff={scenarioLib.diff}
+              hasLibrary={scenarioLib.library.endpoints.length > 0}
+              onActivate={scenarioActions.activateScenario}
+              onEdit={(scenario) => setEditingScenario(scenario.name)}
+              onDelete={(name) => void scenarioActions.deleteScenario(name)}
+              onUpdateActive={() => void scenarioActions.updateActiveScenario()}
+              onNew={() => setEditingScenario(null)}
+              onOpenLibrary={openLibraryTab}
+            />
+          </div>
+        ) : editingScenario !== null && !editingScenarioValue ? (
+          <EmptyState
+            icon={Layers}
+            title="시나리오를 찾을 수 없습니다"
+            description="삭제되었거나 다른 프로젝트의 시나리오입니다."
+            action={
+              <Button variant="outline" size="sm" onClick={() => setEditingScenario(undefined)}>
+                목록으로
+              </Button>
+            }
+          />
+        ) : (
           <ScenarioEditor
             variant="tab"
             open
             onOpenChange={(o) => {
-              if (!o) workbench.close(tab.key);
+              if (!o) setEditingScenario(undefined);
             }}
-            scenario={scenario}
+            scenario={editingScenarioValue}
             scenarios={scenarioLib.scenarios}
             library={scenarioLib.library}
             onSave={handleSaveScenario}
           />
-        );
+        )
       }
-      case 'library':
-        return (
-          <LibraryModal
-            variant="tab"
-            open
-            onOpenChange={(o) => {
-              if (!o) workbench.close(tab.key);
-            }}
-            library={scenarioLib.library}
-            scenarios={scenarioLib.scenarios}
-            onCommit={(next) => void scenarioLib.commit(next)}
-          />
-        );
-    }
-  };
+      library={
+        <LibraryModal
+          variant="tab"
+          open
+          onOpenChange={() => {}}
+          library={scenarioLib.library}
+          scenarios={scenarioLib.scenarios}
+          onCommit={(next) => void scenarioLib.commit(next)}
+        />
+      }
+    />
+  );
 
   // Cmd/Ctrl+K: 커맨드 팔레트.
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -495,7 +500,7 @@ function AppInner(): JSX.Element {
   const modifierKey = document.documentElement.dataset.platform === 'darwin' ? '⌘' : 'Ctrl+';
   const openMocksButton = (
     <Button variant="outline" size="sm" onClick={openMocksTab}>
-      <FlaskConical /> 목 · 시나리오 열기
+      <FlaskConical /> 목킹 열기
     </Button>
   );
   const emptyState: { description: string; action: JSX.Element } = !status.running
@@ -554,6 +559,7 @@ function AppInner(): JSX.Element {
         sidebar={sidebar}
         workspace={workspace}
         connectView={connectView}
+        mockingView={mockingView}
         collectionView={collectionView}
       />
       <StatusBar
@@ -567,6 +573,7 @@ function AppInner(): JSX.Element {
         scenarioDirty={scenarioLib.diff?.dirty}
         lastHitAt={mockHits.lastHitOverall}
         onOpenConnect={() => openSection('connect')}
+        onOpenMocking={openMocksTab}
       />
 
       <ProxyPanel

@@ -1,42 +1,24 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ProjectTree } from '../../src/renderer/src/components/project/ProjectTree';
-import type { MockDefinition } from '../../src/shared/mock';
 import type { ScenarioV2 } from '../../src/shared/scenario-library';
 
-const mock: MockDefinition = {
-  id: 'm1',
-  label: 'GET /users',
-  method: 'GET',
-  host: '',
-  path: '/users',
-  enabled: true,
-  response: { status: 200, headers: [], body: '' }
-};
 const scenario = (name: string): ScenarioV2 => ({ version: 2, id: name, name, picks: [] });
 
 function setup(over: Record<string, unknown> = {}) {
   const handlers = {
-    onOpenMocks: vi.fn(),
     onLoadSession: vi.fn(),
-    onToggleMock: vi.fn(),
-    onSaveMockAsCase: vi.fn(),
-    onRemoveMock: vi.fn(),
     onActivateScenario: vi.fn(),
     onEditScenario: vi.fn(),
     onDeleteScenario: vi.fn(),
     onUpdateActiveScenario: vi.fn(),
-    onOpenLibrary: vi.fn(),
-    onOpenContracts: vi.fn(),
-    onRemoveContract: vi.fn()
+    onOpenLibrary: vi.fn()
   };
   render(
     <ProjectTree
       input={{
         hasProject: true,
         captureSessions: ['세션1'],
-        mocks: [mock],
-        hitCounts: { m1: 2 },
         scenarios: [scenario('정상'), scenario('장애')],
         activeScenario: '장애',
         scenarioDirty: true,
@@ -58,19 +40,10 @@ describe('ProjectTree', () => {
     expect(h.onActivateScenario).toHaveBeenCalledWith('정상');
   });
 
-  it('활성 시나리오에 활성/수정됨 배지와 목에 히트 수를 보여 준다', () => {
+  it('활성 시나리오에 활성/수정됨 배지를 보여 준다', () => {
     setup();
     expect(screen.getByText('활성')).toBeTruthy();
     expect(screen.getByText('수정됨')).toBeTruthy();
-    const row = screen.getByLabelText('GET /users 활성').closest('[role=treeitem]') as HTMLElement;
-    expect(within(row).getByText('2')).toBeTruthy();
-  });
-
-  it('목의 체크박스는 행 클릭 없이 활성 여부만 바꾼다', () => {
-    const h = setup();
-    fireEvent.click(screen.getByLabelText('GET /users 활성'));
-    expect(h.onToggleMock).toHaveBeenCalledWith('m1', false);
-    expect(h.onOpenMocks).not.toHaveBeenCalled();
   });
 
   it('시나리오 우클릭 메뉴로 편집/삭제한다', () => {
@@ -85,11 +58,11 @@ describe('ProjectTree', () => {
     expect(h.onDeleteScenario).toHaveBeenCalledWith('정상');
   });
 
-  it('활성 시나리오의 메뉴는 "활성화"가 꺼지고 "현재 현재 목으로 갱신"이 나온다', () => {
+  it('활성 시나리오의 메뉴는 "활성화"가 꺼지고 "현재 목으로 갱신"이 나온다', () => {
     const h = setup();
     fireEvent.contextMenu(screen.getByText('장애'));
     expect((screen.getByRole('menuitem', { name: '활성화' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('menuitem', { name: '현재 현재 목으로 갱신' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '현재 목으로 갱신' }));
     expect(h.onUpdateActiveScenario).toHaveBeenCalled();
   });
 
@@ -108,7 +81,7 @@ describe('ProjectTree', () => {
     expect(screen.getByText('장애')).toBeTruthy();
   });
 
-  it('프로젝트가 없으면 목만 보이고 안내 문구가 나온다', () => {
+  it('프로젝트가 없으면 안내 문구만 나온다', () => {
     setup({ hasProject: false });
     expect(screen.queryByText('저장된 캡처')).toBeNull();
     expect(screen.getByText(/프로젝트를 열면/)).toBeTruthy();
@@ -121,11 +94,11 @@ describe('ProjectTree 키보드 탐색', () => {
 
   it('방향키로 그룹 헤더와 항목을 오가고 오른쪽/왼쪽으로 접고 펼친다', () => {
     setup();
-    const mocksHeader = screen.getByRole('button', { name: /^목/ });
+    const mocksHeader = screen.getByRole('button', { name: /^저장된 캡처/ });
     mocksHeader.focus();
     fireEvent.keyDown(mocksHeader, { key: 'ArrowDown' });
     expect(document.activeElement?.getAttribute('role')).toBe('treeitem');
-    expect(focused()).toContain('/users');
+    expect(focused()).toContain('세션1');
 
     // 항목에서 왼쪽 → 소속 그룹 헤더로
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });

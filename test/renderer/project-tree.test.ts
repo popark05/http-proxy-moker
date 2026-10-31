@@ -1,26 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildProjectTree } from '../../src/renderer/src/lib/project-tree';
 import type { ProjectTreeInput } from '../../src/renderer/src/lib/project-tree';
-import type { MockDefinition } from '../../src/shared/mock';
 import type { ScenarioV2 } from '../../src/shared/scenario-library';
-
-const mock = (id: string, method: string, path: string, enabled = true): MockDefinition => ({
-  id,
-  label: `${method} ${path}`,
-  method,
-  host: '',
-  path,
-  enabled,
-  response: { status: 200, headers: [], body: '' }
-});
 
 const scenario = (name: string, base?: string): ScenarioV2 => ({ version: 2, id: name, name, base, picks: [] });
 
 const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
   hasProject: true,
   captureSessions: ['세션1', '세션2'],
-  mocks: [mock('m1', 'GET', '/users'), mock('m2', 'POST', '/login', false)],
-  hitCounts: { m1: 3 },
   scenarios: [scenario('정상'), scenario('장애', '정상')],
   activeScenario: '장애',
   scenarioDirty: true,
@@ -46,20 +33,13 @@ describe('buildProjectTree', () => {
   it('프로젝트가 열려 있으면 네 그룹을 순서대로 만든다', () => {
     expect(buildProjectTree(base()).map((g) => [g.id, g.children.length])).toEqual([
       ['sessions', 2],
-      ['mocks', 2],
       ['scenarios', 2],
       ['library', 1]
     ]);
   });
 
-  it('프로젝트가 없으면 메모리 현재 목인 목만 보여 준다', () => {
-    expect(buildProjectTree(base({ hasProject: false })).map((g) => g.id)).toEqual(['mocks']);
-  });
-
-  it('목은 활성 여부와 히트 수를 담는다', () => {
-    const mocks = buildProjectTree(base()).find((g) => g.id === 'mocks')!.children;
-    expect(mocks[0]).toMatchObject({ kind: 'mock', enabled: true, hits: 3 });
-    expect(mocks[1]).toMatchObject({ enabled: false, hits: 0 });
+  it('프로젝트가 없으면 저장된 항목이 없으므로 그룹도 없다(목은 목킹 화면에서 다룬다)', () => {
+    expect(buildProjectTree(base({ hasProject: false }))).toEqual([]);
   });
 
   it('활성 시나리오에만 active/dirty를 표시한다', () => {
@@ -69,8 +49,8 @@ describe('buildProjectTree', () => {
   });
 
   it('검색은 맞는 항목만 남기고, 결과 없는 그룹은 숨기되 total은 전체 개수를 유지한다', () => {
-    const groups = buildProjectTree(base({ query: 'login' }));
-    expect(groups.map((g) => g.id)).toEqual(['mocks']);
+    const groups = buildProjectTree(base({ query: '장애' }));
+    expect(groups.map((g) => g.id)).toEqual(['scenarios']);
     expect(groups[0].children).toHaveLength(1);
     expect(groups[0].total).toBe(2);
   });
@@ -84,7 +64,7 @@ describe('buildProjectTree', () => {
   });
 
   it('검색어는 대소문자를 구분하지 않는다', () => {
-    expect(buildProjectTree(base({ query: 'GET' })).find((g) => g.id === 'mocks')!.children).toHaveLength(1);
-    expect(buildProjectTree(base({ query: 'get' })).find((g) => g.id === 'mocks')!.children).toHaveLength(1);
+    expect(buildProjectTree(base({ query: 'GET' })).find((g) => g.id === 'library')!.children).toHaveLength(1);
+    expect(buildProjectTree(base({ query: 'get' })).find((g) => g.id === 'library')!.children).toHaveLength(1);
   });
 });

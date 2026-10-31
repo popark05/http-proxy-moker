@@ -42,7 +42,7 @@ export interface UseScenarioLibraryResult {
   activate: (name: string) => { missing: string[]; cycle: boolean };
   /** 현재 목의 목들을 케이스 참조 시나리오로 저장(같은 이름이면 덮어씀). 저장된 이름 반환. */
   saveFromWorkspace: (name: string, meta?: ScenarioMeta) => Promise<string>;
-  /** 활성 시나리오를 현재 현재 목 내용으로 갱신. */
+  /** 활성 시나리오를 현재 목 내용으로 갱신. */
   updateActiveFromWorkspace: () => Promise<void>;
   /** 편집 화면에서 만든/고친 시나리오 저장. 저장된 이름 반환. */
   saveScenario: (scenario: ScenarioV2) => Promise<string>;

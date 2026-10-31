@@ -85,7 +85,7 @@ export function buildCommands(input: CommandInput): Command[] {
       keywords: 'device connect',
       run: () => a.openSection('connect')
     },
-    { id: 'go:mocks', group: '이동', label: '목 · 시나리오 열기', keywords: 'mock scenario', run: a.openMocks },
+    { id: 'go:mocks', group: '이동', label: '목킹(현재 목) 열기', keywords: 'mock scenario 목킹', run: a.openMocks },
     { id: 'go:library', group: '이동', label: '응답 케이스 열기', keywords: 'case library', run: a.openLibrary },
     { id: 'go:collection', group: '이동', label: '컬렉션 열기', keywords: 'collection bruno request', run: a.openCollection }
   );

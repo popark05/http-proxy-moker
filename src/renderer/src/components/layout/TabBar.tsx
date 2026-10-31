@@ -1,15 +1,8 @@
 import { useRef } from 'react';
-import { FlaskConical, Layers, Library, X } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tab } from '../../lib/workbench';
 import { panelId, tabId } from './tab-ids';
-
-const KIND_ICON: Record<string, { icon: LucideIcon; className: string }> = {
-  mocks: { icon: FlaskConical, className: 'text-[hsl(var(--warning))]' },
-  scenario: { icon: Layers, className: 'text-muted-foreground' },
-  library: { icon: Library, className: 'text-muted-foreground' }
-};
 
 /** 메서드별 글자색(목록의 배지 톤과 같은 계열). */
 function methodColor(method: string): string {
@@ -113,14 +106,7 @@ export function TabBar({ tabs, activeKey, describe, onActivate, onClose, onPin, 
                 : 'border-t-2 border-t-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground'
             )}
           >
-            {method ? (
-              <span className={cn('shrink-0 text-2xs font-semibold', methodColor(method))}>{method}</span>
-            ) : (
-              (() => {
-                const { icon: Icon, className } = KIND_ICON[tab.target.kind] ?? KIND_ICON.library;
-                return <Icon className={cn('size-3.5 shrink-0', className)} />;
-              })()
-            )}
+            {method && <span className={cn('shrink-0 text-2xs font-semibold', methodColor(method))}>{method}</span>}
             <span className={cn('truncate', !tab.pinned && 'italic')}>{label}</span>
             <button
               type="button"

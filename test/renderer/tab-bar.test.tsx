@@ -7,8 +7,8 @@ import type { Tab } from '../../src/renderer/src/lib/workbench';
 
 const tabs: Tab[] = [
   { key: 'exchange:a', target: { kind: 'exchange', id: 'a' }, pinned: true },
-  { key: 'scenario:결제 실패', target: { kind: 'scenario', name: '결제 실패' }, pinned: true },
-  { key: 'library', target: { kind: 'library' }, pinned: false }
+  { key: 'exchange:b', target: { kind: 'exchange', id: 'b' }, pinned: true },
+  { key: 'exchange:c', target: { kind: 'exchange', id: 'c' }, pinned: false }
 ];
 
 function setup(activeKey = 'exchange:a') {
@@ -19,7 +19,7 @@ function setup(activeKey = 'exchange:a') {
 
 describe('TabBar 접근성', () => {
   it('활성 탭만 Tab 키로 들어오고 나머지는 방향키로 옮긴다', () => {
-    setup('scenario:결제 실패');
+    setup('exchange:b');
     const all = screen.getAllByRole('tab');
     expect(all.map((t) => t.tabIndex)).toEqual([-1, 0, -1]);
   });
@@ -28,13 +28,13 @@ describe('TabBar 접근성', () => {
     const h = setup();
     const [first, , last] = screen.getAllByRole('tab');
     fireEvent.keyDown(first, { key: 'ArrowRight' });
-    expect(h.onActivate).toHaveBeenLastCalledWith('scenario:결제 실패');
+    expect(h.onActivate).toHaveBeenLastCalledWith('exchange:b');
     fireEvent.keyDown(first, { key: 'ArrowLeft' });
-    expect(h.onActivate).toHaveBeenLastCalledWith('library');
+    expect(h.onActivate).toHaveBeenLastCalledWith('exchange:c');
     fireEvent.keyDown(last, { key: 'Home' });
     expect(h.onActivate).toHaveBeenLastCalledWith('exchange:a');
     fireEvent.keyDown(first, { key: 'End' });
-    expect(h.onActivate).toHaveBeenLastCalledWith('library');
+    expect(h.onActivate).toHaveBeenLastCalledWith('exchange:c');
   });
 
   it('Enter/Space는 활성화, Delete는 닫기를 요청한다', () => {
@@ -59,12 +59,12 @@ describe('Workspace 탭 패널 연결', () => {
     render(
       <Workspace
         tabs={tabs.slice(1)}
-        activeKey="scenario:결제 실패"
+        activeKey="exchange:b"
         tabBarProps={{ describe: (t) => ({ label: t.key }), onActivate: () => {}, onClose: () => {}, onPin: () => {}, onMove: () => {} }}
         renderContent={(t) => <p>{t.key} 내용</p>}
       />
     );
-    const tab = screen.getByRole('tab', { name: /scenario:결제 실패/ });
+    const tab = screen.getByRole('tab', { name: /exchange:b/ });
     const panelId = tab.getAttribute('aria-controls')!;
     expect(panelId).not.toMatch(/\s/);
     const panel = document.getElementById(panelId)!;

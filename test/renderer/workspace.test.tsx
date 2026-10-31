@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Workspace } from '../../src/renderer/src/components/layout/Workspace';
@@ -29,28 +29,17 @@ function Harness({ tabs, activeKey }: { tabs: Tab[]; activeKey: string }): JSX.E
 }
 
 describe('Workspace', () => {
-  const editor = tab({ kind: 'scenario', name: 'A' }, 'scenario:A');
-  const library = tab({ kind: 'library' }, 'library');
-  const exchange = tab({ kind: 'exchange', id: 'x' }, 'exchange:x');
-
-  it('편집 탭은 다른 탭으로 옮겨도 입력 중인 내용이 유지된다', () => {
-    const tabs = [editor, library];
-    const { rerender } = render(<Harness tabs={tabs} activeKey="scenario:A" />);
-    fireEvent.change(screen.getByLabelText('scenario:A', { selector: 'input' }), { target: { value: '작성 중' } });
-
-    rerender(<Harness tabs={tabs} activeKey="library" />);
-    expect(screen.getByLabelText('scenario:A', { selector: 'input' }).closest('[hidden]')).not.toBeNull();
-
-    rerender(<Harness tabs={tabs} activeKey="scenario:A" />);
-    expect((screen.getByLabelText('scenario:A', { selector: 'input' }) as HTMLInputElement).value).toBe('작성 중');
-  });
+  const a = tab({ kind: 'exchange', id: 'a' }, 'exchange:a');
+  const b = tab({ kind: 'exchange', id: 'b' }, 'exchange:b');
 
   it('요청 상세 탭은 활성일 때만 그린다', () => {
-    const tabs = [exchange, library];
-    const { rerender } = render(<Harness tabs={tabs} activeKey="exchange:x" />);
-    expect(screen.queryByLabelText('exchange:x', { selector: 'input' })).not.toBeNull();
-    rerender(<Harness tabs={tabs} activeKey="library" />);
-    expect(screen.queryByLabelText('exchange:x', { selector: 'input' })).toBeNull();
+    const tabs = [a, b];
+    const { rerender } = render(<Harness tabs={tabs} activeKey="exchange:a" />);
+    expect(screen.queryByLabelText('exchange:a', { selector: 'input' })).not.toBeNull();
+    expect(screen.queryByLabelText('exchange:b', { selector: 'input' })).toBeNull();
+    rerender(<Harness tabs={tabs} activeKey="exchange:b" />);
+    expect(screen.queryByLabelText('exchange:a', { selector: 'input' })).toBeNull();
+    expect(screen.queryByLabelText('exchange:b', { selector: 'input' })).not.toBeNull();
   });
 
   it('탭이 없으면 빈 상태를 보여 준다', () => {

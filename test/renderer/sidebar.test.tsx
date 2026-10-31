@@ -26,6 +26,7 @@ function Harness({ section, collapsed = false }: { section: SidebarSection; coll
         sidebar={<div>사이드바</div>}
         workspace={<div>워크스페이스</div>}
         connectView={<Connect />}
+        mockingView={<div>목킹 화면</div>}
         collectionView={<div>컬렉션 화면</div>}
       />
     </TooltipProvider>
@@ -34,7 +35,7 @@ function Harness({ section, collapsed = false }: { section: SidebarSection; coll
 
 describe('AppShell', () => {
   it('Rail의 맨 위는 기기 연결이다', () => {
-    expect(SIDEBAR_SECTIONS.map((s) => s.id)).toEqual(['connect', 'traffic', 'collection', 'project']);
+    expect(SIDEBAR_SECTIONS.map((s) => s.id)).toEqual(['connect', 'traffic', 'mocking', 'collection', 'project']);
     render(<Harness section="traffic" />);
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))[0]).toBe('기기 연결');
   });
@@ -52,6 +53,14 @@ describe('AppShell', () => {
     expect(screen.getByText('워크스페이스').closest('[hidden]')).toBeTruthy();
     rerender(<Harness section="traffic" />);
     expect(screen.getByText('컬렉션 화면').closest('[hidden]')).toBeTruthy();
+  });
+
+  it('목킹도 전체 화면이고 편집 중인 내용은 섹션을 오가도 유지된다', () => {
+    const { rerender } = render(<Harness section="mocking" />);
+    expect(screen.getByRole('main', { name: '목킹' }).hasAttribute('hidden')).toBe(false);
+    expect(screen.getByText('워크스페이스').closest('[hidden]')).toBeTruthy();
+    rerender(<Harness section="traffic" />);
+    expect(screen.getByText('목킹 화면').closest('[hidden]')).toBeTruthy(); // 숨겨져 있을 뿐 살아 있다
   });
 
   it('기기 연결 ↔ 트래픽을 오가도 인터셉트 상태가 초기화되지 않고 워크스페이스도 유지된다', () => {

@@ -3,18 +3,12 @@
  *
  * - 같은 대상은 탭을 하나만 둔다(다시 열면 그 탭을 활성화).
  * - 고정되지 않은 탭은 "미리보기"다. 미리보기는 하나만 존재하고, 새 미리보기가 열리면 그 자리를 대신 쓴다.
- * - 편집 화면(시나리오·라이브러리·목)은 입력 중인 내용이 사라지지 않도록 항상 고정으로 연다(요청 상세만 미리보기).
+ * - 탭은 트래픽 섹션의 요청 상세뿐이다. 목·시나리오·응답 케이스 편집은 목킹 화면의 몫이다.
  */
 
 export type TabTarget =
   /** 캡처된 요청·응답 상세. */
-  | { kind: 'exchange'; id: string }
-  /** 목 정의 + 시나리오 현재 목(하나뿐). */
-  | { kind: 'mocks' }
-  /** 시나리오 편집. name이 null이면 새 시나리오. */
-  | { kind: 'scenario'; name: string | null }
-  /** 응답 케이스 관리(하나뿐). */
-  | { kind: 'library' };
+  { kind: 'exchange'; id: string };
 
 export type TabKind = TabTarget['kind'];
 
@@ -33,15 +27,7 @@ export interface WorkbenchState {
 export const EMPTY_WORKBENCH: WorkbenchState = { tabs: [], activeKey: undefined };
 
 export function tabKey(target: TabTarget): string {
-  switch (target.kind) {
-    case 'exchange':
-      return `exchange:${target.id}`;
-    // 새 시나리오는 이름 있는 시나리오와 키가 겹치지 않도록 ':'가 없는 키를 쓴다.
-    case 'scenario':
-      return target.name === null ? 'scenario-new' : `scenario:${target.name}`;
-    default:
-      return target.kind;
-  }
+  return `exchange:${target.id}`;
 }
 
 /**

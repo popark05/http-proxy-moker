@@ -9,8 +9,8 @@ const exchange = (id: string, method: string, path: string, host = 'api.example.
 function input(over: Partial<CommandInput> = {}): CommandInput {
   const fn = () => vi.fn();
   return {
-    tabs: [{ key: 'mocks', target: { kind: 'mocks' }, pinned: true }],
-    describeTab: () => ({ label: '목 · 시나리오' }),
+    tabs: [{ key: 'exchange:1', target: { kind: 'exchange', id: '1' }, pinned: true }],
+    describeTab: () => ({ label: '열린 요청 상세' }),
     exchanges: [exchange('1', 'GET', '/users'), exchange('2', 'POST', '/login')],
     mocks: [{ id: 'm1', label: '', method: 'GET', host: '', path: '/users', enabled: false, response: { status: 200, headers: [], body: '' } }],
     scenarios: [{ version: 2, id: 's', name: '결제 실패', picks: [] }],
@@ -68,10 +68,12 @@ describe('커맨드 팔레트 모델', () => {
   });
 
   it('앞부분 일치가 단어 중간 일치보다 위에 온다', () => {
-    const all = buildCommands(input());
+    const all = buildCommands(
+      input({ library: { version: 2, endpoints: [{ id: 'GET /x', method: 'GET', host: '', path: '/x', cases: [] }] } })
+    );
     const result = labels(filterCommands(all, '시나리오'));
-    // "시나리오 활성화/편집"(앞부분)이 "목 · 시나리오 열기"(중간)보다 먼저
-    expect(result.indexOf('시나리오 활성화: 결제 실패')).toBeLessThan(result.indexOf('목 · 시나리오 열기'));
+    // "시나리오 활성화/편집"(앞부분)이 "새 시나리오 만들기"(중간)보다 먼저
+    expect(result.indexOf('시나리오 활성화: 결제 실패')).toBeLessThan(result.indexOf('새 시나리오 만들기'));
   });
 
   it('라벨에 없는 키워드(호스트, 영문 별칭)로도 찾는다', () => {

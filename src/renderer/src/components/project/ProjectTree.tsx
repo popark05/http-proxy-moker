@@ -3,17 +3,13 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  FlaskConical,
   FolderClock,
   Layers,
   Library,
   LibraryBig,
   Pencil,
   Play,
-  Power,
-  PowerOff,
   RefreshCw,
-  Save,
   Search,
   Trash2
 } from 'lucide-react';
@@ -27,11 +23,7 @@ import type { MenuItem } from '../primitives';
 
 interface ProjectTreeProps {
   input: Omit<ProjectTreeInput, 'query'>;
-  onOpenMocks: () => void;
   onLoadSession: (name: string) => void;
-  onToggleMock: (id: string, enabled: boolean) => void;
-  onSaveMockAsCase: (id: string) => void;
-  onRemoveMock: (id: string) => void;
   onActivateScenario: (name: string) => void;
   onEditScenario: (name: string) => void;
   onDeleteScenario: (name: string) => void;
@@ -41,14 +33,12 @@ interface ProjectTreeProps {
 
 const GROUP_ICON: Record<GroupId, typeof Layers> = {
   sessions: FolderClock,
-  mocks: FlaskConical,
   scenarios: Layers,
   library: Library
 };
 
 const EMPTY_HINT: Record<GroupId, string> = {
   sessions: '저장한 저장된 캡처이 없습니다',
-  mocks: '요청을 우클릭해 "목으로 복제"하면 여기에 쌓입니다',
   scenarios: '저장한 시나리오가 없습니다',
   library: '케이스가 없습니다'
 };
@@ -73,19 +63,11 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
     switch (node.kind) {
       case 'session':
         return [{ label: '불러오기', icon: Download, onSelect: () => props.onLoadSession(node.label) }];
-      case 'mock': {
-        const id = node.key.slice('mock:'.length);
-        return [
-          { label: node.enabled ? '끄기' : '켜기', icon: node.enabled ? PowerOff : Power, onSelect: () => props.onToggleMock(id, !node.enabled) },
-          { label: '케이스로 저장', icon: Save, onSelect: () => props.onSaveMockAsCase(id) },
-          { label: '삭제', icon: Trash2, destructive: true, onSelect: () => props.onRemoveMock(id) }
-        ];
-      }
       case 'scenario':
         return [
           { label: '활성화', icon: Play, disabled: node.active, onSelect: () => props.onActivateScenario(node.label) },
           { label: '편집', icon: Pencil, onSelect: () => props.onEditScenario(node.label) },
-          ...(node.active ? [{ label: '현재 현재 목으로 갱신', icon: RefreshCw, onSelect: props.onUpdateActiveScenario }] : []),
+          ...(node.active ? [{ label: '현재 목으로 갱신', icon: RefreshCw, onSelect: props.onUpdateActiveScenario }] : []),
           { label: '삭제', icon: Trash2, destructive: true, onSelect: () => props.onDeleteScenario(node.label) }
         ];
       case 'endpoint':
@@ -97,8 +79,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   /** 삭제 키로 지울 수 있는 항목의 삭제 동작(확인 창은 각 핸들러가 띄운다). */
   const deleteFor = (node: TreeNode): (() => void) | undefined => {
     switch (node.kind) {
-      case 'mock':
-        return () => props.onRemoveMock(node.key.slice('mock:'.length));
       case 'scenario':
         return () => props.onDeleteScenario(node.label);
       default:
@@ -194,8 +174,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
     switch (node.kind) {
       case 'session':
         return props.onLoadSession(node.label);
-      case 'mock':
-        return props.onOpenMocks();
       case 'scenario':
         return props.onActivateScenario(node.label);
       case 'endpoint':
@@ -218,7 +196,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         style={{ paddingLeft: 12 + depth * 14 }}
         className="group flex h-7 cursor-pointer items-center gap-2 pr-3 text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <NodeBody node={node} onToggleMock={props.onToggleMock} />
+        <NodeBody node={node} />
       </div>
       {node.kind === 'endpoint' && node.children.map((child) => renderNode(child, depth + 1, groupId))}
     </div>
@@ -288,37 +266,8 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   );
 }
 
-function NodeBody({
-  node,
-  onToggleMock
-}: {
-  node: TreeNode;
-  onToggleMock: (id: string, enabled: boolean) => void;
-}): JSX.Element {
+function NodeBody({ node }: { node: TreeNode }): JSX.Element {
   switch (node.kind) {
-    case 'mock':
-      return (
-        <>
-          <input
-            type="checkbox"
-            checked={node.enabled}
-            aria-label={`${node.label} 활성`}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => onToggleMock(node.key.slice('mock:'.length), e.target.checked)}
-            className="size-3.5 shrink-0 accent-[hsl(var(--warning))]"
-          />
-          <span className="shrink-0 text-2xs font-semibold text-muted-foreground">{node.method}</span>
-          <span className={cn('truncate', !node.enabled && 'text-muted-foreground line-through')}>
-            {node.host && <span className="text-muted-foreground">{node.host}</span>}
-            {node.path}
-          </span>
-          {node.hits > 0 && (
-            <Badge variant="warning" className="ml-auto shrink-0">
-              {node.hits}
-            </Badge>
-          )}
-        </>
-      );
     case 'scenario':
       return (
         <>

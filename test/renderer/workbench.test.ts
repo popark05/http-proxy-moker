@@ -36,11 +36,11 @@ describe('workbench 탭 모델', () => {
   });
 
   it('이미 열린 대상을 다시 열면 중복 없이 활성화만 한다(pin이면 고정도)', () => {
-    let s = openTab(EMPTY_WORKBENCH, { kind: 'mocks' }, { pin: true });
+    let s = openTab(EMPTY_WORKBENCH, ex('b'), { pin: true });
     s = openTab(s, ex('a'));
-    s = openTab(s, { kind: 'mocks' });
-    expect(keys(s)).toEqual(['mocks', 'exchange:a']);
-    expect(s.activeKey).toBe('mocks');
+    s = openTab(s, ex('b'));
+    expect(keys(s)).toEqual(['exchange:b', 'exchange:a']);
+    expect(s.activeKey).toBe('exchange:b');
     s = openTab(s, ex('a'), { pin: true });
     expect(s.tabs.find((t) => t.key === 'exchange:a')?.pinned).toBe(true);
   });
@@ -84,28 +84,15 @@ describe('workbench 탭 모델', () => {
     expect(s.activeKey).toBe('exchange:c');
   });
 
-  it('closeTabsWhere로 요청 탭만 한꺼번에 닫는다', () => {
-    let s = openTab(openTab(EMPTY_WORKBENCH, { kind: 'mocks' }, { pin: true }), ex('a'), { pin: true });
-    s = closeTabsWhere(s, (t) => t.target.kind === 'exchange');
-    expect(keys(s)).toEqual(['mocks']);
-    expect(s.activeKey).toBe('mocks');
+  it('closeTabsWhere로 조건에 맞는 탭만 한꺼번에 닫는다', () => {
+    let s = openTab(openTab(EMPTY_WORKBENCH, ex('keep'), { pin: true }), ex('a'), { pin: true });
+    s = closeTabsWhere(s, (t) => t.target.id === 'a');
+    expect(keys(s)).toEqual(['exchange:keep']);
+    expect(s.activeKey).toBe('exchange:keep');
   });
 
-  it('tabKey는 대상마다 안정적이고 새 시나리오는 이름 있는 시나리오와 겹치지 않는다', () => {
+  it('tabKey는 대상마다 안정적이다', () => {
     expect(tabKey(ex('x'))).toBe('exchange:x');
-    expect(tabKey({ kind: 'mocks' })).toBe('mocks');
-    expect(tabKey({ kind: 'library' })).toBe('library');
-    expect(tabKey({ kind: 'contracts' })).toBe('contracts');
-    expect(tabKey({ kind: 'scenario', name: '결제 실패' })).toBe('scenario:결제 실패');
-    expect(tabKey({ kind: 'scenario', name: null })).toBe('scenario-new');
-    expect(tabKey({ kind: 'scenario', name: 'new' })).not.toBe(tabKey({ kind: 'scenario', name: null }));
-  });
-
-  it('같은 시나리오를 다시 열면 탭을 늘리지 않고, 다른 시나리오는 별도 탭이 된다', () => {
-    let s = openTab(EMPTY_WORKBENCH, { kind: 'scenario', name: 'A' }, { pin: true });
-    s = openTab(s, { kind: 'scenario', name: 'B' }, { pin: true });
-    s = openTab(s, { kind: 'scenario', name: 'A' }, { pin: true });
-    expect(keys(s)).toEqual(['scenario:A', 'scenario:B']);
-    expect(s.activeKey).toBe('scenario:A');
+    expect(tabKey(ex('x'))).not.toBe(tabKey(ex('y')));
   });
 });

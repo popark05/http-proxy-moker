@@ -3,7 +3,7 @@ import type { SidebarSection } from '../components/layout/sidebar-sections';
 
 const SECTION_KEY = 'evermock.sidebar.section';
 const COLLAPSED_KEY = 'evermock.sidebar.collapsed';
-const SECTIONS: readonly SidebarSection[] = ['traffic', 'project', 'connect', 'collection'];
+const SECTIONS: readonly SidebarSection[] = ['traffic', 'project', 'connect', 'mocking', 'collection'];
 
 function read(key: string): string | null {
   try {

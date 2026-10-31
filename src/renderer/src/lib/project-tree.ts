@@ -1,14 +1,12 @@
 /**
  * 사이드바 프로젝트 트리 모델(순수 함수). 화면과 무관하게 묶기·개수·검색 규칙을 단위 테스트로 고정한다.
  */
-import type { MockDefinition } from '@shared/mock';
 import type { CaseLibrary, ScenarioV2 } from '@shared/scenario-library';
 
-export type GroupId = 'sessions' | 'mocks' | 'scenarios' | 'library';
+export type GroupId = 'sessions' | 'scenarios' | 'library';
 
 export type TreeNode =
   | { kind: 'session'; key: string; label: string }
-  | { kind: 'mock'; key: string; label: string; method: string; host: string; path: string; enabled: boolean; hits: number }
   | { kind: 'scenario'; key: string; label: string; active: boolean; dirty: boolean; base?: string }
   | { kind: 'endpoint'; key: string; label: string; method: string; host: string; path: string; children: TreeNode[] }
   | { kind: 'case'; key: string; label: string };
@@ -22,11 +20,9 @@ export interface TreeGroup {
 }
 
 export interface ProjectTreeInput {
-  /** 프로젝트가 열려 있을 때만 세션/시나리오/라이브러리를 보여 준다. 목은 메모리 현재 목이라 항상 보인다. */
+  /** 프로젝트가 열려 있을 때만 저장된 항목(캡처·시나리오·응답 케이스)이 있다. 목은 메모리의 현재 목이라 목킹 화면에서 다룬다. */
   hasProject: boolean;
   captureSessions: string[];
-  mocks: MockDefinition[];
-  hitCounts: Record<string, number>;
   scenarios: ScenarioV2[];
   activeScenario: string | undefined;
   /** 활성 시나리오에서 현재 목이 수정되었는가. */
@@ -42,21 +38,7 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
   const query = (input.query ?? '').trim().toLowerCase();
   const keep = (...texts: string[]): boolean => !query || matches(query, ...texts);
 
-  const mocks: TreeNode[] = input.mocks
-    .filter((m) => keep(m.label, m.method, m.host, m.path))
-    .map((m) => ({
-      kind: 'mock',
-      key: `mock:${m.id}`,
-      label: m.label || `${m.method} ${m.host}${m.path}`,
-      method: m.method,
-      host: m.host,
-      path: m.path,
-      enabled: m.enabled,
-      hits: input.hitCounts[m.id] ?? 0
-    }));
-
-  const groups: TreeGroup[] = [{ id: 'mocks', label: '목', total: input.mocks.length, children: mocks }];
-  if (!input.hasProject) return groups.filter((g) => !query || g.children.length > 0);
+  if (!input.hasProject) return [];
 
   const sessions: TreeNode[] = input.captureSessions
     .filter((name) => keep(name))
@@ -86,11 +68,11 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
     });
   }
 
-  groups.unshift({ id: 'sessions', label: '저장된 캡처', total: input.captureSessions.length, children: sessions });
-  groups.push(
+  const groups: TreeGroup[] = [
+    { id: 'sessions', label: '저장된 캡처', total: input.captureSessions.length, children: sessions },
     { id: 'scenarios', label: '시나리오', total: input.scenarios.length, children: scenarios },
     { id: 'library', label: '응답 케이스', total: input.library.endpoints.length, children: endpoints }
-  );
+  ];
   // 검색 중에는 결과가 없는 그룹을 숨겨 맞는 것만 보이게 한다.
   return groups.filter((g) => !query || g.children.length > 0);
 }

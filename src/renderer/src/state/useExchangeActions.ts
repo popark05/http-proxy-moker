@@ -13,6 +13,8 @@ interface Params {
   contractState: UseContractsResult;
   project: ReturnType<typeof useProject>['project'];
   openCollection: () => void;
+  /** 목킹 화면(현재 목)을 연다. */
+  openMocking: () => void;
 }
 
 /** 캡처된 요청(들)을 목·컬렉션으로 보내는 동작과 결과 토스트. */
@@ -22,7 +24,8 @@ export function useExchangeActions({
   mocksState,
   contractState,
   project,
-  openCollection
+  openCollection,
+  openMocking
 }: Params) {
   /** 요청들을 한 번에 목으로 복제. */
   const cloneExchanges = (targets: CapturedExchange[]): void => {
@@ -35,7 +38,10 @@ export function useExchangeActions({
       return;
     }
     if (mode === 'mock') {
-      toast.success(`${added}개 목으로 복제됨`, { description: `목 정의에 추가됨${detail}` });
+      toast.success(`${added}개 목으로 복제됨`, {
+        description: `현재 목에 추가됨${detail}`,
+        action: { label: '현재 목 보기', onClick: openMocking }
+      });
     } else {
       toast.success(`${added}개 목으로 복제됨`, {
         description: `목킹 모드로 전환하면 반영됩니다${detail}`,
@@ -73,7 +79,10 @@ export function useExchangeActions({
     mocksState.cloneFromExchange(exchange);
     const desc = `${exchange.request.method} ${exchange.request.path}`;
     if (mode === 'mock') {
-      toast.success('목으로 복제됨', { description: `${desc} · 목 정의에 추가됨(왼쪽 프로젝트 > 목)` });
+      toast.success('목으로 복제됨', {
+        description: `${desc} · 현재 목에 추가됨`,
+        action: { label: '현재 목 보기', onClick: openMocking }
+      });
     } else {
       // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
       toast.success('목으로 복제됨', {

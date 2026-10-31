@@ -24,7 +24,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
     }
     if (
       scenarioLib.scenarios.some((s) => s.name === trimmed) &&
-      !window.confirm(`"${trimmed}" 시나리오를 현재 현재 목 내용으로 덮어쓸까요?`)
+      !window.confirm(`"${trimmed}" 시나리오를 현재 목 내용으로 덮어쓸까요?`)
     ) {
       return;
     }
