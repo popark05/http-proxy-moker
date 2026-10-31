@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { History } from 'lucide-react';
+import { History, Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { FilterBar } from '../traffic/FilterBar';
 import { SelectionBar } from '../traffic/SelectionBar';
@@ -7,10 +7,11 @@ import { TrafficGroupList } from '../traffic/TrafficGroupList';
 import { TrafficList } from '../traffic/TrafficList';
 import { Button } from '@/components/ui/button';
 import { useContextMenu } from '../primitives/ContextMenu';
+import type { CaptureView } from '../../state/useCapture';
 import {
   buildRowMenu,
-  buildSessionMenu,
-  type SessionMenuActions,
+  buildSourceMenu,
+  type SourceMenuActions,
   type TrafficMenuActions
 } from '../../lib/traffic-menu';
 
@@ -30,9 +31,15 @@ interface TrafficPanelProps {
   clientPlatforms: ComponentProps<typeof TrafficList>['clientPlatforms'];
   /** 우클릭 메뉴 동작(대상 요청을 받는다). */
   rowActions: Omit<TrafficMenuActions, 'patchFilter' | 'setChecked'>;
-  /** 프로젝트에 저장된 저장된 캡처 이름. */
-  sessions: string[];
-  sessionActions: SessionMenuActions;
+  /** 지금 보는 대상(실시간 / 저장된 캡처). */
+  source: CaptureView;
+  /** 실시간 목록 개수(저장·비우기 대상). */
+  liveCount: number;
+  /** 저장된 캡처를 보는 동안 실시간에 새로 쌓인 요청 수. */
+  newLiveCount: number;
+  /** 프로젝트에 저장된 캡처 이름. */
+  savedNames: string[];
+  sourceActions: SourceMenuActions;
 }
 
 /** 트래픽 패널(필터 + 선택 바 + 리스트). 캡처/목킹 모드 공용. */
@@ -48,8 +55,11 @@ export function TrafficPanel({
   onViewChange,
   clientPlatforms,
   rowActions,
-  sessions,
-  sessionActions
+  source,
+  liveCount,
+  newLiveCount,
+  savedNames,
+  sourceActions
 }: TrafficPanelProps): JSX.Element {
   const menu = useContextMenu();
   const actions: TrafficMenuActions = {
@@ -59,7 +69,7 @@ export function TrafficPanel({
   };
   const openRowMenu = (event: React.MouseEvent, row: CapturedExchange[]): void =>
     menu.open(event, buildRowMenu(row, filtered, checkedIds, actions));
-  const sessionItems = buildSessionMenu(exchanges.length, sessions, sessionActions);
+  const sourceItems = buildSourceMenu(source, liveCount, savedNames, sourceActions);
   // 삭제(전체 비우기 등)로 사라진 id는 세지 않는다.
   const checkedTotal = exchanges.filter((e) => checkedIds.has(e.id)).length;
   const checkedShown = filtered.filter((e) => checkedIds.has(e.id)).length;
@@ -67,7 +77,7 @@ export function TrafficPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1">
-        <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">캡처</span>
+        <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">보기</span>
         <Button
           variant="ghost"
           size="sm"
@@ -76,13 +86,32 @@ export function TrafficPanel({
             const r = e.currentTarget.getBoundingClientRect();
             menu.open(
               { clientX: r.right - 200, clientY: r.bottom + 4, preventDefault: () => {}, stopPropagation: () => {} },
-              sessionItems
+              sourceItems
             );
           }}
         >
-          <History /> 저장된 캡처
+          {source.kind === 'live' ? (
+            <>
+              <Radio className="text-[hsl(var(--success))]" /> 실시간
+            </>
+          ) : (
+            <>
+              <History /> 저장된 캡처: {source.name}
+            </>
+          )}
         </Button>
       </div>
+      {source.kind === 'saved' && (
+        <div role="status" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
+          <span className="text-muted-foreground">
+            저장된 캡처 &apos;{source.name}&apos; 보는 중 · 실시간 수집은 계속됩니다
+            {newLiveCount > 0 ? ` (새 요청 ${newLiveCount}건)` : ''}
+          </span>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={sourceActions.backToLive}>
+            <Radio /> 실시간으로 돌아가기
+          </Button>
+        </div>
+      )}
       <FilterBar {...filterProps} total={exchanges.length} shown={filtered.length} />
       <SelectionBar
         shownCount={filtered.length}
@@ -102,7 +131,7 @@ export function TrafficPanel({
         view={view}
         onViewChange={onViewChange}
       />
-      <div className="min-h-0 flex-1" onContextMenu={(e) => menu.open(e, sessionItems)}>
+      <div className="min-h-0 flex-1" onContextMenu={(e) => menu.open(e, sourceItems)}>
         {view === 'group' ? (
           <TrafficGroupList
             exchanges={filtered}

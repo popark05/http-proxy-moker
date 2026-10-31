@@ -7,7 +7,6 @@ const scenario = (name: string): ScenarioV2 => ({ version: 2, id: name, name, pi
 
 function setup(over: Record<string, unknown> = {}) {
   const handlers = {
-    onLoadSession: vi.fn(),
     onActivateScenario: vi.fn(),
     onEditScenario: vi.fn(),
     onDeleteScenario: vi.fn(),
@@ -18,7 +17,6 @@ function setup(over: Record<string, unknown> = {}) {
     <ProjectTree
       input={{
         hasProject: true,
-        captureSessions: ['세션1'],
         scenarios: [scenario('정상'), scenario('장애')],
         activeScenario: '장애',
         scenarioDirty: true,
@@ -32,10 +30,8 @@ function setup(over: Record<string, unknown> = {}) {
 }
 
 describe('ProjectTree', () => {
-  it('세션을 누르면 불러오고, 시나리오를 누르면 활성화한다', () => {
+  it('시나리오를 누르면 활성화한다', () => {
     const h = setup();
-    fireEvent.click(screen.getByText('세션1'));
-    expect(h.onLoadSession).toHaveBeenCalledWith('세션1');
     fireEvent.click(screen.getByText('정상'));
     expect(h.onActivateScenario).toHaveBeenCalledWith('정상');
   });
@@ -77,13 +73,13 @@ describe('ProjectTree', () => {
   it('검색하면 맞는 항목만 남고, 프로젝트가 없으면 안내가 나온다', () => {
     setup();
     fireEvent.change(screen.getByLabelText('프로젝트 검색'), { target: { value: '장애' } });
-    expect(screen.queryByText('세션1')).toBeNull();
+    expect(screen.queryByText('정상')).toBeNull();
     expect(screen.getByText('장애')).toBeTruthy();
   });
 
   it('프로젝트가 없으면 안내 문구만 나온다', () => {
     setup({ hasProject: false });
-    expect(screen.queryByText('저장된 캡처')).toBeNull();
+    expect(screen.queryByText('시나리오')).toBeNull();
     expect(screen.getByText(/프로젝트를 열면/)).toBeTruthy();
   });
 });
@@ -94,11 +90,11 @@ describe('ProjectTree 키보드 탐색', () => {
 
   it('방향키로 그룹 헤더와 항목을 오가고 오른쪽/왼쪽으로 접고 펼친다', () => {
     setup();
-    const mocksHeader = screen.getByRole('button', { name: /^저장된 캡처/ });
+    const mocksHeader = screen.getByRole('button', { name: /^시나리오/ });
     mocksHeader.focus();
     fireEvent.keyDown(mocksHeader, { key: 'ArrowDown' });
     expect(document.activeElement?.getAttribute('role')).toBe('treeitem');
-    expect(focused()).toContain('세션1');
+    expect(focused()).toContain('정상');
 
     // 항목에서 왼쪽 → 소속 그룹 헤더로
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
@@ -129,10 +125,7 @@ describe('ProjectTree 키보드 탐색', () => {
     expect(h.onActivateScenario).toHaveBeenCalledWith('정상');
     fireEvent.keyDown(scenarioRow, { key: 'Delete' });
     expect(h.onDeleteScenario).toHaveBeenCalledWith('정상');
-    // 삭제 동작이 없는 세션 항목은 Delete를 무시한다
-    const session = screen.getByText('세션1').closest('[role=treeitem]') as HTMLElement;
-    fireEvent.keyDown(session, { key: 'Delete' });
-    expect(h.onLoadSession).not.toHaveBeenCalled();
+    // 삭제 동작이 없는 항목(응답 케이스 엔드포인트)은 Delete를 무시한다
   });
 
   it('메뉴 키로 연 메뉴는 첫 항목에 포커스가 가고 방향키·Esc가 동작하며 포커스가 돌아온다', () => {

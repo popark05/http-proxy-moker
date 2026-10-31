@@ -2,8 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
-  Download,
-  FolderClock,
   Layers,
   Library,
   LibraryBig,
@@ -23,7 +21,6 @@ import type { MenuItem } from '../primitives';
 
 interface ProjectTreeProps {
   input: Omit<ProjectTreeInput, 'query'>;
-  onLoadSession: (name: string) => void;
   onActivateScenario: (name: string) => void;
   onEditScenario: (name: string) => void;
   onDeleteScenario: (name: string) => void;
@@ -32,18 +29,16 @@ interface ProjectTreeProps {
 }
 
 const GROUP_ICON: Record<GroupId, typeof Layers> = {
-  sessions: FolderClock,
   scenarios: Layers,
   library: Library
 };
 
 const EMPTY_HINT: Record<GroupId, string> = {
-  sessions: '저장한 저장된 캡처이 없습니다',
   scenarios: '저장한 시나리오가 없습니다',
   library: '케이스가 없습니다'
 };
 
-/** 프로젝트 자산 트리(저장된 캡처·목·시나리오·응답 케이스). 클릭은 기본 동작, 우클릭은 메뉴. */
+/** 프로젝트 자산 트리(시나리오·응답 케이스). 클릭은 기본 동작, 우클릭은 메뉴. */
 export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set());
@@ -61,8 +56,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
 
   const menuFor = (node: TreeNode): MenuItem[] => {
     switch (node.kind) {
-      case 'session':
-        return [{ label: '불러오기', icon: Download, onSelect: () => props.onLoadSession(node.label) }];
       case 'scenario':
         return [
           { label: '활성화', icon: Play, disabled: node.active, onSelect: () => props.onActivateScenario(node.label) },
@@ -172,8 +165,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
 
   const activate = (node: TreeNode): void => {
     switch (node.kind) {
-      case 'session':
-        return props.onLoadSession(node.label);
       case 'scenario':
         return props.onActivateScenario(node.label);
       case 'endpoint':
@@ -257,7 +248,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         )}
         {!props.input.hasProject && !query && (
           <p className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-            프로젝트를 열면 저장된 캡처, 시나리오, 응답 케이스가 여기에 나타납니다.
+            프로젝트를 열면 시나리오와 응답 케이스가 여기에 나타납니다.
           </p>
         )}
       </div>
@@ -278,13 +269,6 @@ function NodeBody({ node }: { node: TreeNode }): JSX.Element {
             {node.active && <Badge variant="success">활성</Badge>}
             {node.dirty && <Badge variant="warning">수정됨</Badge>}
           </span>
-        </>
-      );
-    case 'session':
-      return (
-        <>
-          <FolderClock className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{node.label}</span>
         </>
       );
     case 'endpoint':

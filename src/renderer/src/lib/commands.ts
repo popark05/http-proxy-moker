@@ -174,7 +174,7 @@ export function buildCommands(input: CommandInput): Command[] {
       out.push({
         id: `session:${name}`,
         group: '저장된 캡처',
-        label: `저장된 캡처 불러오기: ${name}`,
+        label: `저장된 캡처 보기: ${name}`,
         keywords: name,
         run: () => a.loadSession(name)
       });

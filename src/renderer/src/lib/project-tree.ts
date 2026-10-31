@@ -3,10 +3,9 @@
  */
 import type { CaseLibrary, ScenarioV2 } from '@shared/scenario-library';
 
-export type GroupId = 'sessions' | 'scenarios' | 'library';
+export type GroupId = 'scenarios' | 'library';
 
 export type TreeNode =
-  | { kind: 'session'; key: string; label: string }
   | { kind: 'scenario'; key: string; label: string; active: boolean; dirty: boolean; base?: string }
   | { kind: 'endpoint'; key: string; label: string; method: string; host: string; path: string; children: TreeNode[] }
   | { kind: 'case'; key: string; label: string };
@@ -20,9 +19,8 @@ export interface TreeGroup {
 }
 
 export interface ProjectTreeInput {
-  /** 프로젝트가 열려 있을 때만 저장된 항목(캡처·시나리오·응답 케이스)이 있다. 목은 메모리의 현재 목이라 목킹 화면에서 다룬다. */
+  /** 프로젝트가 열려 있을 때만 저장된 항목(시나리오·응답 케이스)이 있다. 저장된 캡처는 트래픽에서 다룬다. 목은 메모리의 현재 목이라 목킹 화면에서 다룬다. */
   hasProject: boolean;
-  captureSessions: string[];
   scenarios: ScenarioV2[];
   activeScenario: string | undefined;
   /** 활성 시나리오에서 현재 목이 수정되었는가. */
@@ -39,10 +37,6 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
   const keep = (...texts: string[]): boolean => !query || matches(query, ...texts);
 
   if (!input.hasProject) return [];
-
-  const sessions: TreeNode[] = input.captureSessions
-    .filter((name) => keep(name))
-    .map((name) => ({ kind: 'session', key: `session:${name}`, label: name }));
 
   const scenarios: TreeNode[] = input.scenarios
     .filter((s) => keep(s.name, ...(s.tags ?? [])))
@@ -69,7 +63,6 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
   }
 
   const groups: TreeGroup[] = [
-    { id: 'sessions', label: '저장된 캡처', total: input.captureSessions.length, children: sessions },
     { id: 'scenarios', label: '시나리오', total: input.scenarios.length, children: scenarios },
     { id: 'library', label: '응답 케이스', total: input.library.endpoints.length, children: endpoints }
   ];

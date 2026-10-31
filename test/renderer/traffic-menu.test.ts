@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { CapturedExchange } from '../../src/shared/capture';
-import { buildRowMenu, buildSessionMenu, menuTargets } from '../../src/renderer/src/lib/traffic-menu';
+import { buildRowMenu, buildSourceMenu, menuTargets } from '../../src/renderer/src/lib/traffic-menu';
 import { newSessionName } from '../../src/renderer/src/lib/session-name';
 
 const ex = (id: string, url = 'https://api.example.com/a', clientIp?: string): CapturedExchange => ({
@@ -71,15 +71,38 @@ describe('buildRowMenu', () => {
   });
 });
 
-describe('buildSessionMenu', () => {
-  it('트래픽이 없으면 저장/비우기는 비활성, 저장된 세션은 불러오기 항목으로 나온다', () => {
-    const load = vi.fn();
-    const items = buildSessionMenu(0, ['s1', 's2'], { save: vi.fn(), load, clear: vi.fn() });
-    expect(items.map((i) => i.label)).toEqual(['캡처 저장', '불러오기: s1', '불러오기: s2', '트래픽 비우기']);
+describe('buildSourceMenu (보기 대상)', () => {
+  const actions = () => ({ save: vi.fn(), load: vi.fn(), backToLive: vi.fn(), clear: vi.fn() });
+
+  it('실시간을 보는 중이면 실시간은 비활성이고 저장된 캡처를 고를 수 있다', () => {
+    const a = actions();
+    const items = buildSourceMenu({ kind: 'live' }, 3, ['s1', 's2'], a);
+    expect(items.map((i) => i.label)).toEqual([
+      '실시간 (보는 중)',
+      '저장된 캡처 보기: s1',
+      '저장된 캡처 보기: s2',
+      '실시간 목록 저장',
+      '실시간 목록 비우기'
+    ]);
     expect(items[0].disabled).toBe(true);
-    expect(items[3].disabled).toBe(true);
     items[2].onSelect();
-    expect(load).toHaveBeenCalledWith('s2');
+    expect(a.load).toHaveBeenCalledWith('s2');
+    items[3].onSelect();
+    expect(a.save).toHaveBeenCalled();
+  });
+
+  it('저장된 캡처를 보는 중이면 그 항목이 비활성이고 실시간으로 돌아갈 수 있다', () => {
+    const a = actions();
+    const items = buildSourceMenu({ kind: 'saved', name: 's1' }, 3, ['s1', 's2'], a);
+    expect(items[0]).toMatchObject({ label: '실시간으로 돌아가기', disabled: false });
+    expect(items[1]).toMatchObject({ label: '저장된 캡처 보는 중: s1', disabled: true });
+    items[0].onSelect();
+    expect(a.backToLive).toHaveBeenCalled();
+  });
+
+  it('실시간이 비어 있으면 저장·비우기는 비활성', () => {
+    const items = buildSourceMenu({ kind: 'live' }, 0, [], actions());
+    expect(items.slice(-2).every((i) => i.disabled)).toBe(true);
   });
 });
 

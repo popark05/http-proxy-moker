@@ -7,7 +7,6 @@ const scenario = (name: string, base?: string): ScenarioV2 => ({ version: 2, id:
 
 const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
   hasProject: true,
-  captureSessions: ['세션1', '세션2'],
   scenarios: [scenario('정상'), scenario('장애', '정상')],
   activeScenario: '장애',
   scenarioDirty: true,
@@ -30,9 +29,8 @@ const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
 });
 
 describe('buildProjectTree', () => {
-  it('프로젝트가 열려 있으면 네 그룹을 순서대로 만든다', () => {
+  it('프로젝트가 열려 있으면 두 그룹을 순서대로 만든다', () => {
     expect(buildProjectTree(base()).map((g) => [g.id, g.children.length])).toEqual([
-      ['sessions', 2],
       ['scenarios', 2],
       ['library', 1]
     ]);

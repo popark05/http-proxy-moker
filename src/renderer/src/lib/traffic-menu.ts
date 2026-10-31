@@ -1,7 +1,8 @@
-import { Copy, Filter, FolderPlus, History, Link, MonitorSmartphone, Save, SquareCheck, SquareMinus, Terminal, Trash2 } from 'lucide-react';
+import { Copy, Filter, FolderPlus, History, Link, MonitorSmartphone, Radio, Save, SquareCheck, SquareMinus, Terminal, Trash2 } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { toCurl } from '@shared/curl';
 import type { TrafficFilter } from '@shared/traffic-filter';
+import type { CaptureView } from '../state/useCapture';
 import type { MenuItem } from '../components/primitives/ContextMenu';
 
 export interface TrafficMenuActions {
@@ -72,21 +73,40 @@ export function buildRowMenu(
   return items;
 }
 
-export interface SessionMenuActions {
+export interface SourceMenuActions {
+  /** 실시간 목록을 저장된 캡처로 저장. */
   save: () => void;
+  /** 저장된 캡처를 본다. */
   load: (name: string) => void;
+  /** 실시간 목록으로 돌아간다. */
+  backToLive: () => void;
+  /** 실시간 목록을 비운다. */
   clear: () => void;
 }
 
-/** 저장된 캡처 메뉴(헤더 버튼과 목록 빈 곳 우클릭 공용). 저장된 세션은 이름별 "불러오기" 항목으로 나온다. */
-export function buildSessionMenu(
-  exchangeCount: number,
-  sessions: readonly string[],
-  actions: SessionMenuActions
+/**
+ * 트래픽 "보기 대상" 메뉴(헤더 버튼과 목록 빈 곳 우클릭 공용).
+ * 실시간과 저장된 캡처 중 무엇을 볼지 고르고, 실시간 목록을 저장하거나 비운다. 저장·비우기는 항상 실시간 목록 기준이다.
+ */
+export function buildSourceMenu(
+  viewing: CaptureView,
+  liveCount: number,
+  saved: readonly string[],
+  actions: SourceMenuActions
 ): MenuItem[] {
+  const live = viewing.kind === 'live';
   return [
-    { label: '캡처 저장', icon: Save, onSelect: actions.save, disabled: exchangeCount === 0 },
-    ...sessions.map((name) => ({ label: `불러오기: ${name}`, icon: History, onSelect: () => actions.load(name) })),
-    { label: '트래픽 비우기', icon: Trash2, onSelect: actions.clear, destructive: true, disabled: exchangeCount === 0 }
+    { label: live ? '실시간 (보는 중)' : '실시간으로 돌아가기', icon: Radio, onSelect: actions.backToLive, disabled: live },
+    ...saved.map((name) => {
+      const current = !live && viewing.name === name;
+      return {
+        label: current ? `저장된 캡처 보는 중: ${name}` : `저장된 캡처 보기: ${name}`,
+        icon: History,
+        onSelect: () => actions.load(name),
+        disabled: current
+      };
+    }),
+    { label: '실시간 목록 저장', icon: Save, onSelect: actions.save, disabled: liveCount === 0 },
+    { label: '실시간 목록 비우기', icon: Trash2, onSelect: actions.clear, destructive: true, disabled: liveCount === 0 }
   ];
 }

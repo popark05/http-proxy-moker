@@ -17,9 +17,9 @@ const ex = (id: string, path: string): CapturedExchange => ({
   response: { statusCode: 200, statusMessage: 'OK', headers: [], body: { encoding: 'empty', content: '', byteLength: 0 } }
 });
 
-function setup(exchanges: CapturedExchange[], sessions: string[] = []) {
+function setup(exchanges: CapturedExchange[], savedNames: string[] = [], source: { kind: 'live' } | { kind: 'saved'; name: string } = { kind: 'live' }, newLiveCount = 0) {
   const rowActions = { cloneToMock: vi.fn(), saveContracts: vi.fn(), copy: vi.fn() };
-  const sessionActions = { save: vi.fn(), load: vi.fn(), clear: vi.fn() };
+  const sourceActions = { save: vi.fn(), load: vi.fn(), backToLive: vi.fn(), clear: vi.fn() };
   const patchFilter = vi.fn();
   render(
     <TrafficPanel
@@ -34,11 +34,14 @@ function setup(exchanges: CapturedExchange[], sessions: string[] = []) {
       onViewChange={vi.fn()}
       clientPlatforms={new Map()}
       rowActions={rowActions}
-      sessions={sessions}
-      sessionActions={sessionActions}
+      source={source}
+      liveCount={exchanges.length}
+      newLiveCount={newLiveCount}
+      savedNames={savedNames}
+      sourceActions={sourceActions}
     />
   );
-  return { rowActions, sessionActions, patchFilter };
+  return { rowActions, sourceActions, patchFilter };
 }
 
 describe('TrafficPanel 우클릭/저장된 캡처 메뉴', () => {
@@ -55,14 +58,22 @@ describe('TrafficPanel 우클릭/저장된 캡처 메뉴', () => {
     expect(rowActions.cloneToMock).toHaveBeenCalledWith([list[1]]);
   });
 
-  it('저장된 캡처 버튼은 저장·불러오기·비우기를 보여 준다', () => {
-    const { sessionActions } = setup([ex('1', '/users')], ['어제']);
-    fireEvent.click(screen.getByText('저장된 캡처'));
-    const menu = screen.getByRole('menu');
-    fireEvent.click(within(menu).getByText('불러오기: 어제'));
-    expect(sessionActions.load).toHaveBeenCalledWith('어제');
-    fireEvent.click(screen.getByText('저장된 캡처'));
-    fireEvent.click(within(screen.getByRole('menu')).getByText('캡처 저장'));
-    expect(sessionActions.save).toHaveBeenCalled();
+  it('보기 대상 버튼은 실시간/저장된 캡처 전환과 저장·비우기를 보여 준다', () => {
+    const { sourceActions } = setup([ex('1', '/users')], ['어제']);
+    fireEvent.click(screen.getByText('실시간'));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('저장된 캡처 보기: 어제'));
+    expect(sourceActions.load).toHaveBeenCalledWith('어제');
+    fireEvent.click(screen.getByText('실시간'));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('실시간 목록 저장'));
+    expect(sourceActions.save).toHaveBeenCalled();
+  });
+
+  it('저장된 캡처를 보는 중에는 배너와 새 요청 수를 보여 주고 실시간으로 돌아갈 수 있다', () => {
+    const { sourceActions } = setup([ex('1', '/users')], ['어제'], { kind: 'saved', name: '어제' }, 4);
+    const banner = screen.getByRole('status');
+    expect(banner.textContent).toContain("저장된 캡처 '어제' 보는 중");
+    expect(banner.textContent).toContain('새 요청 4건');
+    fireEvent.click(screen.getByText('실시간으로 돌아가기'));
+    expect(sourceActions.backToLive).toHaveBeenCalled();
   });
 });

@@ -49,8 +49,23 @@ import { newSessionName } from './lib/session-name';
 import { errMsg } from './lib/errors';
 
 function AppInner(): JSX.Element {
-  const { exchanges, tlsErrors, status, paused, setPaused, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
-    useCapture();
+  const {
+    exchanges,
+    liveExchanges,
+    tlsErrors,
+    status,
+    paused,
+    setPaused,
+    view: captureView,
+    newLiveCount,
+    viewSaved,
+    backToLive,
+    startProxy,
+    stopProxy,
+    clear,
+    addTag,
+    removeTag
+  } = useCapture();
   const [proxyPanelOpen, setProxyPanelOpen] = useState(false);
   const projectState = useProject();
   const { project } = projectState;
@@ -67,7 +82,8 @@ function AppInner(): JSX.Element {
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
-  const { clients, now } = useClients(exchanges, tlsErrors);
+  // 접속 기기는 실시간 트래픽 기준이다(저장된 캡처를 보는 중에도 기기 목록이 바뀌지 않게).
+  const { clients, now } = useClients(liveExchanges, tlsErrors);
   const clientPlatforms = useMemo(() => new Map(clients.map((c) => [c.ip, c.platform] as const)), [clients]);
   const clientOptions = useMemo(
     () => clients.map((c) => ({ ip: c.ip, label: clientLabel(c, [], clients) })),
@@ -117,7 +133,7 @@ function AppInner(): JSX.Element {
 
   const closeExchangeTabs = (): void => workbench.closeWhere((t) => t.target.kind === 'exchange');
 
-  /** 캡처된 요청과 요청 탭, 목 히트 수를 비운다. */
+  /** 실시간 목록과 요청 탭, 목 히트 수를 비운다. */
   const clearCapture = (): void => {
     clear();
     mockHits.reset();
@@ -125,13 +141,22 @@ function AppInner(): JSX.Element {
     closeExchangeTabs();
   };
 
-  /** 저장된 캡처를 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다. */
-  const loadSessionConfirmed = (name: string): void => {
-    if (
-      exchanges.length > 0 &&
-      !window.confirm(`"${name}" 저장된 캡처를 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
-    )
-      return;
+  /** 실시간 목록으로 돌아간다(보던 저장본의 요청 탭은 닫는다). */
+  const returnToLive = (): void => {
+    backToLive();
+    setSelectedId(undefined);
+    closeExchangeTabs();
+  };
+
+  // 프로젝트가 바뀌면 이전 프로젝트의 저장된 캡처를 계속 보여 주지 않는다.
+  useEffect(() => {
+    if (captureView.kind === 'saved') returnToLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.dir]);
+
+  /** 저장된 캡처를 본다. 실시간 목록은 그대로 두므로 사라지는 것이 없다. */
+  const viewSavedCapture = (name: string): void => {
+    openSection('traffic');
     void handleLoadSession(name);
   };
 
@@ -151,8 +176,8 @@ function AppInner(): JSX.Element {
   });
   const { handleCreateProject, handleOpenProject, handleSaveCapture, handleLoadSession } = useProjectActions({
     projectState,
-    exchanges,
-    replaceExchanges,
+    liveExchanges,
+    viewSaved,
     onSessionLoaded: () => {
       setSelectedId(undefined);
       closeExchangeTabs();
@@ -213,8 +238,11 @@ function AppInner(): JSX.Element {
           );
         }
       }}
-      sessions={project?.captureSessions ?? []}
-      sessionActions={{
+      source={captureView}
+      liveCount={liveExchanges.length}
+      newLiveCount={newLiveCount}
+      savedNames={project?.captureSessions ?? []}
+      sourceActions={{
         save: () => {
           if (!project) {
             toast.error('캡처 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
@@ -222,7 +250,8 @@ function AppInner(): JSX.Element {
           }
           void handleSaveCapture(newSessionName());
         },
-        load: (name) => void handleLoadSession(name),
+        load: viewSavedCapture,
+        backToLive: returnToLive,
         clear: clearCapture
       }}
     />
@@ -231,7 +260,6 @@ function AppInner(): JSX.Element {
   const treeInput = useMemo(
     () => ({
       hasProject: !!project,
-      captureSessions: project?.captureSessions ?? [],
       scenarios: scenarioLib.scenarios,
       activeScenario,
       scenarioDirty: !!scenarioLib.diff?.dirty,
@@ -249,7 +277,6 @@ function AppInner(): JSX.Element {
   const projectTree = (
     <ProjectTree
       input={treeInput}
-      onLoadSession={loadSessionConfirmed}
       onActivateScenario={(name) => {
         scenarioActions.activateScenario(name);
         openMocksTab();
@@ -268,7 +295,8 @@ function AppInner(): JSX.Element {
     paused,
     onTogglePaused: () => setPaused(!paused),
     count: exchanges.length,
-    onClear: clearCapture
+    onClear: clearCapture,
+    clearDisabled: captureView.kind === 'saved'
   };
 
   const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} projectTree={projectTree} />;
@@ -484,7 +512,7 @@ function AppInner(): JSX.Element {
           },
           openLibrary: openLibraryTab,
           openCollection,
-          loadSession: loadSessionConfirmed,
+          loadSession: viewSavedCapture,
           startProxy: () => void ensureProxy(),
           stopProxy: () => void handleStopProxy(),
           setMode,
