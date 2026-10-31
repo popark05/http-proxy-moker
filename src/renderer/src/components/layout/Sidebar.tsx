@@ -16,7 +16,7 @@ interface SidebarProps {
 /** 사이드바. 프록시 컨트롤은 섹션과 무관하게 항상 맨 위에 둔다(목킹에서도 프록시 시작이 필요하다). */
 export function Sidebar({ section, proxyProps, deviceProps, traffic, projectTree }: SidebarProps): JSX.Element {
   return (
-    <div className="flex h-full flex-col">
+    <aside aria-label="사이드바" className="flex h-full flex-col">
       <ProxyControls {...proxyProps} />
       {section === 'traffic' ? (
         <div className="min-h-0 flex-1">{traffic}</div>
@@ -27,6 +27,6 @@ export function Sidebar({ section, proxyProps, deviceProps, traffic, projectTree
           <DevicePanel {...deviceProps} />
         </div>
       )}
-    </div>
+    </aside>
   );
 }

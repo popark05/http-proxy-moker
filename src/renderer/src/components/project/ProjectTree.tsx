@@ -212,7 +212,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         onContextMenu={(e) => openMenu(e, menuFor(node))}
         data-node-key={node.key}
         style={{ paddingLeft: 12 + depth * 14 }}
-        className="group flex h-7 cursor-pointer items-center gap-2 pr-3 text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+        className="group flex h-7 cursor-pointer items-center gap-2 pr-3 text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <NodeBody node={node} onToggleMock={props.onToggleMock} />
       </div>
@@ -231,7 +231,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
           data-tree-focus="group"
           data-group-id={group.id}
           onClick={() => toggleGroup(group.id)}
-          className="flex h-7 w-full items-center gap-1.5 px-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          className="flex h-7 w-full items-center gap-1.5 px-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
         >
           {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           <Icon className="size-3.5" />

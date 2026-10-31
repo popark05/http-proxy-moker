@@ -42,28 +42,42 @@ export function StatusBar({
     }
   }, [lastHitAt]);
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
-        <span className={cn('inline-block size-1.5 rounded-full', proxy.running ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/50')} />
+    <footer
+      aria-label="상태"
+      className="flex h-6 shrink-0 items-center gap-4 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground"
+    >
+      <span role="status" className="inline-flex items-center gap-1.5">
+        <span
+          className={cn(
+            'inline-block size-1.5 rounded-full',
+            proxy.running ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/50'
+          )}
+        />
         {proxy.running ? `프록시 :${proxy.port} 수신 중` : '프록시 중지됨'}
       </span>
-      <button type="button" onClick={onOpenConnect} className="hover:text-foreground">
+      <button
+        type="button"
+        onClick={onOpenConnect}
+        className="rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         접속 기기 {clientCount}
       </button>
       <span className={cn(isMock && 'text-[hsl(var(--warning))]')}>{isMock ? '목킹 모드' : '캡처 모드'}</span>
-      {isMock &&
-        (activeMockCount > 0 ? (
-          <Badge ref={badgeRef} variant="warning" className="h-4 rounded-full px-2 py-0 text-2xs">
-            목 {activeMockCount}개 활성
-            {activeScenario ? ` · ${activeScenario}` : ''}
-            {activeScenario && scenarioDirty ? ' · 수정됨' : ''}
-          </Badge>
-        ) : (
-          <Badge variant="error" className="h-4 px-2 py-0 text-2xs">
-            <AlertTriangle className="mr-1 size-3" />
-            활성 목 없음 — 응답이 그대로 통과됩니다
-          </Badge>
-        ))}
+      <span role="status" className="contents">
+        {isMock &&
+          (activeMockCount > 0 ? (
+            <Badge ref={badgeRef} variant="warning" className="h-4 rounded-full px-2 py-0 text-2xs">
+              목 {activeMockCount}개 활성
+              {activeScenario ? ` · ${activeScenario}` : ''}
+              {activeScenario && scenarioDirty ? ' · 수정됨' : ''}
+            </Badge>
+          ) : (
+            <Badge variant="error" className="h-4 px-2 py-0 text-2xs">
+              <AlertTriangle className="mr-1 size-3" />
+              활성 목 없음 — 응답이 그대로 통과됩니다
+            </Badge>
+          ))}
+      </span>
     </footer>
   );
 }

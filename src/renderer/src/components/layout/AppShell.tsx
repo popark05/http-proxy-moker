@@ -22,7 +22,7 @@ export function AppShell({ section, collapsed, onToggleSection, sidebar, workspa
           widthStorageKey="evermock.sidebar.width"
           collapsed={collapsed}
           left={sidebar}
-          right={workspace}
+          right={<main className="h-full">{workspace}</main>}
         />
       </div>
     </div>

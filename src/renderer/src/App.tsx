@@ -17,7 +17,7 @@ import { buildCommands } from './lib/commands';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from './components/common/EmptyState';
 import type { ScenarioV2 } from '@shared/scenario-library';
-import { FlaskConical, Layers } from 'lucide-react';
+import { FlaskConical, Layers, Play, Smartphone } from 'lucide-react';
 import { useWorkbench } from './state/useWorkbench';
 import type { Tab } from './lib/workbench';
 import { useCapture } from './state/useCapture';
@@ -483,6 +483,35 @@ function AppInner(): JSX.Element {
       })
     : [];
 
+  // 열린 탭이 없을 때, 지금 상황에서 가장 자연스러운 다음 행동을 안내한다.
+  const modifierKey = document.documentElement.dataset.platform === 'darwin' ? '⌘' : 'Ctrl+';
+  const openMocksButton = (
+    <Button variant="outline" size="sm" onClick={openMocksTab}>
+      <FlaskConical /> 목 · 시나리오 열기
+    </Button>
+  );
+  const emptyState: { description: string; action: JSX.Element } = !status.running
+    ? {
+        description: '프록시를 시작하면 기기에서 오는 요청이 왼쪽 목록에 쌓이고, 선택하면 여기에 상세가 열립니다.',
+        action: (
+          <Button size="sm" disabled={!!proxyBusy} onClick={() => void handleStartProxy()}>
+            <Play className="fill-current" /> 프록시 시작
+          </Button>
+        )
+      }
+    : exchanges.length > 0
+      ? { description: '왼쪽 트래픽 목록에서 요청을 선택하면 상세가 열립니다.', action: openMocksButton }
+      : clients.length === 0
+        ? {
+            description: '아직 접속한 기기가 없습니다. 기기를 연결한 뒤 앱을 사용하면 요청이 쌓입니다.',
+            action: (
+              <Button variant="outline" size="sm" onClick={() => openSection('connect')}>
+                <Smartphone /> 기기 연결 보기
+              </Button>
+            )
+          }
+        : { description: '기기가 접속했습니다. 앱에서 요청을 보내면 왼쪽 목록에 나타납니다.', action: openMocksButton };
+
   const workspace = (
     <Workspace
       tabs={workbench.state.tabs}
@@ -494,11 +523,9 @@ function AppInner(): JSX.Element {
         onPin: workbench.pin,
         onMove: workbench.move
       }}
-      emptyAction={
-        <Button variant="outline" size="sm" onClick={openMocksTab}>
-          <FlaskConical /> 목 · 시나리오 열기
-        </Button>
-      }
+      emptyDescription={emptyState.description}
+      emptyAction={emptyState.action}
+      emptyHint={`${modifierKey}K 로 탭 · 목 · 시나리오 · 요청을 검색하고 명령을 실행할 수 있습니다`}
       renderContent={renderTabContent}
     />
   );

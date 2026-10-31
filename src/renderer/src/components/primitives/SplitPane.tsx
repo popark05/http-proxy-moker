@@ -84,7 +84,8 @@ export function SplitPane({
         aria-orientation="vertical"
         onMouseDown={onMouseDown}
         className="cursor-col-resize bg-border transition-colors hover:bg-primary"
-        hidden={collapsed}
+        // hidden(display:none)으로 빼면 그리드 칸이 밀려 오른쪽 내용이 폭 0인 칸에 들어간다. 자리는 두고 보이지만 않게 한다.
+        style={collapsed ? { visibility: 'hidden' } : undefined}
       />
       <div className="min-h-0 min-w-0 overflow-auto">{right}</div>
     </div>

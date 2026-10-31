@@ -3,6 +3,7 @@ import { PanelsTopLeft } from 'lucide-react';
 import type { Tab } from '../../lib/workbench';
 import { EmptyState } from '../common/EmptyState';
 import { TabBar } from './TabBar';
+import { panelId, tabId } from './tab-ids';
 import type { ComponentProps } from 'react';
 
 interface WorkspaceProps {
@@ -14,21 +15,26 @@ interface WorkspaceProps {
    * 다른 탭으로 옮겨도 입력 중인 내용이 사라지지 않도록 숨긴 채 유지한다.
    */
   renderContent: (tab: Tab) => ReactNode;
+  /** 열린 탭이 없을 때 보여 줄 안내 문구(지금 상황에 맞는 다음 행동). */
+  emptyDescription?: string;
   /** 열린 탭이 없을 때 보여 줄 안내의 행동 영역. */
   emptyAction?: ReactNode;
+  /** 빈 상태 아래에 흐리게 보여 줄 단축키 안내. */
+  emptyHint?: ReactNode;
 }
 
 /** 탭 줄 + 활성 탭 내용. 탭이 없으면 빈 상태를 보여 준다. */
-export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyAction }: WorkspaceProps): JSX.Element {
+export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyDescription, emptyAction, emptyHint }: WorkspaceProps): JSX.Element {
   if (tabs.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="relative flex h-full items-center justify-center">
         <EmptyState
           icon={PanelsTopLeft}
           title="열린 탭이 없습니다"
-          description="왼쪽 트래픽 목록에서 요청을 선택하면 여기에 상세가 열립니다."
+          description={emptyDescription ?? '왼쪽 트래픽 목록에서 요청을 선택하면 여기에 상세가 열립니다.'}
           action={emptyAction}
         />
+        {emptyHint && <p className="absolute bottom-6 text-xs text-muted-foreground">{emptyHint}</p>}
       </div>
     );
   }
@@ -40,7 +46,14 @@ export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyAc
           const active = tab.key === activeKey;
           if (!active && tab.target.kind === 'exchange') return null;
           return (
-            <div key={tab.key} hidden={!active} className="h-full overflow-auto">
+            <div
+              key={tab.key}
+              id={panelId(tab.key)}
+              role="tabpanel"
+              aria-labelledby={tabId(tab.key)}
+              hidden={!active}
+              className="h-full overflow-auto"
+            >
               {renderContent(tab)}
             </div>
           );

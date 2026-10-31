@@ -25,7 +25,7 @@ export function Rail({ section, collapsed, onSelect }: RailProps): JSX.Element {
                 aria-pressed={selected}
                 onClick={() => onSelect(id)}
                 className={cn(
-                  'relative flex size-9 items-center justify-center rounded-md transition-colors',
+                  'relative flex size-9 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   selected
                     ? 'bg-primary/15 text-primary before:absolute before:-left-1.5 before:h-5 before:w-0.5 before:rounded-full before:bg-primary'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
