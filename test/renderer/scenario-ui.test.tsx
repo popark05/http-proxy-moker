@@ -155,3 +155,28 @@ describe('LibraryModal', () => {
     expect(names).toContain('정상 응답');
   });
 });
+
+describe('탭 표시(variant="tab")', () => {
+  it('ScenarioEditor는 대화상자 없이 본문을 그리고, 취소하면 닫기를 요청한다', () => {
+    const { library, base } = fixture();
+    const onOpenChange = vi.fn();
+    const onSave = vi.fn();
+    render(<ScenarioEditor variant="tab" open onOpenChange={onOpenChange} scenario={undefined} scenarios={[base]} library={library} onSave={onSave} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: '새 시나리오' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '신규' } });
+    fireEvent.click(screen.getByText('저장'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: '신규' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('LibraryModal은 대화상자 없이 본문을 그리고, 닫기 버튼이 탭 닫기를 요청한다', () => {
+    const { library, base } = fixture();
+    const onOpenChange = vi.fn();
+    render(<LibraryModal variant="tab" open onOpenChange={onOpenChange} library={library} scenarios={[base]} onCommit={() => {}} />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: '케이스 라이브러리' })).toBeTruthy();
+    fireEvent.click(screen.getByText('닫기'));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});

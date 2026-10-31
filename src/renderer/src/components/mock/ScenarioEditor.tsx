@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 interface ScenarioEditorProps {
   open: boolean;
@@ -15,6 +16,8 @@ interface ScenarioEditorProps {
   scenarios: ScenarioV2[];
   library: CaseLibrary;
   onSave: (scenario: ScenarioV2) => void;
+  /** 'tab'이면 워크스페이스 탭 안에 그린다. */
+  variant?: 'modal' | 'tab';
 }
 
 const selectClass =
@@ -42,7 +45,7 @@ function descendantsOf(self: string, scenarios: readonly ScenarioV2[]): Set<stri
 }
 
 /** 시나리오 편집: 이름/설명/태그/베이스 + 엔드포인트별 케이스 선택(상속과 덮어쓰기를 구분해 표시). */
-export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave }: ScenarioEditorProps): JSX.Element {
+export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant }: ScenarioEditorProps): JSX.Element {
   const editing = !!scenario;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -104,7 +107,7 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title={editing ? '시나리오 편집' : '새 시나리오'} className="w-[94vw] max-w-none sm:max-w-3xl">
+    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title={editing ? '시나리오 편집' : '새 시나리오'} className="w-[94vw] max-w-none sm:max-w-3xl">
       <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
         <Label htmlFor="sc-name" className="text-muted-foreground">이름</Label>
         <Input id="sc-name" value={name} disabled={editing} onChange={(e) => setName(e.target.value)} placeholder="예: 결제 실패" />
@@ -134,7 +137,7 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
         </p>
       )}
 
-      <div className="max-h-[42vh] overflow-auto rounded-md border border-border">
+      <div className={cn(variant !== 'tab' && 'max-h-[42vh] overflow-auto', 'rounded-md border border-border')}>
         {library.endpoints.length === 0 ? (
           <p className="p-4 text-center text-sm text-muted-foreground">
             라이브러리가 비어 있습니다. 목 정의에서 &quot;케이스로 저장&quot;으로 케이스를 먼저 만드세요.

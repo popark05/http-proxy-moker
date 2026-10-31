@@ -91,8 +91,21 @@ describe('workbench 탭 모델', () => {
     expect(s.activeKey).toBe('mocks');
   });
 
-  it('tabKey는 대상마다 안정적이다', () => {
+  it('tabKey는 대상마다 안정적이고 새 시나리오는 이름 있는 시나리오와 겹치지 않는다', () => {
     expect(tabKey(ex('x'))).toBe('exchange:x');
     expect(tabKey({ kind: 'mocks' })).toBe('mocks');
+    expect(tabKey({ kind: 'library' })).toBe('library');
+    expect(tabKey({ kind: 'contracts' })).toBe('contracts');
+    expect(tabKey({ kind: 'scenario', name: '결제 실패' })).toBe('scenario:결제 실패');
+    expect(tabKey({ kind: 'scenario', name: null })).toBe('scenario-new');
+    expect(tabKey({ kind: 'scenario', name: 'new' })).not.toBe(tabKey({ kind: 'scenario', name: null }));
+  });
+
+  it('같은 시나리오를 다시 열면 탭을 늘리지 않고, 다른 시나리오는 별도 탭이 된다', () => {
+    let s = openTab(EMPTY_WORKBENCH, { kind: 'scenario', name: 'A' }, { pin: true });
+    s = openTab(s, { kind: 'scenario', name: 'B' }, { pin: true });
+    s = openTab(s, { kind: 'scenario', name: 'A' }, { pin: true });
+    expect(keys(s)).toEqual(['scenario:A', 'scenario:B']);
+    expect(s.activeKey).toBe('scenario:A');
   });
 });

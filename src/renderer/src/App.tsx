@@ -13,7 +13,9 @@ import { TrafficPanel } from './components/layout/TrafficPanel';
 import { ProjectTree } from './components/project/ProjectTree';
 import { Workspace } from './components/layout/Workspace';
 import { Button } from '@/components/ui/button';
-import { FlaskConical } from 'lucide-react';
+import { EmptyState } from './components/common/EmptyState';
+import type { ScenarioV2 } from '@shared/scenario-library';
+import { FlaskConical, Layers } from 'lucide-react';
 import { useWorkbench } from './state/useWorkbench';
 import type { Tab } from './lib/workbench';
 import { useCapture } from './state/useCapture';
@@ -37,7 +39,6 @@ import { useScenarioActions } from './state/useScenarioActions';
 import { useExchangeActions } from './state/useExchangeActions';
 import { toast } from 'sonner';
 import { errMsg } from './lib/errors';
-import type { ScenarioV2 } from '@shared/scenario-library';
 
 function AppInner(): JSX.Element {
   const { exchanges, tlsErrors, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
@@ -46,12 +47,13 @@ function AppInner(): JSX.Element {
   const { project } = projectState;
   const mocksState = useMocks();
   const { mocks, updateMock, removeMock, replaceMocks } = mocksState;
-  const scenarioLib = useScenarioLibrary({ projectDir: project?.dir, mocks, replaceMocks });
+  const scenarioLib = useScenarioLibrary({
+    projectDir: project?.dir,
+    mocks,
+    replaceMocks
+  });
   const { activeScenario } = scenarioLib;
   const contractState = useContracts(project?.dir);
-  const [contractsOpen, setContractsOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [editorTarget, setEditorTarget] = useState<{ scenario: ScenarioV2 | undefined } | undefined>(undefined);
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
@@ -75,6 +77,11 @@ function AppInner(): JSX.Element {
   const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
   const workbench = useWorkbench();
+  // 편집 화면은 입력 중인 내용이 미리보기 교체로 사라지지 않도록 항상 고정 탭으로 연다.
+  const openMocksTab = (): void => workbench.open({ kind: 'mocks' }, { pin: true });
+  const openScenarioTab = (name: string | null): void => workbench.open({ kind: 'scenario', name }, { pin: true });
+  const openLibraryTab = (): void => workbench.open({ kind: 'library' }, { pin: true });
+  const openContractsTab = (): void => workbench.open({ kind: 'contracts' }, { pin: true });
 
   const selected = exchanges.find((e) => e.id === selectedId);
 
@@ -119,7 +126,11 @@ function AppInner(): JSX.Element {
       closeExchangeTabs();
     }
   });
-  const scenarioActions = useScenarioActions({ scenarioLib, hasProject: !!project, mode });
+  const scenarioActions = useScenarioActions({
+    scenarioLib,
+    hasProject: !!project,
+    mode
+  });
   const exchangeActions = useExchangeActions({
     exchanges,
     checkedIds,
@@ -129,7 +140,7 @@ function AppInner(): JSX.Element {
     mocksState,
     contractState,
     project,
-    openContracts: () => setContractsOpen(true)
+    openContracts: openContractsTab
   });
 
   const handleAddTag = (id: string, tag: string): void => {
@@ -144,7 +155,15 @@ function AppInner(): JSX.Element {
 
   const trafficPanel = (
     <TrafficPanel
-      filterProps={{ filter, patchFilter, clearFilter, active, hosts, tags, clients: clientOptions }}
+      filterProps={{
+        filter,
+        patchFilter,
+        clearFilter,
+        active,
+        hosts,
+        tags,
+        clients: clientOptions
+      }}
       exchanges={exchanges}
       filtered={filtered}
       selectedId={selectedId}
@@ -172,10 +191,17 @@ function AppInner(): JSX.Element {
       library: scenarioLib.library,
       contracts: contractState.contracts
     }),
-    [project, mocks, mockHits.counts, scenarioLib.scenarios, activeScenario, scenarioLib.diff?.dirty, scenarioLib.library, contractState.contracts]
+    [
+      project,
+      mocks,
+      mockHits.counts,
+      scenarioLib.scenarios,
+      activeScenario,
+      scenarioLib.diff?.dirty,
+      scenarioLib.library,
+      contractState.contracts
+    ]
   );
-
-  const openMocksTab = (): void => workbench.open({ kind: 'mocks' }, { pin: true });
 
   const projectTree = (
     <ProjectTree
@@ -183,7 +209,11 @@ function AppInner(): JSX.Element {
       onOpenMocks={openMocksTab}
       onLoadSession={(name) => {
         // 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다.
-        if (exchanges.length > 0 && !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)) return;
+        if (
+          exchanges.length > 0 &&
+          !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
+        )
+          return;
         void handleLoadSession(name);
       }}
       onToggleMock={(id, enabled) => {
@@ -204,12 +234,12 @@ function AppInner(): JSX.Element {
       }}
       onEditScenario={(name) => {
         const scenario = scenarioLib.scenarios.find((s) => s.name === name);
-        if (scenario) setEditorTarget({ scenario });
+        if (scenario) openScenarioTab(scenario.name);
       }}
       onDeleteScenario={(name) => void scenarioActions.deleteScenario(name)}
       onUpdateActiveScenario={() => void scenarioActions.updateActiveScenario()}
-      onOpenLibrary={() => setLibraryOpen(true)}
-      onOpenContracts={() => setContractsOpen(true)}
+      onOpenLibrary={openLibraryTab}
+      onOpenContracts={openContractsTab}
       onRemoveContract={(name) => {
         if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
       }}
@@ -249,63 +279,154 @@ function AppInner(): JSX.Element {
     />
   );
 
-  const activeTarget = workbench.state.tabs.find((t) => t.key === workbench.state.activeKey)?.target;
-  const activeExchange =
-    activeTarget?.kind === 'exchange' ? exchanges.find((e) => e.id === activeTarget.id) : undefined;
-
   const describeTab = (tab: Tab): { label: string; method?: string } => {
-    if (tab.target.kind === 'mocks') return { label: '목 · 시나리오' };
-    const id = tab.target.id;
-    const exchange = exchanges.find((e) => e.id === id);
-    return exchange ? { method: exchange.request.method, label: exchange.request.path } : { label: '(지워진 요청)' };
+    const target = tab.target;
+    switch (target.kind) {
+      case 'mocks':
+        return { label: '목 · 시나리오' };
+      case 'scenario':
+        return { label: target.name ?? '새 시나리오' };
+      case 'library':
+        return { label: '케이스 라이브러리' };
+      case 'contracts':
+        return { label: '계약 테스트' };
+      case 'exchange': {
+        const exchange = exchanges.find((e) => e.id === target.id);
+        return exchange
+          ? { method: exchange.request.method, label: exchange.request.path }
+          : { label: '(지워진 요청)' };
+      }
+    }
   };
 
-  const activeContent =
-    activeTarget?.kind === 'exchange' ? (
-      <ExchangeDetail
-        exchange={activeExchange}
-        clientDescription={clientDescriptionOf(activeExchange)}
-        onCloneToMock={exchangeActions.cloneToMock}
-        onAddTag={handleAddTag}
-        onRemoveTag={handleRemoveTag}
-      />
-    ) : activeTarget?.kind === 'mocks' ? (
-      <MockWorkspace
-        selected={selected}
-        cloneSourceProps={{
-          clientDescription: clientDescriptionOf(selected),
-          onCloneToMock: exchangeActions.cloneToMock,
-          onAddTag: handleAddTag,
-          onRemoveTag: handleRemoveTag
-        }}
-        mockProps={{
-          mocks,
-          mode,
-          blockUnmatched,
-          onBlockUnmatchedChange: setBlockUnmatched,
-          onUpdate: updateMock,
-          onRemove: removeMock,
-          onSaveScenario: (name) => void scenarioActions.saveScenario(name),
-          onSaveCase: (mock) => void scenarioActions.saveMockAsCase(mock),
-          caseNameOf: scenarioActions.caseNameOf,
-          hitCounts: mockHits.counts,
-          lastHitAt: mockHits.lastHitAt,
-          onResetHits: mockHits.reset
-        }}
-        scenarioProps={{
-          scenarios: scenarioLib.scenarios,
-          activeScenario,
-          diff: scenarioLib.diff,
-          hasLibrary: scenarioLib.library.endpoints.length > 0,
-          onActivate: scenarioActions.activateScenario,
-          onEdit: (scenario) => setEditorTarget({ scenario }),
-          onDelete: (name) => void scenarioActions.deleteScenario(name),
-          onUpdateActive: () => void scenarioActions.updateActiveScenario(),
-          onNew: () => setEditorTarget({ scenario: undefined }),
-          onOpenLibrary: () => setLibraryOpen(true)
-        }}
-      />
-    ) : null;
+  const handleSaveScenario = (scenario: ScenarioV2): void => {
+    const workspaceEdited = scenario.name === activeScenario && !!scenarioLib.diff?.dirty;
+    void scenarioLib
+      .saveScenario(scenario)
+      .then((saved) => {
+        toast.success('시나리오 저장됨', { description: saved });
+        if (workspaceEdited) {
+          toast.info('작업 공간에는 아직 반영되지 않았습니다', {
+            description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
+          });
+        }
+      })
+      .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
+  };
+
+  const renderTabContent = (tab: Tab): JSX.Element => {
+    const target = tab.target;
+    switch (target.kind) {
+      case 'exchange': {
+        const exchange = exchanges.find((e) => e.id === target.id);
+        return (
+          <ExchangeDetail
+            exchange={exchange}
+            clientDescription={clientDescriptionOf(exchange)}
+            onCloneToMock={exchangeActions.cloneToMock}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+          />
+        );
+      }
+      case 'mocks':
+        return (
+          <MockWorkspace
+            selected={selected}
+            cloneSourceProps={{
+              clientDescription: clientDescriptionOf(selected),
+              onCloneToMock: exchangeActions.cloneToMock,
+              onAddTag: handleAddTag,
+              onRemoveTag: handleRemoveTag
+            }}
+            mockProps={{
+              mocks,
+              mode,
+              blockUnmatched,
+              onBlockUnmatchedChange: setBlockUnmatched,
+              onUpdate: updateMock,
+              onRemove: removeMock,
+              onSaveScenario: (name) => void scenarioActions.saveScenario(name),
+              onSaveCase: (mock) => void scenarioActions.saveMockAsCase(mock),
+              caseNameOf: scenarioActions.caseNameOf,
+              hitCounts: mockHits.counts,
+              lastHitAt: mockHits.lastHitAt,
+              onResetHits: mockHits.reset
+            }}
+            scenarioProps={{
+              scenarios: scenarioLib.scenarios,
+              activeScenario,
+              diff: scenarioLib.diff,
+              hasLibrary: scenarioLib.library.endpoints.length > 0,
+              onActivate: scenarioActions.activateScenario,
+              onEdit: (scenario) => openScenarioTab(scenario.name),
+              onDelete: (name) => void scenarioActions.deleteScenario(name),
+              onUpdateActive: () => void scenarioActions.updateActiveScenario(),
+              onNew: () => openScenarioTab(null),
+              onOpenLibrary: openLibraryTab
+            }}
+          />
+        );
+      case 'scenario': {
+        const scenario = target.name === null ? undefined : scenarioLib.scenarios.find((s) => s.name === target.name);
+        if (target.name !== null && !scenario) {
+          return (
+            <EmptyState
+              icon={Layers}
+              title="시나리오를 찾을 수 없습니다"
+              description="삭제되었거나 다른 프로젝트의 시나리오입니다. 탭을 닫아 주세요."
+            />
+          );
+        }
+        return (
+          <ScenarioEditor
+            variant="tab"
+            open
+            onOpenChange={(o) => {
+              if (!o) workbench.close(tab.key);
+            }}
+            scenario={scenario}
+            scenarios={scenarioLib.scenarios}
+            library={scenarioLib.library}
+            onSave={handleSaveScenario}
+          />
+        );
+      }
+      case 'library':
+        return (
+          <LibraryModal
+            variant="tab"
+            open
+            onOpenChange={(o) => {
+              if (!o) workbench.close(tab.key);
+            }}
+            library={scenarioLib.library}
+            scenarios={scenarioLib.scenarios}
+            onCommit={(next) => void scenarioLib.commit(next)}
+          />
+        );
+      case 'contracts':
+        return (
+          <ContractModal
+            variant="tab"
+            open
+            onOpenChange={(o) => {
+              if (!o) workbench.close(tab.key);
+            }}
+            contracts={contractState.contracts}
+            servers={contractState.servers}
+            onRemoveContract={(name) => {
+              if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
+            }}
+            onUpdateContract={(c) => void contractState.updateContract(c)}
+            onImportContracts={contractState.saveDrafts}
+            projectName={project?.meta.name}
+            onUpsertServer={contractState.upsertServer}
+            onRemoveServer={(name) => void contractState.removeServer(name)}
+          />
+        );
+    }
+  };
 
   const workspace = (
     <Workspace
@@ -319,13 +440,12 @@ function AppInner(): JSX.Element {
         onMove: workbench.move
       }}
       emptyAction={
-        <Button variant="outline" size="sm" onClick={() => workbench.open({ kind: 'mocks' }, { pin: true })}>
+        <Button variant="outline" size="sm" onClick={openMocksTab}>
           <FlaskConical /> 목 · 시나리오 열기
         </Button>
       }
-    >
-      {activeContent}
-    </Workspace>
+      renderContent={renderTabContent}
+    />
   );
 
   return (
@@ -342,11 +462,17 @@ function AppInner(): JSX.Element {
         onOpen={() => void handleOpenProject()}
         onSave={(name) => void handleSaveCapture(name)}
         onLoadSession={(name) => void handleLoadSession(name)}
-        onOpenContracts={() => setContractsOpen(true)}
+        onOpenContracts={openContractsTab}
         contractCount={contractState.contracts.length}
       />
 
-      <AppShell section={section} collapsed={collapsed} onToggleSection={toggleSection} sidebar={sidebar} workspace={workspace} />
+      <AppShell
+        section={section}
+        collapsed={collapsed}
+        onToggleSection={toggleSection}
+        sidebar={sidebar}
+        workspace={workspace}
+      />
       <StatusBar
         proxy={status}
         mode={mode}
@@ -357,50 +483,6 @@ function AppInner(): JSX.Element {
         onOpenConnect={() => openSection('connect')}
       />
 
-      <LibraryModal
-        open={libraryOpen}
-        onOpenChange={setLibraryOpen}
-        library={scenarioLib.library}
-        scenarios={scenarioLib.scenarios}
-        onCommit={(next) => void scenarioLib.commit(next)}
-      />
-      <ScenarioEditor
-        open={!!editorTarget}
-        onOpenChange={(o) => {
-          if (!o) setEditorTarget(undefined);
-        }}
-        scenario={editorTarget?.scenario}
-        scenarios={scenarioLib.scenarios}
-        library={scenarioLib.library}
-        onSave={(scenario) => {
-          const workspaceEdited = scenario.name === activeScenario && !!scenarioLib.diff?.dirty;
-          void scenarioLib
-            .saveScenario(scenario)
-            .then((saved) => {
-              toast.success('시나리오 저장됨', { description: saved });
-              if (workspaceEdited) {
-                toast.info('작업 공간에는 아직 반영되지 않았습니다', {
-                  description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
-                });
-              }
-            })
-            .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
-        }}
-      />
-      <ContractModal
-        open={contractsOpen}
-        onOpenChange={setContractsOpen}
-        contracts={contractState.contracts}
-        servers={contractState.servers}
-        onRemoveContract={(name) => {
-          if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
-        }}
-        onUpdateContract={(c) => void contractState.updateContract(c)}
-        onImportContracts={contractState.saveDrafts}
-        projectName={project?.meta.name}
-        onUpsertServer={contractState.upsertServer}
-        onRemoveServer={(name) => void contractState.removeServer(name)}
-      />
       <Toaster />
       <SplashScreen />
     </div>

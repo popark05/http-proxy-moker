@@ -15,6 +15,7 @@ import { ContractEditor } from './ContractEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface ContractModalProps {
   open: boolean;
@@ -29,6 +30,8 @@ interface ContractModalProps {
   projectName?: string;
   onUpsertServer: (server: ContractServer) => Promise<boolean>;
   onRemoveServer: (name: string) => void;
+  /** 'tab'이면 워크스페이스 탭 안에 그린다. */
+  variant?: 'modal' | 'tab';
 }
 
 const STATUS_LABEL: Record<ContractRunStatus, string> = {
@@ -58,7 +61,8 @@ export function ContractModal({
   onImportContracts,
   projectName,
   onUpsertServer,
-  onRemoveServer
+  onRemoveServer,
+  variant
 }: ContractModalProps): JSX.Element {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   /** 캡처한 서버(origin) → 대신 보낼 등록 서버 이름. 없으면 캡처한 서버로 그대로 보낸다. */
@@ -161,8 +165,8 @@ export function ContractModal({
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="계약 테스트" className="w-[94vw] max-w-none sm:max-w-4xl">
-      <div className="flex max-h-[70vh] flex-col gap-3 overflow-auto text-sm">
+    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title="계약 테스트" className="w-[94vw] max-w-none sm:max-w-4xl">
+      <div className={cn('flex flex-col gap-3 text-sm', variant !== 'tab' && 'max-h-[70vh] overflow-auto')}>
         {/* 1. 서버: 캡처한 서버가 기본, 필요하면 등록한 서버로 바꾼다 */}
         <section className="rounded-md border border-border p-3">
           <h3 className="mb-1 font-medium">보낼 서버</h3>
