@@ -10,6 +10,7 @@ import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
 import { MockWorkspace } from './components/layout/MockWorkspace';
 import { TrafficPanel } from './components/layout/TrafficPanel';
+import { ProjectTree } from './components/project/ProjectTree';
 import { Workspace } from './components/layout/Workspace';
 import { Button } from '@/components/ui/button';
 import { FlaskConical } from 'lucide-react';
@@ -159,6 +160,62 @@ function AppInner(): JSX.Element {
     />
   );
 
+  const treeInput = useMemo(
+    () => ({
+      hasProject: !!project,
+      captureSessions: project?.captureSessions ?? [],
+      mocks,
+      hitCounts: mockHits.counts,
+      scenarios: scenarioLib.scenarios,
+      activeScenario,
+      scenarioDirty: !!scenarioLib.diff?.dirty,
+      library: scenarioLib.library,
+      contracts: contractState.contracts
+    }),
+    [project, mocks, mockHits.counts, scenarioLib.scenarios, activeScenario, scenarioLib.diff?.dirty, scenarioLib.library, contractState.contracts]
+  );
+
+  const openMocksTab = (): void => workbench.open({ kind: 'mocks' }, { pin: true });
+
+  const projectTree = (
+    <ProjectTree
+      input={treeInput}
+      onOpenMocks={openMocksTab}
+      onLoadSession={(name) => {
+        // 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다.
+        if (exchanges.length > 0 && !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)) return;
+        void handleLoadSession(name);
+      }}
+      onToggleMock={(id, enabled) => {
+        const mock = mocks.find((m) => m.id === id);
+        if (mock) updateMock({ ...mock, enabled });
+      }}
+      onSaveMockAsCase={(id) => {
+        const mock = mocks.find((m) => m.id === id);
+        if (mock) void scenarioActions.saveMockAsCase(mock);
+      }}
+      onRemoveMock={(id) => {
+        const mock = mocks.find((m) => m.id === id);
+        if (mock && window.confirm(`"${mock.method} ${mock.path}" 목을 삭제할까요?`)) removeMock(id);
+      }}
+      onActivateScenario={(name) => {
+        scenarioActions.activateScenario(name);
+        openMocksTab();
+      }}
+      onEditScenario={(name) => {
+        const scenario = scenarioLib.scenarios.find((s) => s.name === name);
+        if (scenario) setEditorTarget({ scenario });
+      }}
+      onDeleteScenario={(name) => void scenarioActions.deleteScenario(name)}
+      onUpdateActiveScenario={() => void scenarioActions.updateActiveScenario()}
+      onOpenLibrary={() => setLibraryOpen(true)}
+      onOpenContracts={() => setContractsOpen(true)}
+      onRemoveContract={(name) => {
+        if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
+      }}
+    />
+  );
+
   const sidebar = (
     <Sidebar
       section={section}
@@ -188,6 +245,7 @@ function AppInner(): JSX.Element {
         }
       }}
       traffic={trafficPanel}
+      projectTree={projectTree}
     />
   );
 
