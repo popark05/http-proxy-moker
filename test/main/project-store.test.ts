@@ -43,6 +43,14 @@ describe('ProjectStore', () => {
 
     expect(project.meta.name).toBe('My QA');
     expect(project.meta.version).toBe(1);
+    // 이름을 생략하면 폴더 이름.
+    const sub = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-named-'));
+    expect((await store.create(sub)).meta.name).toBe(path.basename(sub));
+    // 예전 버전이 고정으로 넣은 이름은 폴더 이름으로 보여 준다. 직접 지은 이름은 그대로.
+    await fs.writeFile(path.join(sub, 'project.json'), JSON.stringify({ version: 1, name: 'QA Project', proxyPort: 8080, targetHosts: [], createdAt: 1 }));
+    expect((await store.open(sub)).meta.name).toBe(path.basename(sub));
+    expect((await store.open(dir)).meta.name).toBe('My QA');
+    await fs.rm(sub, { recursive: true, force: true });
     await fs.access(path.join(dir, 'project.json'));
     await fs.access(path.join(dir, 'captures'));
     await fs.access(path.join(dir, 'scenarios'));
@@ -124,6 +132,7 @@ describe('ProjectStore', () => {
           id: 'm1',
           label: 'GET /users',
           method: 'GET',
+          host: '',
           path: '/users',
           response: { status: 500, headers: [] as Array<[string, string]>, body: '{"error":1}' },
           enabled: true
@@ -158,6 +167,7 @@ describe('ProjectStore', () => {
           id: 'm1',
           label: 'slow',
           method: 'GET',
+          host: '',
           path: '/slow',
           response: { status: 200, headers: [] as Array<[string, string]>, body: 'ok' },
           enabled: true,
@@ -168,6 +178,7 @@ describe('ProjectStore', () => {
           id: 'm2',
           label: 'reset',
           method: 'POST',
+          host: '',
           path: '/boom',
           response: { status: 200, headers: [] as Array<[string, string]>, body: '' },
           enabled: true,
@@ -205,7 +216,7 @@ describe('ProjectStore: 케이스 라이브러리/시나리오 v2', () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
     await store.create(dir, 'p');
     expect((await store.loadLibrary(dir)).endpoints).toEqual([]);
-    const lib = { version: 2 as const, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }] };
+    const lib = { version: 2 as const, endpoints: [{ id: 'GET /a', method: 'GET', host: '', path: '/a', cases: [] }] };
     await store.saveLibrary(dir, lib);
     expect(await store.loadLibrary(dir)).toEqual(lib);
   });

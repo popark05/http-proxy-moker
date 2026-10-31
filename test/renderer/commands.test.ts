@@ -12,7 +12,7 @@ function input(over: Partial<CommandInput> = {}): CommandInput {
     tabs: [{ key: 'mocks', target: { kind: 'mocks' }, pinned: true }],
     describeTab: () => ({ label: '목 · 시나리오' }),
     exchanges: [exchange('1', 'GET', '/users'), exchange('2', 'POST', '/login')],
-    mocks: [{ id: 'm1', label: '', method: 'GET', path: '/users', enabled: false, response: { status: 200, headers: [], body: '' } }],
+    mocks: [{ id: 'm1', label: '', method: 'GET', host: '', path: '/users', enabled: false, response: { status: 200, headers: [], body: '' } }],
     scenarios: [{ version: 2, id: 's', name: '결제 실패', picks: [] }],
     activeScenario: '결제 실패',
     library: { version: 2, endpoints: [] },
@@ -49,7 +49,7 @@ describe('커맨드 팔레트 모델', () => {
     expect(none).not.toContain('새 시나리오 만들기');
     expect(none).not.toContain('세션 불러오기: 세션1');
     const some = labels(
-      buildCommands(input({ library: { version: 2, endpoints: [{ id: 'GET /x', method: 'GET', path: '/x', cases: [] }] } }))
+      buildCommands(input({ library: { version: 2, endpoints: [{ id: 'GET /x', method: 'GET', host: '', path: '/x', cases: [] }] } }))
     );
     expect(some).toContain('새 시나리오 만들기');
   });

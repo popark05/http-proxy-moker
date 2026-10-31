@@ -501,6 +501,28 @@ export interface ContractRunResult {
   durationMs?: number;
 }
 
+/** 컬렉션에서 요청 하나를 보낸 결과(검증 없이 응답 그대로). */
+export type SendOutcome =
+  | {
+      ok: true;
+      method: string;
+      /** 변수를 채워 실제로 보낸 URL. */
+      url: string;
+      status: number;
+      statusText: string;
+      headers: Array<[string, string]>;
+      /** 텍스트면 본문, 이진이면 base64(너무 크면 비움). */
+      body: string;
+      bodyEncoding: 'text' | 'base64';
+      /** 본문이 너무 커서 잘렸는가. */
+      truncated: boolean;
+      sizeBytes: number;
+      durationMs: number;
+      /** 값이 없어 뺀 헤더 이름. */
+      omittedHeaders: string[];
+    }
+  | { ok: false; error: string };
+
 export interface PlannedRequest {
   method: string;
   url: string;

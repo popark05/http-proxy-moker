@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { FileCheck2, FlaskConical, Layers, Library, X } from 'lucide-react';
+import { FlaskConical, Layers, Library, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tab } from '../../lib/workbench';
@@ -8,8 +8,7 @@ import { panelId, tabId } from './tab-ids';
 const KIND_ICON: Record<string, { icon: LucideIcon; className: string }> = {
   mocks: { icon: FlaskConical, className: 'text-[hsl(var(--warning))]' },
   scenario: { icon: Layers, className: 'text-muted-foreground' },
-  library: { icon: Library, className: 'text-muted-foreground' },
-  contracts: { icon: FileCheck2, className: 'text-muted-foreground' }
+  library: { icon: Library, className: 'text-muted-foreground' }
 };
 
 /** 메서드별 글자색(목록의 배지 톤과 같은 계열). */

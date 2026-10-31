@@ -162,14 +162,14 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   const projectStore = new ProjectStore();
   let openProjectDir: string | undefined;
 
-  ipcMain.handle(IpcChannels.projectCreate, async (_event, name: string) => {
+  ipcMain.handle(IpcChannels.projectCreate, async (_event, name?: string) => {
     const window = getWindow();
     const result = await dialog.showOpenDialog(window ?? undefined!, {
       title: '새 프로젝트 폴더 선택',
       properties: ['openDirectory', 'createDirectory']
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const project = await projectStore.create(result.filePaths[0], name || 'Untitled');
+    const project = await projectStore.create(result.filePaths[0], name);
     openProjectDir = project.dir;
     return project;
   });
@@ -240,6 +240,11 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
         const window = getWindow();
         if (window && !window.isDestroyed()) window.webContents.send(IpcChannels.contractResult, result);
       })
+  );
+
+  ipcMain.handle(
+    IpcChannels.contractSend,
+    async (_event, arg: { contract: Contract; options: ContractRunOptions }) => proxy.sendRequest(arg.contract, arg.options)
   );
 
   ipcMain.handle(

@@ -152,7 +152,10 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
               <div key={e.id} className="grid grid-cols-[1fr_190px] items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge variant={methodTone(e.method)}>{e.method}</Badge>
-                  <span className="truncate font-mono text-xs" title={e.path}>{e.path}</span>
+                  <span className="truncate font-mono text-xs" title={`${e.host}${e.path}`}>
+                    {e.host && <span className="text-muted-foreground">{e.host}</span>}
+                    {e.path}
+                  </span>
                 </div>
                 <select aria-label={`${e.id} 케이스`} className={selectClass} value={own} onChange={(ev) => setSelection({ ...selection, [e.id]: ev.target.value })}>
                   <option value="">{inh ? `상속: ${caseName(e.id, inh.caseId)}` : '— 선택 안 함'}</option>

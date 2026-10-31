@@ -9,6 +9,7 @@ const mock = (id: string, method: string, path: string, enabled = true): MockDef
   id,
   label: `${method} ${path}`,
   method,
+  host: '',
   path,
   enabled,
   response: { status: 200, headers: [], body: '' }
@@ -33,6 +34,7 @@ const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
       {
         id: 'GET /users',
         method: 'GET',
+        host: '',
         path: '/users',
         cases: [
           { id: 'c1', name: '정상', response: { status: 200, headers: [], body: '' } },

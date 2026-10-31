@@ -9,6 +9,7 @@ const mock = (method: string, path: string, status = 200, body = '{"ok":1}'): Mo
   id: `m-${method}${path}${status}`,
   label: `${method} ${path}`,
   method,
+  host: '',
   path,
   enabled: true,
   response: { status, headers: [], body }

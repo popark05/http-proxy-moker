@@ -22,6 +22,8 @@ interface TrafficGroupListProps {
   onSelect: (id: string) => void;
   checkedIds: ReadonlySet<string>;
   onCheckedChange: (next: Set<string>) => void;
+  /** 행 우클릭. 호스트/엔드포인트 행이면 묶음 전체를 넘긴다(마지막이 최신). */
+  onRowContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
 }
 
 /** 일부만 체크된 상태(indeterminate)를 표시하는 체크박스. */
@@ -71,7 +73,8 @@ export function TrafficGroupList({
   selectedId,
   onSelect,
   checkedIds,
-  onCheckedChange
+  onCheckedChange,
+  onRowContextMenu
 }: TrafficGroupListProps): JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const [collapsedHosts, setCollapsedHosts] = useState<Set<string>>(new Set());
@@ -136,7 +139,10 @@ export function TrafficGroupList({
               }}
             >
               {row.kind === 'host' ? (
-                <div className="flex h-9 items-center gap-2 border-b border-border bg-muted/40 px-3">
+                <div
+                  onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, row.group.exchanges) : undefined}
+                  className="flex h-9 items-center gap-2 border-b border-border bg-muted/40 px-3"
+                >
                   <TriCheckbox
                     state={checkStateOf(row.group.exchanges.map((e) => e.id), checkedIds)}
                     label={`${row.group.host} 전체 선택`}
@@ -172,6 +178,7 @@ export function TrafficGroupList({
                   selectedId={selectedId}
                   checkedIds={checkedIds}
                   onSelect={onSelect}
+                  onContextMenu={onRowContextMenu}
                   onToggleChecked={() => toggleIds(row.endpoint.exchanges.map((e) => e.id))}
                   onToggleExpanded={() =>
                     toggleSet(
@@ -183,6 +190,7 @@ export function TrafficGroupList({
                 />
               ) : (
                 <div
+                  onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, [row.exchange]) : undefined}
                   className={cn(
                     'flex h-9 items-center gap-2 border-b border-border pl-10 pr-3 transition-colors',
                     row.exchange.id === selectedId ? 'bg-accent' : 'hover:bg-accent/50'
@@ -237,6 +245,7 @@ function EndpointRow({
   selectedId,
   checkedIds,
   onSelect,
+  onContextMenu,
   onToggleChecked,
   onToggleExpanded
 }: {
@@ -244,6 +253,7 @@ function EndpointRow({
   selectedId: string | undefined;
   checkedIds: ReadonlySet<string>;
   onSelect: (id: string) => void;
+  onContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
   onToggleChecked: () => void;
   onToggleExpanded: () => void;
 }): JSX.Element {
@@ -254,6 +264,7 @@ function EndpointRow({
   const state = checkStateOf(ids, checkedIds);
   return (
     <div
+      onContextMenu={onContextMenu ? (e) => onContextMenu(e, endpoint.exchanges) : undefined}
       className={cn(
         'flex h-11 items-center gap-2 border-b border-border pl-6 pr-3 transition-colors',
         selected ? 'bg-accent' : state !== 'none' ? 'bg-accent/40' : 'hover:bg-accent/50'

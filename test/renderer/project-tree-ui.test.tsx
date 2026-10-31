@@ -8,6 +8,7 @@ const mock: MockDefinition = {
   id: 'm1',
   label: 'GET /users',
   method: 'GET',
+  host: '',
   path: '/users',
   enabled: true,
   response: { status: 200, headers: [], body: '' }
@@ -142,7 +143,7 @@ describe('ProjectTree 키보드 탐색', () => {
     const items = within(tree()).getAllByRole('treeitem');
     items[0].focus();
     fireEvent.keyDown(items[0], { key: 'End' });
-    // 보이는 항목 중 마지막은 항목이 없는 마지막 그룹(계약)의 헤더다.
+    // 보이는 항목 중 마지막은 항목이 없는 마지막 그룹(컬렉션)의 헤더다.
     expect(document.activeElement?.getAttribute('data-group-id')).toBe('contracts');
     fireEvent.keyDown(document.activeElement!, { key: 'Home' });
     expect(document.activeElement?.getAttribute('data-tree-focus')).toBe('group');

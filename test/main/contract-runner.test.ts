@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
 import * as http from 'node:http';
-import { describeNetworkError, runContract, runContracts } from '../../src/main/contract/contract-runner';
+import { describeNetworkError, runContract, runContracts, sendRequest } from '../../src/main/contract/contract-runner';
 import type { Contract } from '../../src/shared/contract';
 
 let server: http.Server | undefined;
@@ -144,5 +144,45 @@ describe('describeNetworkError', () => {
   it('SSL 인터셉션 오류는 NODE_EXTRA_CA_CERTS를 안내한다', () => {
     const msg = describeNetworkError({ cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN' } }, 1000);
     expect(msg).toContain('NODE_EXTRA_CA_CERTS');
+  });
+});
+
+describe('sendRequest (컬렉션 Send)', () => {
+  it('검증 없이 응답을 그대로 돌려준다(상태/헤더/본문/시간)', async () => {
+    const baseUrl = await start();
+    const r = await sendRequest(contract(), { baseUrl, vars: { authorization: 'Bearer t' } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r).toMatchObject({ status: 200, method: 'GET', bodyEncoding: 'text', truncated: false });
+    expect(r.url).toBe(`${baseUrl}/users?page=2`);
+    expect(JSON.parse(r.body)).toEqual({ id: 1, name: 'a' });
+    expect(r.headers.some(([n]) => n === 'content-type')).toBe(true);
+    expect(r.sizeBytes).toBeGreaterThan(0);
+    expect(seen[0].auth).toBe('Bearer t');
+  });
+
+  it('재현 불가/위험 메서드 표시가 있어도 직접 보낸 요청은 보낸다', async () => {
+    const baseUrl = await start();
+    const r = await sendRequest(
+      contract({ verifiable: false, safeToRun: false, request: { method: 'POST', urlTemplate: '{{baseUrl}}/x', query: [], headers: [] } }),
+      { baseUrl, vars: {} }
+    );
+    expect(r.ok && r.status).toBe(200);
+    expect(seen[0].method).toBe('POST');
+  });
+
+  it('변수가 비어 있거나 서버를 모르면 이유를 알려 준다', async () => {
+    const noServer = await sendRequest(contract({ source: undefined }), { vars: { authorization: 'x' } });
+    expect(noServer).toMatchObject({ ok: false });
+    const missing = await sendRequest(
+      contract({ request: { method: 'GET', urlTemplate: '{{baseUrl}}/{{id}}', query: [], headers: [] } }),
+      { baseUrl: 'http://127.0.0.1:9', vars: {} }
+    );
+    expect(missing).toMatchObject({ ok: false, error: expect.stringContaining('id') });
+  });
+
+  it('연결 실패는 오류로 돌려준다', async () => {
+    const r = await sendRequest(contract(), { baseUrl: 'http://127.0.0.1:1', vars: { authorization: 'x' } });
+    expect(r.ok).toBe(false);
   });
 });

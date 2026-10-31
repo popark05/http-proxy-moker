@@ -5,7 +5,7 @@ import type { CaptureEvent, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import type { WorkerCommand, WorkerMessage } from '@shared/proxy-worker';
-import type { Contract, ContractRunOptions, ContractRunResult } from '@shared/contract';
+import type { Contract, ContractRunOptions, ContractRunResult, SendOutcome } from '@shared/contract';
 import type { ProgressReporter } from '@shared/progress';
 import type { CaManager } from '../cert/ca-manager';
 
@@ -33,7 +33,7 @@ export class ProxyService {
   /** 워커 result 응답을 requestId로 매칭하기 위한 대기 맵. */
   private pending = new Map<
     number,
-    { resolve: (status?: ProxyStatus, results?: ContractRunResult[]) => void; reject: (err: Error) => void }
+    { resolve: (status?: ProxyStatus, results?: ContractRunResult[], sent?: SendOutcome) => void; reject: (err: Error) => void }
   >();
   /** 계약 실행 중 개별 결과 콜백(requestId별). */
   private contractProgress = new Map<number, (result: ContractRunResult) => void>();
@@ -136,6 +136,24 @@ export class ProxyService {
     } finally {
       this.contractProgress.delete(requestId);
     }
+  }
+
+  /** 컬렉션의 요청 하나를 실제 서버로 보내고 응답을 그대로 받는다(프록시가 꺼져 있어도 된다). */
+  async sendRequest(contract: Contract, options: ContractRunOptions): Promise<SendOutcome> {
+    const worker = await this.ensureWorker();
+    const requestId = this.nextRequestId++;
+    return new Promise<SendOutcome>((resolve, reject) => {
+      this.pending.set(requestId, {
+        resolve: (_s, _r, sent) => resolve(sent ?? { ok: false, error: '응답을 받지 못했습니다.' }),
+        reject
+      });
+      worker.send({ kind: 'sendRequest', requestId, contract, options } satisfies WorkerCommand, (err) => {
+        if (err) {
+          this.pending.delete(requestId);
+          reject(err);
+        }
+      });
+    });
   }
 
   /** 워커 프로세스를 종료한다(앱 종료 시 정리용). */
@@ -245,7 +263,7 @@ export class ProxyService {
       this.pending.delete(msg.requestId);
       if (msg.ok) {
         if (msg.status) this.lastStatus = msg.status;
-        entry.resolve(msg.status, msg.results);
+        entry.resolve(msg.status, msg.results, msg.sent);
       } else {
         entry.reject(new Error(msg.error));
       }

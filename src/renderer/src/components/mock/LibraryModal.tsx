@@ -36,6 +36,7 @@ function caseAsMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
     id: c.id,
     label: c.name,
     method: endpoint.method,
+    host: endpoint.host,
     path: endpoint.path,
     enabled: true,
     response: c.response,
@@ -84,7 +85,10 @@ export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit,
             <div key={endpoint.id} className="rounded-md border border-border">
               <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
                 <Badge variant={methodTone(endpoint.method)}>{endpoint.method}</Badge>
-                <span className="min-w-0 flex-1 truncate font-mono text-sm" title={endpoint.path}>{endpoint.path}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-sm" title={`${endpoint.host}${endpoint.path}`}>
+                  {endpoint.host && <span className="text-muted-foreground">{endpoint.host}</span>}
+                  {endpoint.path}
+                </span>
                 <select
                   aria-label={`${endpoint.id} 프리셋 추가`}
                   className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs"

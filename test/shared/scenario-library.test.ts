@@ -5,6 +5,7 @@ import {
   EMPTY_LIBRARY,
   addPresetCase,
   applyMockToCase,
+  caseToMock,
   caseUsers,
   diffWorkspace,
   effectivePicks,
@@ -24,6 +25,7 @@ const mock = (method: string, path: string, status = 200, body = '{"ok":true}', 
   id: `m-${method}-${path}-${status}`,
   label: `${method} ${path}`,
   method,
+  host: '',
   path,
   enabled: true,
   response: { status, headers: [['content-type', 'application/json']], body },
@@ -253,10 +255,26 @@ describe('프리셋/파싱', () => {
     expect(lib.endpoints[0].cases).toHaveLength(1 + CASE_PRESETS.length);
   });
 
+  it('같은 method+path라도 호스트가 다르면 별도 엔드포인트가 된다', () => {
+    let lib = EMPTY_LIBRARY;
+    lib = upsertCase(lib, { method: 'GET', host: 'a.example.com', path: '/user', response: { status: 200, headers: [], body: 'a' } }).library;
+    const b = upsertCase(lib, { method: 'GET', host: 'b.example.com', path: '/user', response: { status: 200, headers: [], body: 'b' } });
+    expect(b.library.endpoints.map((e) => e.id)).toEqual(['GET a.example.com/user', 'GET b.example.com/user']);
+    expect(b.library.endpoints.map((e) => e.host)).toEqual(['a.example.com', 'b.example.com']);
+    // 목으로 풀면 호스트가 따라간다.
+    expect(caseToMock(b.library.endpoints[1], b.library.endpoints[1].cases[0]).host).toBe('b.example.com');
+  });
+
+  it('호스트 도입 전 라이브러리는 host를 빈 문자열로 읽고 엔드포인트 id(시나리오 참조)는 그대로다', () => {
+    const lib = parseLibrary({ version: 2, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }] });
+    expect(lib.endpoints[0]).toMatchObject({ id: 'GET /a', host: '' });
+  });
+
   it('parseLibrary: 손상/없음은 빈 라이브러리', () => {
     expect(parseLibrary(null)).toEqual(EMPTY_LIBRARY);
     expect(parseLibrary({ version: 1 })).toEqual(EMPTY_LIBRARY);
     expect(parseLibrary({ version: 2, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }, 3] }).endpoints).toHaveLength(1);
-    expect(endpointIdOf('post', '/x')).toBe('POST /x');
+    expect(endpointIdOf('post', '', '/x')).toBe('POST /x');
+    expect(endpointIdOf('post', 'API.example.com', '/x')).toBe('POST api.example.com/x');
   });
 });

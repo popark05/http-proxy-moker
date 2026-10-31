@@ -8,7 +8,8 @@ import {
   type Contract,
   type ContractRunOptions,
   type ContractRunResult,
-  type PlannedRequest
+  type PlannedRequest,
+  type SendOutcome
 } from '@shared/contract';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -53,6 +54,45 @@ async function send(request: PlannedRequest, timeoutMs: number) {
   });
   const buf = Buffer.from(await res.arrayBuffer());
   return { res, buf, durationMs: Date.now() - started };
+}
+
+/** 화면에 돌려줄 응답 본문 최대 크기. */
+const MAX_SEND_BODY_BYTES = 2_000_000;
+
+const isTextual = (contentType: string | null): boolean =>
+  !contentType || /(^text\/|json|xml|javascript|x-www-form-urlencoded|html|svg)/i.test(contentType);
+
+/**
+ * 컬렉션에서 요청 하나를 그대로 보내고 응답을 돌려준다(검증 없음). 직접 누른 전송이라 "재현 불가/위험 메서드" 제한은 걸지 않는다
+ * (위험 메서드 확인은 화면에서 한다). 변수 누락이나 서버 미지정은 오류로 알린다.
+ */
+export async function sendRequest(contract: Contract, options: ContractRunOptions): Promise<SendOutcome> {
+  const plan = planRequest({ ...contract, verifiable: true, safeToRun: true }, { ...options, allowUnsafe: true });
+  if (!plan.ok) return { ok: false, error: plan.reason };
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  try {
+    const { res, buf, durationMs } = await send(plan.request, timeoutMs);
+    const contentType = res.headers.get('content-type');
+    const truncated = buf.length > MAX_SEND_BODY_BYTES;
+    const slice = truncated ? buf.subarray(0, MAX_SEND_BODY_BYTES) : buf;
+    const textual = isTextual(contentType);
+    return {
+      ok: true,
+      method: plan.request.method,
+      url: plan.request.url,
+      status: res.status,
+      statusText: res.statusText,
+      headers: [...res.headers.entries()],
+      body: textual ? slice.toString('utf-8') : truncated ? '' : slice.toString('base64'),
+      bodyEncoding: textual ? 'text' : 'base64',
+      truncated,
+      sizeBytes: buf.length,
+      durationMs,
+      omittedHeaders: plan.omittedHeaders
+    };
+  } catch (e) {
+    return { ok: false, error: describeNetworkError(e, timeoutMs) };
+  }
 }
 
 /** 계약 하나를 실행한다. 예외를 던지지 않고 결과로 돌려준다. */

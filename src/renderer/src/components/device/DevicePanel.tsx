@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Smartphone, Apple, RefreshCw, SmartphoneNfc, CircleHelp, Loader2 } from 'lucide-react';
-import type {
-  AndroidInterceptionMode,
-  AndroidTrafficPath,
-  DeviceInfo,
-  InterceptionResult
-} from '@shared/device';
+import type { AndroidInterceptionMode, AndroidTrafficPath, DeviceInfo, InterceptionResult } from '@shared/device';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
 import { interceptionStarted, useDevices } from '../../state/useDevices';
 import { withProgress } from '../../state/with-progress';
 import { operationId } from '@shared/progress';
-import { ConnectionWizard } from './ConnectionWizard';
+import { ConnectionGuide, type WizardPlatformTab } from './ConnectionWizard';
 import { ClientList } from './ClientList';
 import type { ClientInfo } from '@shared/clients';
 
@@ -69,11 +64,7 @@ function DeviceItem({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
-        {isIos ? (
-          <Apple className="size-[18px] shrink-0" />
-        ) : (
-          <Smartphone className="size-[18px] shrink-0" />
-        )}
+        {isIos ? <Apple className="size-[18px] shrink-0" /> : <Smartphone className="size-[18px] shrink-0" />}
         <div className="min-w-[6rem] flex-1">
           <div className="truncate text-sm" title={device.id}>
             {device.name}
@@ -128,14 +119,10 @@ function DeviceItem({
         )}
       </div>
       {device.status !== 'ready' && device.statusDetail && (
-        <p className="ml-1 text-xs leading-relaxed text-[hsl(var(--warning))]">
-          {device.statusDetail}
-        </p>
+        <p className="ml-1 text-xs leading-relaxed text-[hsl(var(--warning))]">{device.statusDetail}</p>
       )}
       {active && !isIos && (
-        <Badge variant={interceptionBadge(interception!).tone}>
-          {interceptionBadge(interception!).text}
-        </Badge>
+        <Badge variant={interceptionBadge(interception!).tone}>{interceptionBadge(interception!).text}</Badge>
       )}
       {interception && interception.warnings.length > 0 && (
         <ul className="ml-4 list-disc text-xs leading-relaxed text-[hsl(var(--warning))]">
@@ -160,17 +147,21 @@ interface DevicePanelProps {
   untrackedCount: number;
 }
 
-export function DevicePanel({ clients, now, proxyRunning, onFilterClient, activeClientFilter, untrackedCount }: DevicePanelProps): JSX.Element {
+export function DevicePanel({
+  clients,
+  now,
+  proxyRunning,
+  onFilterClient,
+  activeClientFilter,
+  untrackedCount
+}: DevicePanelProps): JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices({
     onInterceptionLost: (device) =>
       toast.warning('기기에서 인터셉션이 해제되었습니다', {
         description: `${device.name}: companion 앱 연결이 끊겼거나 프록시 설정이 지워졌습니다. 다시 인터셉트하세요.`
       })
   });
-  const [wizard, setWizard] = useState<{ open: boolean; tab: 'android-usb' | 'ios-wifi' }>({
-    open: false,
-    tab: 'android-usb'
-  });
+  const [guideTab, setGuideTab] = useState<WizardPlatformTab>('android-usb');
   /** 시작/해제 진행 중인 기기(버튼을 "연결 중…/해제 중…"으로 잠근다). */
   const [busy, setBusy] = useState<Record<string, 'starting' | 'stopping'>>({});
   const clearBusy = (id: string): void =>
@@ -179,7 +170,7 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
       delete next[id];
       return next;
     });
-  const openWizard = (tab: 'android-usb' | 'ios-wifi'): void => setWizard({ open: true, tab });
+  const openWizard = (tab: WizardPlatformTab): void => setGuideTab(tab);
 
   const handleStart = async (
     device: DeviceInfo,
@@ -222,74 +213,70 @@ export function DevicePanel({ clients, now, proxyRunning, onFilterClient, active
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-          기기
-        </h3>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={() => openWizard('android-usb')}>
-            <CircleHelp /> 연결 가이드
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="기기 새로고침"
-            onClick={() => void refresh()}
-          >
-            <RefreshCw className={refreshing ? 'animate-spin' : ''} />
-            {refreshing ? '검색 중' : '새로고침'}
-          </Button>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">기기</h3>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" aria-label="기기 새로고침" onClick={() => void refresh()}>
+              <RefreshCw className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? '검색 중' : '새로고침'}
+            </Button>
+          </div>
         </div>
+
+        {devices.length === 0 ? (
+          clients.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              USB로 감지된 기기가 없습니다(아래 접속 중인 기기는 프록시 기준).
+            </p>
+          ) : (
+            <EmptyState
+              compact
+              icon={SmartphoneNfc}
+              title="연결된 기기가 없습니다"
+              description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
+              action={
+                <Button variant="outline" size="sm" onClick={() => openWizard('android-usb')}>
+                  <CircleHelp /> 연결 방법 보기
+                </Button>
+              }
+            />
+          )
+        ) : (
+          devices.map((device) => (
+            <DeviceItem
+              key={device.id}
+              device={device}
+              interception={interceptions[device.id]}
+              busy={busy[device.id]}
+              onStart={(mode, path) => void handleStart(device, mode, path)}
+              onStop={() => void handleStop(device)}
+              onIosSetup={() => openWizard('ios-wifi')}
+            />
+          ))
+        )}
+
+        <ClientList
+          clients={clients}
+          devices={devices}
+          now={now}
+          proxyRunning={proxyRunning}
+          untrackedCount={untrackedCount}
+          activeFilter={activeClientFilter}
+          onFilter={(ip) => onFilterClient(activeClientFilter === ip ? undefined : ip)}
+          onIosSetup={() => openWizard('ios-wifi')}
+        />
       </div>
 
-      {devices.length === 0 ? (
-        clients.length > 0 ? (
-          <p className="text-xs text-muted-foreground">USB로 감지된 기기가 없습니다(아래 접속 중인 기기는 프록시 기준).</p>
-        ) : (
-          <EmptyState
-            compact
-            icon={SmartphoneNfc}
-            title="연결된 기기가 없습니다"
-            description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
-            action={
-              <Button variant="outline" size="sm" onClick={() => openWizard('android-usb')}>
-                <CircleHelp /> 연결 방법 보기
-              </Button>
-            }
-          />
-        )
-      ) : (
-        devices.map((device) => (
-          <DeviceItem
-            key={device.id}
-            device={device}
-            interception={interceptions[device.id]}
-            busy={busy[device.id]}
-            onStart={(mode, path) => void handleStart(device, mode, path)}
-            onStop={() => void handleStop(device)}
-            onIosSetup={() => openWizard('ios-wifi')}
-          />
-        ))
-      )}
-
-      <ClientList
-        clients={clients}
-        devices={devices}
-        now={now}
-        proxyRunning={proxyRunning}
-        untrackedCount={untrackedCount}
-        activeFilter={activeClientFilter}
-        onFilter={(ip) => onFilterClient(activeClientFilter === ip ? undefined : ip)}
-        onIosSetup={() => openWizard('ios-wifi')}
-      />
-
-      <ConnectionWizard
-        open={wizard.open}
-        onOpenChange={(open) => setWizard((w) => ({ ...w, open }))}
-        initialTab={wizard.tab}
-        input={{ proxyRunning, devices, interceptions, clients, now }}
-      />
+      <section aria-label="연결 안내" className="rounded-lg border border-border bg-card/40 p-4">
+        <ConnectionGuide
+          active
+          tab={guideTab}
+          onTabChange={setGuideTab}
+          input={{ proxyRunning, devices, interceptions, clients, now }}
+        />
+      </section>
     </div>
   );
 }

@@ -38,6 +38,8 @@ const api: MokerApi = {
   contract: {
     run: (contracts: Contract[], options: ContractRunOptions) =>
       ipcRenderer.invoke(IpcChannels.contractRun, { contracts, options }),
+    send: (contract: Contract, options: ContractRunOptions) =>
+      ipcRenderer.invoke(IpcChannels.contractSend, { contract, options }),
     exportBruno: (name: string, contracts: Contract[], servers: ContractServer[]) =>
       ipcRenderer.invoke(IpcChannels.contractExportBruno, { name, contracts, servers }),
     importBruno: () => ipcRenderer.invoke(IpcChannels.contractImportBruno),
@@ -77,7 +79,7 @@ const api: MokerApi = {
   },
 
   project: {
-    create: (name: string) => ipcRenderer.invoke(IpcChannels.projectCreate, name),
+    create: (name?: string) => ipcRenderer.invoke(IpcChannels.projectCreate, name),
     open: () => ipcRenderer.invoke(IpcChannels.projectOpen),
     saveCapture: (name: string, exchanges: CapturedExchange[]) =>
       ipcRenderer.invoke(IpcChannels.projectSaveCapture, name, exchanges),

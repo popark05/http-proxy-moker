@@ -11,7 +11,7 @@ interface WorkspaceProps {
   activeKey: string | undefined;
   tabBarProps: Omit<ComponentProps<typeof TabBar>, 'tabs' | 'activeKey'>;
   /**
-   * 탭 내용. 요청 상세는 활성일 때만 그리지만, 편집 화면(목·시나리오·라이브러리·계약)은
+   * 탭 내용. 요청 상세는 활성일 때만 그리지만, 편집 화면(목·시나리오·라이브러리)은
    * 다른 탭으로 옮겨도 입력 중인 내용이 사라지지 않도록 숨긴 채 유지한다.
    */
   renderContent: (tab: Tab) => ReactNode;

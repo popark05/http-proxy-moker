@@ -18,7 +18,7 @@ import type { OperationProgress } from './progress';
 import type { InterceptionLiveness } from './interception-liveness';
 import type { ApplyMocksArgs } from './mock';
 import type { CaseLibrary, ScenarioFile } from './scenario-library';
-import type { Contract, ContractRunOptions, ContractRunResult, ContractServer } from './contract';
+import type { Contract, ContractRunOptions, ContractRunResult, ContractServer, SendOutcome } from './contract';
 
 export const IpcChannels = {
   /** 연결 확인용 왕복(핑퐁). Task 1 데모용. */
@@ -84,6 +84,8 @@ export const IpcChannels = {
   projectSaveContractServers: 'project:save-contract-servers',
   contractRun: 'contract:run',
   contractResult: 'contract:result',
+  /** 컬렉션 요청 하나 보내기. arg: {contract, options} → SendOutcome */
+  contractSend: 'contract:send',
   /** Bruno 컬렉션 내보내기(폴더 선택) → {dir, files} | null. arg: {name, contracts, servers} */
   contractExportBruno: 'contract:export-bruno',
   /** Bruno 컬렉션 가져오기(폴더 선택) → {contracts, notes, skippedFiles} | null */
@@ -155,7 +157,8 @@ export interface MokerApi {
 
   project: {
     /** 디렉토리 선택 후 새 프로젝트 생성. 취소 시 null. */
-    create(name: string): Promise<OpenProject | null>;
+    /** 이름을 생략하면 고른 폴더 이름이 프로젝트 이름이 된다. */
+    create(name?: string): Promise<OpenProject | null>;
     /** 디렉토리 선택 후 기존 프로젝트 열기. 취소/실패 시 null. */
     open(): Promise<OpenProject | null>;
     /** 캡처 세션 저장. 저장된 세션명 반환. */
@@ -187,6 +190,8 @@ export interface MokerApi {
   contract: {
     /** 계약을 실제 서버로 실행(순정 Node 워커). 전체 결과 반환. */
     run(contracts: Contract[], options: ContractRunOptions): Promise<ContractRunResult[]>;
+    /** 컬렉션의 요청 하나를 실제 서버로 보내고 응답을 그대로 받는다. */
+    send(contract: Contract, options: ContractRunOptions): Promise<SendOutcome>;
     /** 실행 중 계약 하나가 끝날 때마다 호출. 구독 해제 함수를 반환. */
     onResult(listener: (result: ContractRunResult) => void): () => void;
     /** 계약을 Bruno 컬렉션으로 내보낸다(이미 컬렉션인 폴더를 고르면 거기에 추가). 취소하면 null. */

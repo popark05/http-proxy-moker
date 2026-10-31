@@ -12,7 +12,7 @@ interface CommandPaletteProps {
   commands: Command[];
 }
 
-/** Cmd/Ctrl+K 커맨드 팔레트. 입력으로 탭·목·시나리오·계약·요청·동작을 찾아 Enter로 실행한다. */
+/** Cmd/Ctrl+K 커맨드 팔레트. 입력으로 탭·목·시나리오·컬렉션·요청·동작을 찾아 Enter로 실행한다. */
 export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
@@ -60,7 +60,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
       <DialogContent className="top-[18%] max-w-xl -translate-y-0 gap-0 overflow-hidden p-0 [&>button]:hidden">
         <DialogTitle className="sr-only">커맨드 팔레트</DialogTitle>
         <DialogDescription className="sr-only">
-          탭, 목, 시나리오, 계약, 요청을 찾아 열거나 동작을 실행합니다.
+          탭, 목, 시나리오, 컬렉션, 요청을 찾아 열거나 동작을 실행합니다.
         </DialogDescription>
         <div className="flex items-center gap-2 border-b border-border px-3">
           <Search className="size-4 shrink-0 text-muted-foreground" />
@@ -74,7 +74,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="탭 · 목 · 시나리오 · 계약 · 요청 검색, 또는 동작 실행"
+            placeholder="탭 · 목 · 시나리오 · 컬렉션 · 요청 검색, 또는 동작 실행"
             className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>

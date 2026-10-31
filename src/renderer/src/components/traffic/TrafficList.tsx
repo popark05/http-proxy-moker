@@ -28,6 +28,8 @@ interface TrafficListProps {
   onCheckedChange?: (next: Set<string>) => void;
   /** 접속 IP → 플랫폼. 기기가 둘 이상일 때 행에 기기 아이콘을 보여준다. */
   clientPlatforms?: ReadonlyMap<string, ClientPlatform>;
+  /** 행 우클릭. 대상 요청들을 넘긴다. */
+  onRowContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
 }
 
 /** 캡처된 트래픽 목록. @tanstack/react-virtual로 대량 렌더 최적화. */
@@ -37,7 +39,8 @@ export function TrafficList({
   onSelect,
   checkedIds,
   onCheckedChange,
-  clientPlatforms
+  clientPlatforms,
+  onRowContextMenu
 }: TrafficListProps): JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   /** Shift+클릭 범위 선택의 기준 행(목록 인덱스). */
@@ -100,6 +103,7 @@ export function TrafficList({
               }}
             >
               <div
+                onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, [exchange]) : undefined}
                 className={cn(
                   'flex items-center border-b border-border transition-colors',
                   selected ? 'bg-accent' : checked ? 'bg-accent/40' : 'hover:bg-accent/50'

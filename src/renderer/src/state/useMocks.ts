@@ -7,7 +7,7 @@ interface UseMocksResult {
   mocks: MockDefinition[];
   /** 캡처 exchange를 목으로 복제해 추가. 생성된 목 반환. */
   cloneFromExchange: (exchange: CapturedExchange) => MockDefinition;
-  /** 여러 exchange를 한 번에 복제(같은 method+path 중복은 건너뜀). */
+  /** 여러 exchange를 한 번에 복제(같은 method+host+path 중복은 건너뜀). */
   cloneMany: (exchanges: CapturedExchange[]) => { added: number; skipped: number };
   updateMock: (mock: MockDefinition) => void;
   removeMock: (id: string) => void;

@@ -28,6 +28,7 @@ const mock = (over: Partial<MockDefinition['response']> = {}): MockDefinition =>
   id: 'm1',
   label: 'GET /logo.png',
   method: 'GET',
+  host: 'img.example.com',
   path: '/logo.png',
   enabled: true,
   response: {
@@ -41,6 +42,25 @@ const mock = (over: Partial<MockDefinition['response']> = {}): MockDefinition =>
     ...over
   },
   originalBody: PNG
+});
+
+describe('MockEditor 호스트', () => {
+  it('호스트가 비어 있으면(호스트 도입 전 목) 저장할 수 없고, 채우면 저장된다', () => {
+    const onSave = vi.fn();
+    render(<MockEditor mock={{ ...mock(), host: '' }} open onOpenChange={() => {}} onSave={onSave} />);
+    const save = screen.getByText('저장') as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    expect(screen.getByRole('alert').textContent).toContain('호스트는 필수');
+    fireEvent.change(screen.getByLabelText('호스트'), { target: { value: 'API.example.com' } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    expect((onSave.mock.calls[0][0] as MockDefinition).host).toBe('api.example.com');
+  });
+
+  it('프로토콜이나 경로가 들어간 값은 거절한다', () => {
+    render(<MockEditor mock={{ ...mock(), host: 'https://a.com/x' }} open onOpenChange={() => {}} onSave={() => {}} />);
+    expect((screen.getByText('저장') as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 
 describe('MockEditor 이진 본문', () => {

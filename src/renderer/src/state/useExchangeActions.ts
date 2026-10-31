@@ -8,35 +8,27 @@ import type { useMocks } from './useMocks';
 import type { useProject } from './useProject';
 
 interface Params {
-  exchanges: CapturedExchange[];
-  checkedIds: Set<string>;
-  clearChecked: () => void;
   mode: AppMode;
   setMode: (mode: AppMode) => void;
   mocksState: Pick<ReturnType<typeof useMocks>, 'cloneFromExchange' | 'cloneMany'>;
   contractState: UseContractsResult;
   project: ReturnType<typeof useProject>['project'];
-  openContracts: () => void;
+  openCollection: () => void;
 }
 
-/** 캡처된 요청(들)을 목·계약·Bruno 컬렉션으로 보내는 동작과 결과 토스트. */
+/** 캡처된 요청(들)을 목·컬렉션·Bruno 컬렉션 파일로 보내는 동작과 결과 토스트. */
 export function useExchangeActions({
-  exchanges,
-  checkedIds,
-  clearChecked,
   mode,
   setMode,
   mocksState,
   contractState,
   project,
-  openContracts
+  openCollection
 }: Params) {
-  /** 체크된 요청들을 한 번에 목으로 복제. */
-  const cloneChecked = (): void => {
-    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+  /** 요청들을 한 번에 목으로 복제. */
+  const cloneExchanges = (targets: CapturedExchange[]): void => {
     const { added, skipped } = mocksState.cloneMany(targets);
-    clearChecked();
-    const detail = skipped > 0 ? ` (같은 method+path ${skipped}개는 건너뜀)` : '';
+    const detail = skipped > 0 ? ` (같은 method+host+path ${skipped}개는 건너뜀)` : '';
     if (added === 0) {
       toast.info('새로 복제할 목이 없습니다', {
         description: `이미 목이 있는 요청이거나 중복입니다${detail}`
@@ -53,35 +45,32 @@ export function useExchangeActions({
     }
   };
 
-  /** 체크된 요청들을 계약으로 저장. */
-  const saveContracts = async (): Promise<void> => {
+  /** 요청들을 컬렉션(프로젝트의 contracts/ 폴더)에 추가. */
+  const saveContracts = async (targets: CapturedExchange[]): Promise<void> => {
     if (!project) {
-      toast.error('계약 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+      toast.error('컬렉션 추가 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
       return;
     }
-    const targets = exchanges.filter((e) => checkedIds.has(e.id));
     try {
       const { saved, merged, skipped } = await contractState.saveFromExchanges(targets);
-      clearChecked();
       const detail =
         (merged > 0 ? ` (이미 있는 ${merged}개는 응답 모양을 합침)` : '') +
         (skipped > 0 ? ` (응답이 없는 ${skipped}개는 건너뜀)` : '');
       if (saved === 0 && merged === 0) {
-        toast.info('저장할 계약이 없습니다', { description: `응답이 있는 요청을 선택하세요${detail}` });
+        toast.info('추가할 요청이 없습니다', { description: `응답이 있는 요청을 선택하세요${detail}` });
         return;
       }
-      toast.success(saved > 0 ? `${saved}개 계약으로 저장됨` : '기존 계약에 합쳤습니다', {
+      toast.success(saved > 0 ? `${saved}개 요청을 컬렉션에 추가함` : '기존 요청에 합쳤습니다', {
         description: `contracts/ 폴더에 저장했습니다${detail}`,
-        action: { label: '계약 테스트 열기', onClick: openContracts }
+        action: { label: '컬렉션 열기', onClick: openCollection }
       });
     } catch (e) {
-      toast.error('계약 저장 실패', { description: errMsg(e) });
+      toast.error('컬렉션 추가 실패', { description: errMsg(e) });
     }
   };
 
-  /** 체크된 요청들을 Bruno 컬렉션으로 바로 내보낸다(프로젝트 없이도 가능). 기존 컬렉션 폴더를 고르면 거기에 추가한다. */
-  const exportBruno = async (): Promise<void> => {
-    const targets = exchanges.filter((e) => checkedIds.has(e.id));
+  /** 요청들을 Bruno 컬렉션으로 바로 내보낸다(프로젝트 없이도 가능). 기존 컬렉션 폴더를 고르면 거기에 추가한다. */
+  const exportBruno = async (targets: CapturedExchange[]): Promise<void> => {
     const { contracts, skipped } = contractsFromExchanges(targets, () => `br-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
     if (contracts.length === 0) {
       toast.info('내보낼 요청이 없습니다', { description: '응답이 있는 요청을 선택하세요' });
@@ -117,5 +106,5 @@ export function useExchangeActions({
     }
   };
 
-  return { cloneChecked, saveContracts, exportBruno, cloneToMock };
+  return { cloneExchanges, saveContracts, exportBruno, cloneToMock };
 }

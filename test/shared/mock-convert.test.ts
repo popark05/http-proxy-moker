@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   exchangeToMock,
+  hostOf,
   mockToSerializedRule,
   pathWithoutQuery,
   pickExchangesToClone
@@ -47,12 +48,30 @@ describe('method enum 매핑', () => {
   });
 });
 
+describe('hostOf / pickExchangesToClone', () => {
+  it('기본 포트는 생략하고 그 밖의 포트는 포함한다', () => {
+    expect(hostOf('https://API.example.com:443/a')).toBe('api.example.com');
+    expect(hostOf('http://localhost:8080/a')).toBe('localhost:8080');
+    expect(hostOf('/relative')).toBe('');
+  });
+
+  it('같은 method+path라도 호스트가 다르면 둘 다 복제한다', () => {
+    const a = makeExchange({ id: 'a' });
+    const b = makeExchange({ id: 'b', request: { ...a.request, url: 'https://other.example.com/users' } });
+    expect(pickExchangesToClone([a, b], []).targets.map((e) => e.id)).toEqual(['a', 'b']);
+    // 이미 같은 호스트의 목이 있으면 건너뛴다.
+    const existing = [{ ...exchangeToMock(a, 'm1') }];
+    expect(pickExchangesToClone([a, b], existing).targets.map((e) => e.id)).toEqual(['b']);
+  });
+});
+
 describe('exchangeToMock', () => {
   it('응답 있는 exchange를 목으로 복제(경로에서 쿼리 제거)', () => {
     const mock = exchangeToMock(makeExchange(), 'm1');
     expect(mock.id).toBe('m1');
     expect(mock.method).toBe('GET');
     expect(mock.path).toBe('/users'); // 쿼리 제거
+    expect(mock.host).toBe('api.example.com');
     expect(mock.response.status).toBe(200);
     expect(mock.response.body).toBe('[{"id":1}]');
     expect(mock.enabled).toBe(true);
@@ -74,8 +93,14 @@ describe('mockToSerializedRule', () => {
     expect(rule.priority).toBe(1);
     expect(rule.matchers).toEqual([
       { type: 'method', method: 0 },
+      { type: 'host', host: 'api.example.com' },
       { type: 'simple-path', path: '/users' }
     ]);
+  });
+
+  it('호스트가 비어 있는(호스트 도입 전) 목은 host matcher 없이 모든 호스트에 매칭', () => {
+    const rule = mockToSerializedRule({ ...exchangeToMock(makeExchange(), 'm1'), host: '' });
+    expect(rule.matchers.map((m) => m.type)).toEqual(['method', 'simple-path']);
     expect(rule.steps).toHaveLength(1);
     expect(rule.steps[0].type).toBe('simple');
     expect(rule.steps[0].status).toBe(200);

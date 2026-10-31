@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface MenuItem {
   label: string;
+  /** 모든 항목은 아이콘을 가진다(눈으로 훑을 때 동작을 구분하기 위해). */
+  icon: LucideIcon;
   onSelect: () => void;
   destructive?: boolean;
   disabled?: boolean;
@@ -112,7 +115,8 @@ export function useContextMenu(): {
             item.destructive && 'text-destructive'
           )}
         >
-          {item.label}
+          <item.icon aria-hidden className="mr-2 size-3.5 shrink-0" />
+          <span className="truncate">{item.label}</span>
         </button>
       ))}
     </div>

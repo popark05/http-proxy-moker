@@ -9,7 +9,7 @@ import type { AppMode } from '../state/app-mode';
 import type { SidebarSection } from '../components/layout/sidebar-sections';
 import type { Tab } from './workbench';
 
-export type CommandGroup = '열린 탭' | '이동' | '요청' | '목' | '시나리오' | '계약' | '세션' | '동작';
+export type CommandGroup = '열린 탭' | '이동' | '요청' | '목' | '시나리오' | '컬렉션' | '세션' | '동작';
 
 export interface Command {
   id: string;
@@ -44,7 +44,7 @@ export interface CommandInput {
     openScenario: (name: string | null) => void;
     activateScenario: (name: string) => void;
     openLibrary: () => void;
-    openContracts: () => void;
+    openCollection: () => void;
     loadSession: (name: string) => void;
     startProxy: () => void;
     stopProxy: () => void;
@@ -87,7 +87,7 @@ export function buildCommands(input: CommandInput): Command[] {
     },
     { id: 'go:mocks', group: '이동', label: '목 · 시나리오 열기', keywords: 'mock scenario', run: a.openMocks },
     { id: 'go:library', group: '이동', label: '케이스 라이브러리 열기', keywords: 'case library', run: a.openLibrary },
-    { id: 'go:contracts', group: '이동', label: '계약 테스트 열기', keywords: 'contract test', run: a.openContracts }
+    { id: 'go:collection', group: '이동', label: '컬렉션 열기', keywords: 'collection bruno request', run: a.openCollection }
   );
   if (input.library.endpoints.length > 0) {
     out.push({
@@ -134,7 +134,7 @@ export function buildCommands(input: CommandInput): Command[] {
     out.push({
       id: `mock:${m.id}`,
       group: '목',
-      label: `${m.method} ${m.path}`,
+      label: `${m.method} ${m.host}${m.path}`,
       hint: m.enabled ? undefined : '꺼짐',
       run: a.openMocks
     });
@@ -161,11 +161,11 @@ export function buildCommands(input: CommandInput): Command[] {
   for (const c of input.contracts) {
     out.push({
       id: `contract:${c.name}`,
-      group: '계약',
+      group: '컬렉션',
       label: c.name,
       keywords: c.endpointId,
       hint: c.endpointId,
-      run: a.openContracts
+      run: a.openCollection
     });
   }
 

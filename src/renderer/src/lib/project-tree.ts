@@ -9,9 +9,9 @@ export type GroupId = 'sessions' | 'mocks' | 'scenarios' | 'library' | 'contract
 
 export type TreeNode =
   | { kind: 'session'; key: string; label: string }
-  | { kind: 'mock'; key: string; label: string; method: string; path: string; enabled: boolean; hits: number }
+  | { kind: 'mock'; key: string; label: string; method: string; host: string; path: string; enabled: boolean; hits: number }
   | { kind: 'scenario'; key: string; label: string; active: boolean; dirty: boolean; base?: string }
-  | { kind: 'endpoint'; key: string; label: string; method: string; path: string; children: TreeNode[] }
+  | { kind: 'endpoint'; key: string; label: string; method: string; host: string; path: string; children: TreeNode[] }
   | { kind: 'case'; key: string; label: string }
   | { kind: 'contract'; key: string; label: string; method: string };
 
@@ -24,7 +24,7 @@ export interface TreeGroup {
 }
 
 export interface ProjectTreeInput {
-  /** 프로젝트가 열려 있을 때만 세션/시나리오/라이브러리/계약을 보여 준다. 목은 메모리 작업 공간이라 항상 보인다. */
+  /** 프로젝트가 열려 있을 때만 세션/시나리오/라이브러리/컬렉션을 보여 준다. 목은 메모리 작업 공간이라 항상 보인다. */
   hasProject: boolean;
   captureSessions: string[];
   mocks: MockDefinition[];
@@ -46,12 +46,13 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
   const keep = (...texts: string[]): boolean => !query || matches(query, ...texts);
 
   const mocks: TreeNode[] = input.mocks
-    .filter((m) => keep(m.label, m.method, m.path))
+    .filter((m) => keep(m.label, m.method, m.host, m.path))
     .map((m) => ({
       kind: 'mock',
       key: `mock:${m.id}`,
-      label: m.label || `${m.method} ${m.path}`,
+      label: m.label || `${m.method} ${m.host}${m.path}`,
       method: m.method,
+      host: m.host,
       path: m.path,
       enabled: m.enabled,
       hits: input.hitCounts[m.id] ?? 0
@@ -82,6 +83,7 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
       key: `endpoint:${ep.id}`,
       label: ep.id,
       method: ep.method,
+      host: ep.host,
       path: ep.path,
       children: cases.map((c) => ({ kind: 'case', key: `case:${ep.id}:${c.id}`, label: c.name }))
     });
@@ -95,7 +97,7 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
   groups.push(
     { id: 'scenarios', label: '시나리오', total: input.scenarios.length, children: scenarios },
     { id: 'library', label: '케이스 라이브러리', total: input.library.endpoints.length, children: endpoints },
-    { id: 'contracts', label: '계약', total: input.contracts.length, children: contracts }
+    { id: 'contracts', label: '컬렉션', total: input.contracts.length, children: contracts }
   );
   // 검색 중에는 결과가 없는 그룹을 숨겨 맞는 것만 보이게 한다.
   return groups.filter((g) => !query || g.children.length > 0);

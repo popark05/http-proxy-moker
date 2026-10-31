@@ -1,4 +1,4 @@
-import { Copy, FileCheck, Layers, List, Send } from 'lucide-react';
+import { Layers, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SelectionBarProps {
@@ -10,26 +10,18 @@ interface SelectionBarProps {
   checkedCount: number;
   onToggleAllShown: () => void;
   onClear: () => void;
-  onCloneChecked: () => void;
-  /** 선택한 요청을 계약으로 저장(프로젝트가 없으면 호출 쪽에서 안내). */
-  onSaveContracts?: () => void;
-  /** 선택한 요청을 Bruno 컬렉션으로 내보내기(프로젝트 없이도 가능). */
-  onExportBruno?: () => void;
   /** 목록 보기 방식: 호스트 그룹 / 시간순 평면. */
   view: 'group' | 'flat';
   onViewChange: (view: 'group' | 'flat') => void;
 }
 
-/** 트래픽 목록 위의 다중 선택 바: 보이는 항목 전체 선택 + 선택 항목 일괄 복제. */
+/** 트래픽 목록 위의 다중 선택 바: 보이는 항목 전체 선택과 해제. 선택한 항목에 대한 동작은 행 우클릭 메뉴에서 한다. */
 export function SelectionBar({
   shownCount,
   checkedShownCount,
   checkedCount,
   onToggleAllShown,
   onClear,
-  onCloneChecked,
-  onSaveContracts,
-  onExportBruno,
   view,
   onViewChange
 }: SelectionBarProps): JSX.Element | null {
@@ -56,19 +48,6 @@ export function SelectionBar({
             해제
           </Button>
           <div className="flex-1" />
-          {onExportBruno && (
-            <Button variant="outline" size="sm" onClick={onExportBruno}>
-              <Send /> Bruno로 내보내기
-            </Button>
-          )}
-          {onSaveContracts && (
-            <Button variant="outline" size="sm" onClick={onSaveContracts}>
-              <FileCheck /> 계약으로 저장
-            </Button>
-          )}
-          <Button size="sm" onClick={onCloneChecked}>
-            <Copy /> {checkedCount}개 목으로 복제
-          </Button>
         </>
       )}
       <div className={checkedCount > 0 ? '' : 'ml-auto'}>

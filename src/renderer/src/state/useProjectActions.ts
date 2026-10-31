@@ -15,9 +15,9 @@ interface Params {
 export function useProjectActions({ projectState, exchanges, replaceExchanges, onSessionLoaded }: Params) {
   const { createProject, openProject, saveCapture, loadCapture } = projectState;
 
-  const handleCreateProject = async (name: string): Promise<void> => {
+  const handleCreateProject = async (): Promise<void> => {
     try {
-      await createProject(name);
+      await createProject();
     } catch (e) {
       toast.error('프로젝트 생성 실패', { description: errMsg(e) });
     }

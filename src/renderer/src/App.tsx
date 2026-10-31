@@ -6,6 +6,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { TopBar } from './components/layout/TopBar';
 import { AppShell } from './components/layout/AppShell';
 import { Sidebar } from './components/layout/Sidebar';
+import { DevicePanel } from './components/device/DevicePanel';
+import { ProxyControls } from './components/traffic/ProxyControls';
 import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
 import { MockWorkspace } from './components/layout/MockWorkspace';
@@ -24,7 +26,7 @@ import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
 import { useContracts } from './state/useContracts';
-import { ContractModal } from './components/contract/ContractModal';
+import { CollectionView } from './components/collection/CollectionView';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
 import { useClients } from './state/useClients';
 import { clientLabel, countWithoutClientIp } from '@shared/clients';
@@ -40,6 +42,7 @@ import { useProjectActions } from './state/useProjectActions';
 import { useScenarioActions } from './state/useScenarioActions';
 import { useExchangeActions } from './state/useExchangeActions';
 import { toast } from 'sonner';
+import { newSessionName } from './lib/session-name';
 import { errMsg } from './lib/errors';
 
 function AppInner(): JSX.Element {
@@ -83,7 +86,7 @@ function AppInner(): JSX.Element {
   const openMocksTab = (): void => workbench.open({ kind: 'mocks' }, { pin: true });
   const openScenarioTab = (name: string | null): void => workbench.open({ kind: 'scenario', name }, { pin: true });
   const openLibraryTab = (): void => workbench.open({ kind: 'library' }, { pin: true });
-  const openContractsTab = (): void => workbench.open({ kind: 'contracts' }, { pin: true });
+  const openCollection = (): void => openSection('collection');
 
   const selected = exchanges.find((e) => e.id === selectedId);
 
@@ -147,15 +150,12 @@ function AppInner(): JSX.Element {
     mode
   });
   const exchangeActions = useExchangeActions({
-    exchanges,
-    checkedIds,
-    clearChecked: () => setCheckedIds(new Set()),
     mode,
     setMode,
     mocksState,
     contractState,
     project,
-    openContracts: openContractsTab
+    openCollection
   });
 
   const handleAddTag = (id: string, tag: string): void => {
@@ -188,9 +188,29 @@ function AppInner(): JSX.Element {
       view={trafficView}
       onViewChange={setTrafficView}
       clientPlatforms={clientPlatforms}
-      onCloneChecked={exchangeActions.cloneChecked}
-      onSaveContracts={() => void exchangeActions.saveContracts()}
-      onExportBruno={() => void exchangeActions.exportBruno()}
+      rowActions={{
+        cloneToMock: (targets) => exchangeActions.cloneExchanges(targets),
+        saveContracts: (targets) => void exchangeActions.saveContracts(targets),
+        exportBruno: (targets) => void exchangeActions.exportBruno(targets),
+        copy: (text, what) => {
+          void navigator.clipboard.writeText(text).then(
+            () => toast.success(`${what} 복사됨`),
+            () => toast.error(`${what} 복사 실패`)
+          );
+        }
+      }}
+      sessions={project?.captureSessions ?? []}
+      sessionActions={{
+        save: () => {
+          if (!project) {
+            toast.error('세션 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+            return;
+          }
+          void handleSaveCapture(newSessionName());
+        },
+        load: (name) => void handleLoadSession(name),
+        clear: clearCapture
+      }}
     />
   );
 
@@ -233,7 +253,7 @@ function AppInner(): JSX.Element {
       }}
       onRemoveMock={(id) => {
         const mock = mocks.find((m) => m.id === id);
-        if (mock && window.confirm(`"${mock.method} ${mock.path}" 목을 삭제할까요?`)) removeMock(id);
+        if (mock && window.confirm(`"${mock.method} ${mock.host}${mock.path}" 목을 삭제할까요?`)) removeMock(id);
       }}
       onActivateScenario={(name) => {
         scenarioActions.activateScenario(name);
@@ -246,38 +266,58 @@ function AppInner(): JSX.Element {
       onDeleteScenario={(name) => void scenarioActions.deleteScenario(name)}
       onUpdateActiveScenario={() => void scenarioActions.updateActiveScenario()}
       onOpenLibrary={openLibraryTab}
-      onOpenContracts={openContractsTab}
+      onOpenContracts={openCollection}
       onRemoveContract={(name) => {
-        if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
+        if (window.confirm(`"${name}" 요청을 컬렉션에서 삭제할까요?`)) void contractState.removeContract(name);
       }}
     />
   );
 
-  const sidebar = (
-    <Sidebar
-      section={section}
-      proxyProps={{
-        status,
-        busy: proxyBusy,
-        count: exchanges.length,
-        onStart: () => void handleStartProxy(),
-        onStop: () => void handleStopProxy(),
-        onClear: clearCapture
-      }}
-      deviceProps={{
-        clients,
-        now,
-        proxyRunning: status.running,
-        activeClientFilter: filter.client,
-        untrackedCount: countWithoutClientIp(exchanges),
-        onFilterClient: (ip) => {
+  const proxyProps = {
+    status,
+    busy: proxyBusy,
+    count: exchanges.length,
+    onStart: () => void handleStartProxy(),
+    onStop: () => void handleStopProxy(),
+    onClear: clearCapture
+  };
+
+  const sidebar = <Sidebar section={section} proxyProps={proxyProps} traffic={trafficPanel} projectTree={projectTree} />;
+
+  const connectView = (
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
+      <div className="overflow-hidden rounded-lg border border-border [&>div]:border-b-0">
+        <ProxyControls {...proxyProps} />
+      </div>
+      <DevicePanel
+        clients={clients}
+        now={now}
+        proxyRunning={status.running}
+        activeClientFilter={filter.client}
+        untrackedCount={countWithoutClientIp(exchanges)}
+        onFilterClient={(ip) => {
           patchFilter({ client: ip });
           // 기기를 골랐으면 그 기기의 트래픽을 바로 볼 수 있게 트래픽 섹션으로 돌아간다.
           openSection('traffic');
-        }
+        }}
+      />
+    </div>
+  );
+
+  const collectionView = (
+    <CollectionView
+      projectOpen={!!project}
+      projectName={project?.meta.name}
+      contracts={contractState.contracts}
+      servers={contractState.servers}
+      onCreate={contractState.createContract}
+      onSave={contractState.updateContract}
+      onRemove={(name) => {
+        if (window.confirm(`"${name}" 요청을 컬렉션에서 삭제할까요?`)) void contractState.removeContract(name);
       }}
-      traffic={trafficPanel}
-      projectTree={projectTree}
+      onImport={contractState.saveDrafts}
+      onUpsertServer={contractState.upsertServer}
+      onRemoveServer={(name) => void contractState.removeServer(name)}
     />
   );
 
@@ -290,8 +330,6 @@ function AppInner(): JSX.Element {
         return { label: target.name ?? '새 시나리오' };
       case 'library':
         return { label: '케이스 라이브러리' };
-      case 'contracts':
-        return { label: '계약 테스트' };
       case 'exchange': {
         const exchange = exchanges.find((e) => e.id === target.id);
         return exchange
@@ -407,26 +445,6 @@ function AppInner(): JSX.Element {
             onCommit={(next) => void scenarioLib.commit(next)}
           />
         );
-      case 'contracts':
-        return (
-          <ContractModal
-            variant="tab"
-            open
-            onOpenChange={(o) => {
-              if (!o) workbench.close(tab.key);
-            }}
-            contracts={contractState.contracts}
-            servers={contractState.servers}
-            onRemoveContract={(name) => {
-              if (window.confirm(`"${name}" 계약을 삭제할까요?`)) void contractState.removeContract(name);
-            }}
-            onUpdateContract={(c) => void contractState.updateContract(c)}
-            onImportContracts={contractState.saveDrafts}
-            projectName={project?.meta.name}
-            onUpsertServer={contractState.upsertServer}
-            onRemoveServer={(name) => void contractState.removeServer(name)}
-          />
-        );
     }
   };
 
@@ -470,7 +488,7 @@ function AppInner(): JSX.Element {
             openMocksTab();
           },
           openLibrary: openLibraryTab,
-          openContracts: openContractsTab,
+          openCollection,
           loadSession: loadSessionConfirmed,
           startProxy: () => void handleStartProxy(),
           stopProxy: () => void handleStopProxy(),
@@ -535,13 +553,8 @@ function AppInner(): JSX.Element {
       <TopBar />
       <ProjectBar
         project={project}
-        exchanges={exchanges}
-        onCreate={(name) => void handleCreateProject(name)}
+        onCreate={() => void handleCreateProject()}
         onOpen={() => void handleOpenProject()}
-        onSave={(name) => void handleSaveCapture(name)}
-        onLoadSession={(name) => void handleLoadSession(name)}
-        onOpenContracts={openContractsTab}
-        contractCount={contractState.contracts.length}
       />
 
       <AppShell
@@ -550,6 +563,8 @@ function AppInner(): JSX.Element {
         onToggleSection={toggleSection}
         sidebar={sidebar}
         workspace={workspace}
+        connectView={connectView}
+        collectionView={collectionView}
       />
       <StatusBar
         proxy={status}

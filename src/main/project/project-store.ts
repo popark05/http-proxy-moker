@@ -34,16 +34,18 @@ function sanitizeName(name: string): string {
   return cleaned || 'untitled';
 }
 
+const LEGACY_DEFAULT_NAMES = new Set(['QA Project', 'Untitled']);
+
 /**
  * 프로젝트 디렉토리 기반 저장소.
  * project.json / captures/ / scenarios/ 구조를 읽고 쓴다.
  */
 export class ProjectStore {
-  /** 새 프로젝트를 생성(디렉토리 초기화 + project.json). */
-  async create(dir: string, name: string): Promise<OpenProject> {
+  /** 새 프로젝트를 생성(디렉토리 초기화 + project.json). 이름을 안 주면 폴더 이름을 쓴다. */
+  async create(dir: string, name?: string): Promise<OpenProject> {
     const meta: ProjectMeta = {
       version: 1,
-      name,
+      name: name?.trim() || path.basename(dir),
       proxyPort: DEFAULT_PROXY_PORT,
       targetHosts: [],
       createdAt: Date.now()
@@ -57,7 +59,10 @@ export class ProjectStore {
   /** 기존 프로젝트를 연다. project.json이 없으면 예외. */
   async open(dir: string): Promise<OpenProject> {
     const metaRaw = await fs.readFile(path.join(dir, PROJECT_FILE), 'utf-8');
-    const meta = JSON.parse(metaRaw) as ProjectMeta;
+    const parsed = JSON.parse(metaRaw) as ProjectMeta;
+    // 예전 버전은 새 프로젝트를 항상 "QA Project"/"Untitled"로 만들었다. 이름을 고른 적이 없는 값이라 폴더 이름으로 대신 보여 준다.
+    const meta: ProjectMeta =
+      LEGACY_DEFAULT_NAMES.has(parsed.name) || !parsed.name?.trim() ? { ...parsed, name: path.basename(dir) } : parsed;
     const captureSessions = await this.listNames(path.join(dir, CAPTURES_DIR), '.har.json');
     const scenarios = await this.listNames(path.join(dir, SCENARIOS_DIR), '.json');
     return { dir, meta, captureSessions, scenarios };
@@ -76,11 +81,7 @@ export class ProjectStore {
   }
 
   /** 캡처 세션을 HAR 파일로 저장. */
-  async saveCaptureSession(
-    dir: string,
-    name: string,
-    exchanges: CapturedExchange[]
-  ): Promise<string> {
+  async saveCaptureSession(dir: string, name: string, exchanges: CapturedExchange[]): Promise<string> {
     const safe = sanitizeName(name);
     const filePath = path.join(dir, CAPTURES_DIR, `${safe}.har.json`);
     const har = exchangesToHar(exchanges);

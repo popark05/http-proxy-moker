@@ -87,6 +87,8 @@ export function MockEditor({
   const updateResponse = (patch: Partial<MockDefinition['response']>): void =>
     setDraft({ ...draft, response: { ...draft.response, ...patch } });
 
+  // 호스트 도입 전 파일에서 온 목은 비어 있다. 라이브러리 케이스(lockEndpoint)는 엔드포인트 쪽에서 고치므로 검사하지 않는다.
+  const hostValid = lockEndpoint || /^[^\s/?#@]+$/.test(draft.host);
   const hasFault = !!draft.fault && draft.fault !== 'none';
   const isBinary = draft.response.bodyEncoding === 'base64';
   const contentTypeHeader = draft.response.headers.find(([k]) => k.toLowerCase() === 'content-type')?.[1];
@@ -149,6 +151,24 @@ export function MockEditor({
           disabled={lockEndpoint}
           onChange={(e) => update({ method: e.target.value.toUpperCase() })}
         />
+
+        <Label htmlFor="mock-host" className="text-muted-foreground">
+          호스트
+        </Label>
+        <Input
+          id="mock-host"
+          className="font-mono"
+          placeholder="api.example.com"
+          value={draft.host}
+          disabled={lockEndpoint}
+          aria-invalid={!hostValid}
+          onChange={(e) => update({ host: e.target.value.trim().toLowerCase() })}
+        />
+        {!hostValid && (
+          <p role="alert" className="col-start-2 -mt-1 text-xs text-destructive">
+            호스트는 필수입니다. 예: api.example.com 또는 localhost:8080 (프로토콜·경로 없이)
+          </p>
+        )}
 
         <Label htmlFor="mock-path" className="text-muted-foreground">
           경로
@@ -300,6 +320,7 @@ export function MockEditor({
         </Button>
         <Button
           size="sm"
+          disabled={!hostValid}
           onClick={() => {
             // 저장 시에도 JSON이면 pretty-print해 포맷을 일관되게 유지.
             onSave({

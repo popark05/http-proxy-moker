@@ -21,6 +21,8 @@ export interface UseContractsResult {
   /** 만들어 둔 계약(가져오기 등)을 저장. 같은 요청이면 합친다. */
   saveDrafts: (drafts: Contract[]) => Promise<{ saved: number; merged: number }>;
   saveFromExchanges: (exchanges: CapturedExchange[]) => Promise<{ saved: number; merged: number; skipped: number }>;
+  /** 컬렉션에 새 요청을 추가한다(같은 요청이어도 합치지 않는다). 저장된 이름을 돌려준다. */
+  createContract: (contract: Contract) => Promise<string>;
   /** 편집한 계약을 같은 이름으로 저장. */
   updateContract: (contract: Contract) => Promise<void>;
   removeContract: (name: string) => Promise<void>;
@@ -93,6 +95,16 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
     [saveDrafts]
   );
 
+  const createContract = useCallback(
+    async (contract: Contract) => {
+      const name = uniqueContractName(contracts.map((c) => c.name), contract.name);
+      const savedName = await window.mokerApi.project.saveContract({ ...contract, name });
+      setContracts((prev) => [...prev, { ...contract, name: savedName }]);
+      return savedName;
+    },
+    [contracts]
+  );
+
   const updateContract = useCallback(async (contract: Contract) => {
     await window.mokerApi.project.saveContract(contract);
     setContracts((prev) => prev.map((c) => (c.name === contract.name ? contract : c)));
@@ -125,5 +137,5 @@ export function useContracts(projectDir: string | undefined): UseContractsResult
     [servers]
   );
 
-  return { contracts, servers, saveDrafts, saveFromExchanges, updateContract, removeContract, upsertServer, removeServer };
+  return { contracts, servers, saveDrafts, saveFromExchanges, createContract, updateContract, removeContract, upsertServer, removeServer };
 }

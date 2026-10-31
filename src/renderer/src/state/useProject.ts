@@ -4,7 +4,7 @@ import type { CapturedExchange } from '@shared/capture';
 
 interface UseProjectResult {
   project: OpenProject | undefined;
-  createProject: (name: string) => Promise<void>;
+  createProject: () => Promise<void>;
   openProject: () => Promise<void>;
   saveCapture: (name: string, exchanges: CapturedExchange[]) => Promise<void>;
   loadCapture: (name: string) => Promise<CapturedExchange[]>;
@@ -14,8 +14,8 @@ interface UseProjectResult {
 export function useProject(): UseProjectResult {
   const [project, setProject] = useState<OpenProject | undefined>(undefined);
 
-  const createProject = useCallback(async (name: string) => {
-    const result = await window.mokerApi.project.create(name);
+  const createProject = useCallback(async () => {
+    const result = await window.mokerApi.project.create();
     if (result) setProject(result);
   }, []);
 

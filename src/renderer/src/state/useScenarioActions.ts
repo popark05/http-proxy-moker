@@ -74,7 +74,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
     try {
       const { created, caseName } = await scenarioLib.saveMockAsCase(mock);
       toast.success(created ? '케이스로 저장됨' : '케이스에 반영됨', {
-        description: `${mock.method} ${mock.path} · ${caseName}`
+        description: `${mock.method} ${mock.host}${mock.path} · ${caseName}`
       });
     } catch (e) {
       toast.error('케이스 저장 실패', { description: errMsg(e) });

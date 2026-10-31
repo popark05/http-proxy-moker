@@ -114,7 +114,7 @@ export function MockPanel({
           compact
           icon={FileJson}
           title="목 정의가 없습니다"
-          description='왼쪽 트래픽에서 응답을 고른 뒤 "목으로 복제"를 누르면 여기에 추가됩니다.'
+          description='왼쪽 트래픽에서 요청을 우클릭해 "목으로 복제"를 고르면 여기에 추가됩니다.'
         />
       ) : (
         mocks.map((mock) => (
@@ -166,7 +166,8 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSave
       className="flex items-center gap-2 rounded-md border border-border p-2"
     >
       <Badge variant={methodTone(mock.method)}>{mock.method}</Badge>
-      <span className="min-w-0 flex-1 truncate font-mono text-sm" title={mock.path}>
+      <span className="min-w-0 flex-1 truncate font-mono text-sm" title={`${mock.host}${mock.path}`}>
+        {mock.host && <span className="text-muted-foreground">{mock.host}</span>}
         {mock.path}
       </span>
       {caseName && (

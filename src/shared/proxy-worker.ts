@@ -10,7 +10,7 @@
 
 import type { CaptureEvent, ProxyStatus } from './capture';
 import type { MockDefinition, UnmatchedPolicy } from './mock';
-import type { Contract, ContractRunOptions, ContractRunResult } from './contract';
+import type { Contract, ContractRunOptions, ContractRunResult, SendOutcome } from './contract';
 
 /** main → worker 명령. requestId로 응답을 매칭한다. */
 export type WorkerCommand =
@@ -25,12 +25,14 @@ export type WorkerCommand =
     }
   | { kind: 'clearMocks'; requestId: number }
   /** 계약을 실제 서버로 실행(프록시 실행 여부와 무관). 결과는 contract-result 스트림 + 최종 result(results). */
-  | { kind: 'runContracts'; requestId: number; contracts: Contract[]; options: ContractRunOptions };
+  | { kind: 'runContracts'; requestId: number; contracts: Contract[]; options: ContractRunOptions }
+  /** 요청 하나를 실제 서버로 보내고 응답을 그대로 돌려준다(컬렉션의 Send). 최종 result(sent). */
+  | { kind: 'sendRequest'; requestId: number; contract: Contract; options: ContractRunOptions };
 
 /** worker → main 메시지. */
 export type WorkerMessage =
   /** 명령 성공 응답. result는 명령에 따라 ProxyStatus 또는 void. */
-  | { kind: 'result'; requestId: number; ok: true; status?: ProxyStatus; results?: ContractRunResult[] }
+  | { kind: 'result'; requestId: number; ok: true; status?: ProxyStatus; results?: ContractRunResult[]; sent?: SendOutcome }
   /** 계약 하나의 실행이 끝날 때마다(진행 표시용). */
   | { kind: 'contract-result'; requestId: number; result: ContractRunResult }
   /** 명령 실패 응답. */

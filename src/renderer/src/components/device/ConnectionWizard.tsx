@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ConnectionScene } from './ConnectionScene';
 
-type WizardPlatformTab = 'android-usb' | 'android-wifi' | 'ios-wifi';
+export type WizardPlatformTab = 'android-usb' | 'android-wifi' | 'ios-wifi';
 type AndroidWifiVariant = 'adb' | 'manual';
 
 export interface ConnectionWizardProps {
@@ -53,20 +53,24 @@ function StatusDot({ status, index }: { status: StepStatus; index: number }): JS
   );
 }
 
-/** 기기 연결 마법사: 탭별 단계를 앱의 실제 상태로 자동 체크하며 안내한다. */
-export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb', input }: ConnectionWizardProps): JSX.Element {
-  const [tab, setTab] = useState<WizardPlatformTab>(initialTab);
+type GuideTab = WizardPlatformTab;
+
+export interface ConnectionGuideProps {
+  /** 안내를 켜 둘 때만 프록시 주소를 조회한다(모달이 닫혀 있으면 false). */
+  active: boolean;
+  tab: GuideTab;
+  onTabChange: (tab: GuideTab) => void;
+  input: Omit<WizardInput, 'proxyAddress'>;
+}
+
+/** 탭별 단계를 앱의 실제 상태로 자동 체크하며 보여 주는 안내와 연결 그림. 모달과 전체 화면에서 같이 쓴다. */
+export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionGuideProps): JSX.Element {
   const [variant, setVariant] = useState<AndroidWifiVariant>('adb');
   const [proxyAddress, setProxyAddress] = useState<string | undefined>();
 
-  // 열 때마다 요청된 탭으로 맞춘다.
-  useEffect(() => {
-    if (open) setTab(initialTab);
-  }, [open, initialTab]);
-
   // 기기가 접속할 프록시 주소(host:port)는 iOS 셋업 안내의 "프록시 수동 설정" 단계 값을 재사용한다.
   useEffect(() => {
-    if (!open) return;
+    if (!active) return;
     let cancelled = false;
     void window.mokerApi.device
       .setupInstructions('ios')
@@ -77,7 +81,7 @@ export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb
     return () => {
       cancelled = true;
     };
-  }, [open, input.proxyRunning]);
+  }, [active, input.proxyRunning]);
 
   const wizardTab = toWizardTab(tab, variant);
   const steps = useMemo(
@@ -87,8 +91,8 @@ export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb
   const doneCount = steps.filter((s) => s.status === 'done').length;
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="기기 연결 가이드" className="max-w-4xl">
-      <Tabs value={tab} onValueChange={(v) => setTab(v as WizardPlatformTab)}>
+    <>
+      <Tabs value={tab} onValueChange={(v) => onTabChange(v as GuideTab)}>
         <TabsList>
           <TabsTrigger value="android-usb">Android · USB</TabsTrigger>
           <TabsTrigger value="android-wifi">Android · Wi-Fi</TabsTrigger>
@@ -155,7 +159,22 @@ export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb
 
         <ConnectionScene tab={wizardTab} steps={steps} />
       </div>
+    </>
+  );
+}
 
+/** 기기 연결 마법사(모달). 전체 화면 안내는 ConnectionGuide를 직접 쓴다. */
+export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb', input }: ConnectionWizardProps): JSX.Element {
+  const [tab, setTab] = useState<WizardPlatformTab>(initialTab);
+
+  // 열 때마다 요청된 탭으로 맞춘다.
+  useEffect(() => {
+    if (open) setTab(initialTab);
+  }, [open, initialTab]);
+
+  return (
+    <Modal open={open} onOpenChange={onOpenChange} title="기기 연결 가이드" className="max-w-4xl">
+      <ConnectionGuide active={open} tab={tab} onTabChange={setTab} input={input} />
       <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
           닫기
