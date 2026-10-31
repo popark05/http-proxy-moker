@@ -9,11 +9,11 @@
 export type TabTarget =
   /** 캡처된 요청·응답 상세. */
   | { kind: 'exchange'; id: string }
-  /** 목 정의 + 시나리오 작업 공간(하나뿐). */
+  /** 목 정의 + 시나리오 현재 목(하나뿐). */
   | { kind: 'mocks' }
   /** 시나리오 편집. name이 null이면 새 시나리오. */
   | { kind: 'scenario'; name: string | null }
-  /** 케이스 라이브러리 관리(하나뿐). */
+  /** 응답 케이스 관리(하나뿐). */
   | { kind: 'library' };
 
 export type TabKind = TabTarget['kind'];

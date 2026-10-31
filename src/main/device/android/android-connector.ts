@@ -180,7 +180,7 @@ export class AndroidConnector implements DeviceConnector {
       // 프록시가 없으면 companion이 신뢰 검증에 실패해 무조건 disconnected가 된다.
       // 인텐트를 보내지 않고 명확한 안내만 반환한다.
       warnings.push(
-        '프록시가 실행 중이 아닙니다. 먼저 "프록시 시작"을 누른 뒤 다시 인터셉트하세요. (companion 앱은 프록시 엔드포인트로 신뢰를 검증합니다)'
+        '프록시가 실행 중이 아닙니다. 하단 상태바의 프록시에서 켠 뒤 다시 인터셉트하세요. (companion 앱은 프록시 엔드포인트로 신뢰를 검증합니다)'
       );
       return { deviceId, proxyConfigured: false, caInstalled: false, warnings, usedMode: 'vpn' };
     }

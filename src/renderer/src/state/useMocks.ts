@@ -11,7 +11,7 @@ interface UseMocksResult {
   cloneMany: (exchanges: CapturedExchange[]) => { added: number; skipped: number };
   updateMock: (mock: MockDefinition) => void;
   removeMock: (id: string) => void;
-  /** 작업 공간의 목 목록을 통째로 교체(시나리오 활성화). */
+  /** 현재 목의 목 목록을 통째로 교체(시나리오 활성화). */
   replaceMocks: (mocks: MockDefinition[]) => void;
 }
 

@@ -1,6 +1,5 @@
 import { toast } from 'sonner';
 import type { CapturedExchange } from '@shared/capture';
-import { contractsFromExchanges } from '@shared/contract';
 import { errMsg } from '../lib/errors';
 import type { AppMode } from './app-mode';
 import type { UseContractsResult } from './useContracts';
@@ -16,7 +15,7 @@ interface Params {
   openCollection: () => void;
 }
 
-/** 캡처된 요청(들)을 목·컬렉션·Bruno 컬렉션 파일로 보내는 동작과 결과 토스트. */
+/** 캡처된 요청(들)을 목·컬렉션으로 보내는 동작과 결과 토스트. */
 export function useExchangeActions({
   mode,
   setMode,
@@ -69,28 +68,6 @@ export function useExchangeActions({
     }
   };
 
-  /** 요청들을 Bruno 컬렉션으로 바로 내보낸다(프로젝트 없이도 가능). 기존 컬렉션 폴더를 고르면 거기에 추가한다. */
-  const exportBruno = async (targets: CapturedExchange[]): Promise<void> => {
-    const { contracts, skipped } = contractsFromExchanges(targets, () => `br-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
-    if (contracts.length === 0) {
-      toast.info('내보낼 요청이 없습니다', { description: '응답이 있는 요청을 선택하세요' });
-      return;
-    }
-    try {
-      const out = await window.mokerApi.contract.exportBruno(project?.meta.name ?? 'EverMock', contracts, contractState.servers);
-      if (!out) return;
-      const notes = [
-        out.existing > 0 ? `이미 있는 ${out.existing}개는 건너뜀` : '',
-        skipped > 0 ? `응답 없는 ${skipped}개 제외` : ''
-      ].filter(Boolean);
-      toast.success(out.merged ? `기존 Bruno 컬렉션에 ${out.added}개 추가` : `Bruno 컬렉션 만듦 (${out.added}개 요청)`, {
-        description: [out.dir, ...notes].join(' · ')
-      });
-    } catch (e) {
-      toast.error('Bruno 내보내기 실패', { description: errMsg(e) });
-    }
-  };
-
   /** 요청 하나를 목으로 복제. */
   const cloneToMock = (exchange: CapturedExchange): void => {
     mocksState.cloneFromExchange(exchange);
@@ -106,5 +83,5 @@ export function useExchangeActions({
     }
   };
 
-  return { cloneExchanges, saveContracts, exportBruno, cloneToMock };
+  return { cloneExchanges, saveContracts, cloneToMock };
 }

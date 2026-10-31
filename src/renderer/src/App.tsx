@@ -7,7 +7,7 @@ import { TopBar } from './components/layout/TopBar';
 import { AppShell } from './components/layout/AppShell';
 import { Sidebar } from './components/layout/Sidebar';
 import { DevicePanel } from './components/device/DevicePanel';
-import { ProxyControls } from './components/traffic/ProxyControls';
+import { ProxyPanel } from './components/layout/ProxyPanel';
 import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
 import { MockWorkspace } from './components/layout/MockWorkspace';
@@ -19,7 +19,7 @@ import { buildCommands } from './lib/commands';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from './components/common/EmptyState';
 import type { ScenarioV2 } from '@shared/scenario-library';
-import { FlaskConical, Layers, Play, Smartphone } from 'lucide-react';
+import { FlaskConical, Layers, Smartphone } from 'lucide-react';
 import { useWorkbench } from './state/useWorkbench';
 import type { Tab } from './lib/workbench';
 import { useCapture } from './state/useCapture';
@@ -46,8 +46,9 @@ import { newSessionName } from './lib/session-name';
 import { errMsg } from './lib/errors';
 
 function AppInner(): JSX.Element {
-  const { exchanges, tlsErrors, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
+  const { exchanges, tlsErrors, status, paused, setPaused, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
     useCapture();
+  const [proxyPanelOpen, setProxyPanelOpen] = useState(false);
   const projectState = useProject();
   const { project } = projectState;
   const mocksState = useMocks();
@@ -111,11 +112,11 @@ function AppInner(): JSX.Element {
     closeExchangeTabs();
   };
 
-  /** 세션을 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다. */
+  /** 저장된 캡처를 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다. */
   const loadSessionConfirmed = (name: string): void => {
     if (
       exchanges.length > 0 &&
-      !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
+      !window.confirm(`"${name}" 저장된 캡처를 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
     )
       return;
     void handleLoadSession(name);
@@ -127,7 +128,7 @@ function AppInner(): JSX.Element {
     if (activeKey?.startsWith('exchange:')) setSelectedId(activeKey.slice('exchange:'.length));
   }, [activeKey]);
 
-  const { proxyBusy, handleStartProxy, handleStopProxy } = useProxyActions({
+  const { proxyBusy, ensureProxy, handleStopProxy, restartProxy } = useProxyActions({
     status,
     startProxy,
     stopProxy,
@@ -191,7 +192,6 @@ function AppInner(): JSX.Element {
       rowActions={{
         cloneToMock: (targets) => exchangeActions.cloneExchanges(targets),
         saveContracts: (targets) => void exchangeActions.saveContracts(targets),
-        exportBruno: (targets) => void exchangeActions.exportBruno(targets),
         copy: (text, what) => {
           void navigator.clipboard.writeText(text).then(
             () => toast.success(`${what} 복사됨`),
@@ -203,7 +203,7 @@ function AppInner(): JSX.Element {
       sessionActions={{
         save: () => {
           if (!project) {
-            toast.error('세션 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+            toast.error('캡처 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
             return;
           }
           void handleSaveCapture(newSessionName());
@@ -223,8 +223,7 @@ function AppInner(): JSX.Element {
       scenarios: scenarioLib.scenarios,
       activeScenario,
       scenarioDirty: !!scenarioLib.diff?.dirty,
-      library: scenarioLib.library,
-      contracts: contractState.contracts
+      library: scenarioLib.library
     }),
     [
       project,
@@ -233,8 +232,7 @@ function AppInner(): JSX.Element {
       scenarioLib.scenarios,
       activeScenario,
       scenarioLib.diff?.dirty,
-      scenarioLib.library,
-      contractState.contracts
+      scenarioLib.library
     ]
   );
 
@@ -266,30 +264,22 @@ function AppInner(): JSX.Element {
       onDeleteScenario={(name) => void scenarioActions.deleteScenario(name)}
       onUpdateActiveScenario={() => void scenarioActions.updateActiveScenario()}
       onOpenLibrary={openLibraryTab}
-      onOpenContracts={openCollection}
-      onRemoveContract={(name) => {
-        if (window.confirm(`"${name}" 요청을 컬렉션에서 삭제할까요?`)) void contractState.removeContract(name);
-      }}
     />
   );
 
-  const proxyProps = {
-    status,
-    busy: proxyBusy,
+  const captureProps = {
+    paused,
+    onTogglePaused: () => setPaused(!paused),
     count: exchanges.length,
-    onStart: () => void handleStartProxy(),
-    onStop: () => void handleStopProxy(),
     onClear: clearCapture
   };
 
-  const sidebar = <Sidebar section={section} proxyProps={proxyProps} traffic={trafficPanel} projectTree={projectTree} />;
+  const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} projectTree={projectTree} />;
 
   const connectView = (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
-      <div className="overflow-hidden rounded-lg border border-border [&>div]:border-b-0">
-        <ProxyControls {...proxyProps} />
-      </div>
       <DevicePanel
+        ensureProxy={async () => !!(await ensureProxy())?.running}
         clients={clients}
         now={now}
         proxyRunning={status.running}
@@ -329,7 +319,7 @@ function AppInner(): JSX.Element {
       case 'scenario':
         return { label: target.name ?? '새 시나리오' };
       case 'library':
-        return { label: '케이스 라이브러리' };
+        return { label: '응답 케이스' };
       case 'exchange': {
         const exchange = exchanges.find((e) => e.id === target.id);
         return exchange
@@ -346,7 +336,7 @@ function AppInner(): JSX.Element {
       .then((saved) => {
         toast.success('시나리오 저장됨', { description: saved });
         if (workspaceEdited) {
-          toast.info('작업 공간에는 아직 반영되지 않았습니다', {
+          toast.info('현재 목에는 아직 반영되지 않았습니다', {
             description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
           });
         }
@@ -490,7 +480,7 @@ function AppInner(): JSX.Element {
           openLibrary: openLibraryTab,
           openCollection,
           loadSession: loadSessionConfirmed,
-          startProxy: () => void handleStartProxy(),
+          startProxy: () => void ensureProxy(),
           stopProxy: () => void handleStopProxy(),
           setMode,
           closeActiveTab: () => {
@@ -510,10 +500,10 @@ function AppInner(): JSX.Element {
   );
   const emptyState: { description: string; action: JSX.Element } = !status.running
     ? {
-        description: '프록시를 시작하면 기기에서 오는 요청이 왼쪽 목록에 쌓이고, 선택하면 여기에 상세가 열립니다.',
+        description: '기기를 연결하면 프록시가 자동으로 켜지고, 앱의 요청이 왼쪽 목록에 쌓입니다. 선택하면 여기에 상세가 열립니다.',
         action: (
-          <Button size="sm" disabled={!!proxyBusy} onClick={() => void handleStartProxy()}>
-            <Play className="fill-current" /> 프록시 시작
+          <Button size="sm" onClick={() => openSection('connect')}>
+            <Smartphone /> 기기 연결 보기
           </Button>
         )
       }
@@ -568,6 +558,8 @@ function AppInner(): JSX.Element {
       />
       <StatusBar
         proxy={status}
+        proxyBusy={proxyBusy}
+        onOpenProxy={() => setProxyPanelOpen(true)}
         mode={mode}
         clientCount={clients.length}
         activeMockCount={mocks.filter((m) => m.enabled).length}
@@ -577,6 +569,15 @@ function AppInner(): JSX.Element {
         onOpenConnect={() => openSection('connect')}
       />
 
+      <ProxyPanel
+        open={proxyPanelOpen}
+        onOpenChange={setProxyPanelOpen}
+        status={status}
+        busy={proxyBusy}
+        onStart={(port) => void ensureProxy(port)}
+        onStop={() => void handleStopProxy()}
+        onRestart={(port) => void restartProxy(port)}
+      />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
       <Toaster />
       <SplashScreen />

@@ -53,14 +53,14 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
       {untrackedCount > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           접속 기기를 알 수 없는 요청 {untrackedCount}건이 있습니다(앱 업데이트 전에 시작한 프록시나 불러온 세션).
-          프록시를 <strong className="font-medium">중지 후 다시 시작</strong>하면 이후 요청부터 기기가 표시됩니다.
+          하단 상태바의 프록시에서 <strong className="font-medium">다시 시작</strong>하면 이후 요청부터 기기가 표시됩니다.
         </p>
       )}
       {clients.length === 0 ? (
         <p className="text-xs leading-relaxed text-muted-foreground">
           {proxyRunning
             ? '아직 프록시에 접속한 기기가 없습니다. 기기의 Wi-Fi 프록시를 이 PC 주소로 설정하면 여기에 나타납니다.'
-            : '프록시를 시작하면 접속하는 기기가 여기에 나타납니다.'}
+            : '기기를 인터셉트하면(프록시는 자동으로 켜집니다) 접속하는 기기가 여기에 나타납니다.'}
         </p>
       ) : (
         sorted.map((c) => {

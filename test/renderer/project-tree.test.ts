@@ -3,7 +3,6 @@ import { buildProjectTree } from '../../src/renderer/src/lib/project-tree';
 import type { ProjectTreeInput } from '../../src/renderer/src/lib/project-tree';
 import type { MockDefinition } from '../../src/shared/mock';
 import type { ScenarioV2 } from '../../src/shared/scenario-library';
-import type { Contract } from '../../src/shared/contract';
 
 const mock = (id: string, method: string, path: string, enabled = true): MockDefinition => ({
   id,
@@ -16,9 +15,6 @@ const mock = (id: string, method: string, path: string, enabled = true): MockDef
 });
 
 const scenario = (name: string, base?: string): ScenarioV2 => ({ version: 2, id: name, name, base, picks: [] });
-
-const contract = (name: string, method: string): Contract =>
-  ({ name, endpointId: `${method} /x`, request: { method } }) as unknown as Contract;
 
 const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
   hasProject: true,
@@ -43,22 +39,20 @@ const base = (over: Partial<ProjectTreeInput> = {}): ProjectTreeInput => ({
       }
     ]
   },
-  contracts: [contract('users', 'GET')],
   ...over
 });
 
 describe('buildProjectTree', () => {
-  it('프로젝트가 열려 있으면 다섯 그룹을 순서대로 만든다', () => {
+  it('프로젝트가 열려 있으면 네 그룹을 순서대로 만든다', () => {
     expect(buildProjectTree(base()).map((g) => [g.id, g.children.length])).toEqual([
       ['sessions', 2],
       ['mocks', 2],
       ['scenarios', 2],
-      ['library', 1],
-      ['contracts', 1]
+      ['library', 1]
     ]);
   });
 
-  it('프로젝트가 없으면 메모리 작업 공간인 목만 보여 준다', () => {
+  it('프로젝트가 없으면 메모리 현재 목인 목만 보여 준다', () => {
     expect(buildProjectTree(base({ hasProject: false })).map((g) => g.id)).toEqual(['mocks']);
   });
 

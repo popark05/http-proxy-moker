@@ -9,7 +9,7 @@ import type { AppMode } from '../state/app-mode';
 import type { SidebarSection } from '../components/layout/sidebar-sections';
 import type { Tab } from './workbench';
 
-export type CommandGroup = '열린 탭' | '이동' | '요청' | '목' | '시나리오' | '컬렉션' | '세션' | '동작';
+export type CommandGroup = '열린 탭' | '이동' | '요청' | '목' | '시나리오' | '컬렉션' | '저장된 캡처' | '동작';
 
 export interface Command {
   id: string;
@@ -86,7 +86,7 @@ export function buildCommands(input: CommandInput): Command[] {
       run: () => a.openSection('connect')
     },
     { id: 'go:mocks', group: '이동', label: '목 · 시나리오 열기', keywords: 'mock scenario', run: a.openMocks },
-    { id: 'go:library', group: '이동', label: '케이스 라이브러리 열기', keywords: 'case library', run: a.openLibrary },
+    { id: 'go:library', group: '이동', label: '응답 케이스 열기', keywords: 'case library', run: a.openLibrary },
     { id: 'go:collection', group: '이동', label: '컬렉션 열기', keywords: 'collection bruno request', run: a.openCollection }
   );
   if (input.library.endpoints.length > 0) {
@@ -173,8 +173,8 @@ export function buildCommands(input: CommandInput): Command[] {
     for (const name of input.captureSessions) {
       out.push({
         id: `session:${name}`,
-        group: '세션',
-        label: `세션 불러오기: ${name}`,
+        group: '저장된 캡처',
+        label: `저장된 캡처 불러오기: ${name}`,
         keywords: name,
         run: () => a.loadSession(name)
       });

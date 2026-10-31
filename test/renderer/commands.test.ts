@@ -47,7 +47,7 @@ describe('커맨드 팔레트 모델', () => {
   it('새 시나리오는 라이브러리에 케이스가 있을 때만, 세션은 프로젝트가 있을 때만 만든다', () => {
     const none = labels(buildCommands(input({ hasProject: false })));
     expect(none).not.toContain('새 시나리오 만들기');
-    expect(none).not.toContain('세션 불러오기: 세션1');
+    expect(none).not.toContain('저장된 캡처 불러오기: 세션1');
     const some = labels(
       buildCommands(input({ library: { version: 2, endpoints: [{ id: 'GET /x', method: 'GET', host: '', path: '/x', cases: [] }] } }))
     );

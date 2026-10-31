@@ -147,7 +147,7 @@ describe('케이스 수정/삭제', () => {
   });
 });
 
-describe('작업 공간 ↔ 시나리오', () => {
+describe('현재 목 ↔ 시나리오', () => {
   it('scenarioFromWorkspace: 케이스를 라이브러리에 저장하고 참조로 만든다(꺼진 목 제외, 같은 내용은 합침)', () => {
     const ws = [mock('GET', '/a'), mock('GET', '/b'), mock('GET', '/c', 200, 'x', { enabled: false })];
     const first = scenarioFromWorkspace(ws, EMPTY_LIBRARY, { id: 's1', name: '첫째' });
@@ -187,7 +187,7 @@ describe('작업 공간 ↔ 시나리오', () => {
 });
 
 describe('scenarioFromWorkspace with base', () => {
-  it('베이스와 다른 선택만 덮어쓰기로 저장하고, 작업 공간에 없는 상속 엔드포인트는 null로 끈다', () => {
+  it('베이스와 다른 선택만 덮어쓰기로 저장하고, 현재 목에 없는 상속 엔드포인트는 null로 끈다', () => {
     const baseWs = [mock('GET', '/feed'), mock('POST', '/pay'), mock('POST', '/login')];
     const b = scenarioFromWorkspace(baseWs, EMPTY_LIBRARY, { id: 'b', name: '정상' });
     const ws = [mock('GET', '/feed'), mock('POST', '/pay', 500, '{"e":1}')]; // /login 없음

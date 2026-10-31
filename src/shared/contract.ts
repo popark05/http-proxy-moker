@@ -420,54 +420,6 @@ export function exchangeToContract(exchange: CapturedExchange, id: string): Cont
   };
 }
 
-// ---------- 응답 검증 ----------
-
-export interface ActualResponse {
-  status: number;
-  headers: Array<[string, string]>;
-  /** 텍스트 본문(이진/생략이면 undefined). */
-  body?: string;
-}
-
-export interface ContractCheck {
-  passed: boolean;
-  violations: ShapeViolation[];
-}
-
-/** 실제 응답이 계약의 기대와 맞는지 검사한다. */
-export function checkResponse(expect: ContractExpect, actual: ActualResponse): ContractCheck {
-  const violations: ShapeViolation[] = [];
-
-  const { status } = expect;
-  const statusOk =
-    typeof status === 'number' ? actual.status === status : actual.status >= status.min && actual.status <= status.max;
-  if (!statusOk) {
-    const want = typeof status === 'number' ? `${status}` : `${status.min}~${status.max}`;
-    violations.push({ path: 'status', message: `${want}이어야 함 (실제: ${actual.status})` });
-  }
-
-  const present = new Set(actual.headers.map(([n]) => n.toLowerCase()));
-  for (const name of expect.headers) {
-    if (!present.has(name)) violations.push({ path: `headers.${name}`, message: '응답 헤더가 없음' });
-  }
-
-  if (expect.bodyShape) {
-    let parsed: unknown;
-    let ok = actual.body !== undefined;
-    if (ok) {
-      try {
-        parsed = JSON.parse(actual.body as string);
-      } catch {
-        ok = false;
-      }
-    }
-    if (ok) violations.push(...validateShape(parsed, expect.bodyShape, '$', expect.fieldRules));
-    else violations.push({ path: '$', message: 'JSON 본문이어야 함' });
-  }
-
-  return { passed: violations.length === 0, violations };
-}
-
 // ---------- 실행 계획(요청 준비) ----------
 
 export interface ContractRunOptions {
@@ -484,21 +436,6 @@ export interface ContractRunOptions {
   allowUnsafe?: boolean;
   /** 요청당 타임아웃(ms). 기본 10000. */
   timeoutMs?: number;
-  /** 동시 실행 수. 기본 4. */
-  concurrency?: number;
-}
-
-export type ContractRunStatus = 'passed' | 'failed' | 'skipped' | 'error';
-
-export interface ContractRunResult {
-  contractName: string;
-  endpointId: string;
-  status: ContractRunStatus;
-  /** skipped/error 사유. */
-  reason?: string;
-  violations: ShapeViolation[];
-  httpStatus?: number;
-  durationMs?: number;
 }
 
 /** 컬렉션에서 요청 하나를 보낸 결과(검증 없이 응답 그대로). */
@@ -630,17 +567,6 @@ export function requiredVariables(contracts: Contract[]): string[] {
   return [...names].sort();
 }
 
-export function summarizeRun(results: ContractRunResult[]): Record<ContractRunStatus, number> {
-  const out: Record<ContractRunStatus, number> = { passed: 0, failed: 0, skipped: 0, error: 0 };
-  for (const r of results) out[r.status]++;
-  return out;
-}
-
-/** 계약들이 캡처된 서버(origin) 목록. 출처 없는 계약은 포함하지 않는다. */
-export function contractOrigins(contracts: Contract[]): string[] {
-  return [...new Set(contracts.flatMap((c) => (c.source?.origin ? [c.source.origin] : [])))].sort();
-}
-
 /** 같은 요청(엔드포인트 + 쿼리 키 + 메서드)이면 같은 계약으로 본다. */
 export function sameRequest(a: Contract, b: Contract): boolean {
   const keys = (c: Contract): string => c.request.query.map(([k]) => k).sort().join('&');
@@ -659,24 +585,4 @@ export function mergeContractSample(existing: Contract, draft: Contract): Contra
       ...(merged ? { bodyShape: merged } : {})
     }
   };
-}
-
-/** 캡처 exchange들을 계약으로 바꾼다. 같은 요청은 하나로 합치고, 응답이 없는 것은 skipped로 센다. */
-export function contractsFromExchanges(
-  exchanges: CapturedExchange[],
-  newId: () => string
-): { contracts: Contract[]; skipped: number } {
-  const contracts: Contract[] = [];
-  let skipped = 0;
-  for (const exchange of exchanges) {
-    const draft = exchangeToContract(exchange, newId());
-    if (!draft) {
-      skipped++;
-      continue;
-    }
-    const i = contracts.findIndex((c) => sameRequest(c, draft));
-    if (i >= 0) contracts[i] = mergeContractSample(contracts[i], draft);
-    else contracts.push(draft);
-  }
-  return { contracts, skipped };
 }

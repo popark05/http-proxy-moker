@@ -1,19 +1,17 @@
 /**
  * 사이드바 프로젝트 트리 모델(순수 함수). 화면과 무관하게 묶기·개수·검색 규칙을 단위 테스트로 고정한다.
  */
-import type { Contract } from '@shared/contract';
 import type { MockDefinition } from '@shared/mock';
 import type { CaseLibrary, ScenarioV2 } from '@shared/scenario-library';
 
-export type GroupId = 'sessions' | 'mocks' | 'scenarios' | 'library' | 'contracts';
+export type GroupId = 'sessions' | 'mocks' | 'scenarios' | 'library';
 
 export type TreeNode =
   | { kind: 'session'; key: string; label: string }
   | { kind: 'mock'; key: string; label: string; method: string; host: string; path: string; enabled: boolean; hits: number }
   | { kind: 'scenario'; key: string; label: string; active: boolean; dirty: boolean; base?: string }
   | { kind: 'endpoint'; key: string; label: string; method: string; host: string; path: string; children: TreeNode[] }
-  | { kind: 'case'; key: string; label: string }
-  | { kind: 'contract'; key: string; label: string; method: string };
+  | { kind: 'case'; key: string; label: string };
 
 export interface TreeGroup {
   id: GroupId;
@@ -24,17 +22,16 @@ export interface TreeGroup {
 }
 
 export interface ProjectTreeInput {
-  /** 프로젝트가 열려 있을 때만 세션/시나리오/라이브러리/컬렉션을 보여 준다. 목은 메모리 작업 공간이라 항상 보인다. */
+  /** 프로젝트가 열려 있을 때만 세션/시나리오/라이브러리를 보여 준다. 목은 메모리 현재 목이라 항상 보인다. */
   hasProject: boolean;
   captureSessions: string[];
   mocks: MockDefinition[];
   hitCounts: Record<string, number>;
   scenarios: ScenarioV2[];
   activeScenario: string | undefined;
-  /** 활성 시나리오에서 작업 공간이 수정되었는가. */
+  /** 활성 시나리오에서 현재 목이 수정되었는가. */
   scenarioDirty: boolean;
   library: CaseLibrary;
-  contracts: Contract[];
   /** 검색어(대소문자 무시). 비어 있으면 전부. */
   query?: string;
 }
@@ -89,15 +86,10 @@ export function buildProjectTree(input: ProjectTreeInput): TreeGroup[] {
     });
   }
 
-  const contracts: TreeNode[] = input.contracts
-    .filter((c) => keep(c.name, c.endpointId))
-    .map((c) => ({ kind: 'contract', key: `contract:${c.name}`, label: c.name, method: c.request.method }));
-
-  groups.unshift({ id: 'sessions', label: '캡처 세션', total: input.captureSessions.length, children: sessions });
+  groups.unshift({ id: 'sessions', label: '저장된 캡처', total: input.captureSessions.length, children: sessions });
   groups.push(
     { id: 'scenarios', label: '시나리오', total: input.scenarios.length, children: scenarios },
-    { id: 'library', label: '케이스 라이브러리', total: input.library.endpoints.length, children: endpoints },
-    { id: 'contracts', label: '컬렉션', total: input.contracts.length, children: contracts }
+    { id: 'library', label: '응답 케이스', total: input.library.endpoints.length, children: endpoints }
   );
   // 검색 중에는 결과가 없는 그룹을 숨겨 맞는 것만 보이게 한다.
   return groups.filter((g) => !query || g.children.length > 0);

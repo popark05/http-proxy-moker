@@ -47,7 +47,7 @@ function caseAsMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
 }
 
 /**
- * 케이스 라이브러리 관리: 엔드포인트별 응답 케이스(정상/500/타임아웃...)를 보고, 고치고, 지우고,
+ * 응답 케이스 관리: 엔드포인트별 응답 케이스(정상/500/타임아웃...)를 보고, 고치고, 지우고,
  * 엣지케이스 프리셋을 추가한다. 케이스를 고치면 그것을 참조하는 모든 시나리오에 반영된다.
  */
 export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit, variant }: LibraryModalProps): JSX.Element {
@@ -69,7 +69,7 @@ export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit,
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title="케이스 라이브러리" className="w-[94vw] max-w-none sm:max-w-3xl">
+    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title="응답 케이스" className="w-[94vw] max-w-none sm:max-w-3xl">
       <p className="mb-2 text-xs text-muted-foreground">
         엔드포인트마다 응답 케이스를 모아 두고 시나리오가 참조합니다. 케이스를 고치면 그것을 쓰는 모든 시나리오에 반영됩니다.
       </p>

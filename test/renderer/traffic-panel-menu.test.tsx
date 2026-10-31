@@ -18,7 +18,7 @@ const ex = (id: string, path: string): CapturedExchange => ({
 });
 
 function setup(exchanges: CapturedExchange[], sessions: string[] = []) {
-  const rowActions = { cloneToMock: vi.fn(), saveContracts: vi.fn(), exportBruno: vi.fn(), copy: vi.fn() };
+  const rowActions = { cloneToMock: vi.fn(), saveContracts: vi.fn(), copy: vi.fn() };
   const sessionActions = { save: vi.fn(), load: vi.fn(), clear: vi.fn() };
   const patchFilter = vi.fn();
   render(
@@ -41,7 +41,7 @@ function setup(exchanges: CapturedExchange[], sessions: string[] = []) {
   return { rowActions, sessionActions, patchFilter };
 }
 
-describe('TrafficPanel 우클릭/세션 메뉴', () => {
+describe('TrafficPanel 우클릭/저장된 캡처 메뉴', () => {
   it('행을 우클릭하면 메뉴가 열리고 목으로 복제가 그 행을 대상으로 호출된다', () => {
     const list = [ex('1', '/users'), ex('2', '/login')];
     const { rowActions } = setup(list);
@@ -55,14 +55,14 @@ describe('TrafficPanel 우클릭/세션 메뉴', () => {
     expect(rowActions.cloneToMock).toHaveBeenCalledWith([list[1]]);
   });
 
-  it('세션 버튼은 저장·불러오기·비우기를 보여 준다', () => {
+  it('저장된 캡처 버튼은 저장·불러오기·비우기를 보여 준다', () => {
     const { sessionActions } = setup([ex('1', '/users')], ['어제']);
-    fireEvent.click(screen.getByText('세션'));
+    fireEvent.click(screen.getByText('저장된 캡처'));
     const menu = screen.getByRole('menu');
     fireEvent.click(within(menu).getByText('불러오기: 어제'));
     expect(sessionActions.load).toHaveBeenCalledWith('어제');
-    fireEvent.click(screen.getByText('세션'));
-    fireEvent.click(within(screen.getByRole('menu')).getByText('캡처 세션으로 저장'));
+    fireEvent.click(screen.getByText('저장된 캡처'));
+    fireEvent.click(within(screen.getByRole('menu')).getByText('캡처 저장'));
     expect(sessionActions.save).toHaveBeenCalled();
   });
 });

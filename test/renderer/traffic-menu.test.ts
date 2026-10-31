@@ -19,7 +19,6 @@ const ex = (id: string, url = 'https://api.example.com/a', clientIp?: string): C
 const actions = () => ({
   cloneToMock: vi.fn(),
   saveContracts: vi.fn(),
-  exportBruno: vi.fn(),
   patchFilter: vi.fn(),
   copy: vi.fn(),
   setChecked: vi.fn()
@@ -53,8 +52,7 @@ describe('buildRowMenu', () => {
     expect(a.cloneToMock).toHaveBeenCalledWith(row);
     by('컬렉션에 추가').onSelect();
     expect(a.saveContracts).toHaveBeenCalledWith(row);
-    by('Bruno로 내보내기').onSelect();
-    expect(a.exportBruno).toHaveBeenCalledWith(row);
+    expect(items.some((i) => i.label.includes('Bruno'))).toBe(false); // 내보내기는 컬렉션에서만
     by('URL 복사').onSelect();
     expect(a.copy).toHaveBeenCalledWith('https://api.example.com/a?x=1', 'URL');
     by('api.example.com만 보기').onSelect();
@@ -77,7 +75,7 @@ describe('buildSessionMenu', () => {
   it('트래픽이 없으면 저장/비우기는 비활성, 저장된 세션은 불러오기 항목으로 나온다', () => {
     const load = vi.fn();
     const items = buildSessionMenu(0, ['s1', 's2'], { save: vi.fn(), load, clear: vi.fn() });
-    expect(items.map((i) => i.label)).toEqual(['캡처 세션으로 저장', '불러오기: s1', '불러오기: s2', '트래픽 비우기']);
+    expect(items.map((i) => i.label)).toEqual(['캡처 저장', '불러오기: s1', '불러오기: s2', '트래픽 비우기']);
     expect(items[0].disabled).toBe(true);
     expect(items[3].disabled).toBe(true);
     items[2].onSelect();

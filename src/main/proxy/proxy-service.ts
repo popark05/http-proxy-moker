@@ -5,7 +5,7 @@ import type { CaptureEvent, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import type { WorkerCommand, WorkerMessage } from '@shared/proxy-worker';
-import type { Contract, ContractRunOptions, ContractRunResult, SendOutcome } from '@shared/contract';
+import type { Contract, ContractRunOptions, SendOutcome } from '@shared/contract';
 import type { ProgressReporter } from '@shared/progress';
 import type { CaManager } from '../cert/ca-manager';
 
@@ -25,6 +25,15 @@ const WORKER_READY_TIMEOUT = 10_000;
  * 이 클래스는 워커를 spawn하고 WorkerCommand를 보내 제어하며,
  * 워커가 보내는 캡처 이벤트를 emit으로 renderer에 중계한다. public API는 기존과 동일.
  */
+/** 자동 시작에서 기본 포트부터 차례로 시도하는 개수. */
+const PORT_FALLBACK_TRIES = 10;
+
+/** 포트가 이미 사용 중이라 열 수 없는 오류인가. */
+export function isPortInUse(e: unknown): boolean {
+  const text = e instanceof Error ? `${e.message} ${(e as { code?: string }).code ?? ''}` : String(e);
+  return /EADDRINUSE|address already in use/i.test(text);
+}
+
 export class ProxyService {
   private worker: ChildProcess | undefined;
   private readonly emit: CaptureEmitter;
@@ -33,10 +42,8 @@ export class ProxyService {
   /** 워커 result 응답을 requestId로 매칭하기 위한 대기 맵. */
   private pending = new Map<
     number,
-    { resolve: (status?: ProxyStatus, results?: ContractRunResult[], sent?: SendOutcome) => void; reject: (err: Error) => void }
+    { resolve: (status?: ProxyStatus, sent?: SendOutcome) => void; reject: (err: Error) => void }
   >();
-  /** 계약 실행 중 개별 결과 콜백(requestId별). */
-  private contractProgress = new Map<number, (result: ContractRunResult) => void>();
   private nextRequestId = 1;
 
   /** 동기 getStatus()를 위해 마지막으로 알려진 상태를 캐시. */
@@ -51,7 +58,12 @@ export class ProxyService {
     return this.lastStatus;
   }
 
-  async start(port: number = DEFAULT_PROXY_PORT, report?: ProgressReporter): Promise<ProxyStatus> {
+  /**
+   * 프록시를 시작한다. 포트를 지정하지 않으면(자동) 기본 포트가 사용 중일 때 다음 빈 포트를 쓴다.
+   * 사용자가 포트를 직접 지정했으면 대신 다른 포트를 쓰지 않고 오류로 알린다.
+   */
+  async start(requestedPort?: number, report?: ProgressReporter): Promise<ProxyStatus> {
+    const port = requestedPort ?? DEFAULT_PROXY_PORT;
     if (this.lastStatus.running) return this.lastStatus;
 
     report?.('프록시 워커 시작 중…');
@@ -67,16 +79,27 @@ export class ProxyService {
       caKeyPath = paths.keyPath;
     }
 
-    report?.(`포트 ${port}에서 수신 시작 중…`);
-    const status = await this.command(worker, (requestId) => ({
-      kind: 'start',
-      requestId,
-      port,
-      caCertPath,
-      caKeyPath
-    }));
-    this.lastStatus = status ?? { running: true, port };
-    return this.lastStatus;
+    const tries = requestedPort === undefined ? PORT_FALLBACK_TRIES : 1;
+    let lastError: unknown;
+    for (let i = 0; i < tries; i++) {
+      const tryPort = port + i;
+      report?.(i === 0 ? `포트 ${tryPort}에서 수신 시작 중…` : `포트 ${tryPort - 1}이(가) 사용 중이라 ${tryPort}에서 시도 중…`);
+      try {
+        const status = await this.command(worker, (requestId) => ({
+          kind: 'start',
+          requestId,
+          port: tryPort,
+          caCertPath,
+          caKeyPath
+        }));
+        this.lastStatus = status ?? { running: true, port: tryPort };
+        return this.lastStatus;
+      } catch (e) {
+        lastError = e;
+        if (!isPortInUse(e)) throw e;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('사용할 수 있는 포트를 찾지 못했습니다.');
   }
 
   async stop(report?: ProgressReporter): Promise<ProxyStatus> {
@@ -111,40 +134,13 @@ export class ProxyService {
     }));
   }
 
-  /**
-   * 계약을 실제 서버로 실행한다(프록시가 꺼져 있어도 된다). 워커가 순정 Node(OpenSSL)라 사내 CA 설정
-   * (NODE_EXTRA_CA_CERTS)을 따른다. onResult는 계약 하나가 끝날 때마다 불린다.
-   */
-  async runContracts(
-    contracts: Contract[],
-    options: ContractRunOptions,
-    onResult?: (result: ContractRunResult) => void
-  ): Promise<ContractRunResult[]> {
-    const worker = await this.ensureWorker();
-    const requestId = this.nextRequestId++;
-    if (onResult) this.contractProgress.set(requestId, onResult);
-    try {
-      return await new Promise<ContractRunResult[]>((resolve, reject) => {
-        this.pending.set(requestId, { resolve: (_s, results) => resolve(results ?? []), reject });
-        worker.send({ kind: 'runContracts', requestId, contracts, options } satisfies WorkerCommand, (err) => {
-          if (err) {
-            this.pending.delete(requestId);
-            reject(err);
-          }
-        });
-      });
-    } finally {
-      this.contractProgress.delete(requestId);
-    }
-  }
-
   /** 컬렉션의 요청 하나를 실제 서버로 보내고 응답을 그대로 받는다(프록시가 꺼져 있어도 된다). */
   async sendRequest(contract: Contract, options: ContractRunOptions): Promise<SendOutcome> {
     const worker = await this.ensureWorker();
     const requestId = this.nextRequestId++;
     return new Promise<SendOutcome>((resolve, reject) => {
       this.pending.set(requestId, {
-        resolve: (_s, _r, sent) => resolve(sent ?? { ok: false, error: '응답을 받지 못했습니다.' }),
+        resolve: (_s, sent) => resolve(sent ?? { ok: false, error: '응답을 받지 못했습니다.' }),
         reject
       });
       worker.send({ kind: 'sendRequest', requestId, contract, options } satisfies WorkerCommand, (err) => {
@@ -253,17 +249,13 @@ export class ProxyService {
       this.emit(msg.event);
       return;
     }
-    if (msg.kind === 'contract-result') {
-      this.contractProgress.get(msg.requestId)?.(msg.result);
-      return;
-    }
     if (msg.kind === 'result') {
       const entry = this.pending.get(msg.requestId);
       if (!entry) return;
       this.pending.delete(msg.requestId);
       if (msg.ok) {
         if (msg.status) this.lastStatus = msg.status;
-        entry.resolve(msg.status, msg.results, msg.sent);
+        entry.resolve(msg.status, msg.sent);
       } else {
         entry.reject(new Error(msg.error));
       }

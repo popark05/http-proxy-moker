@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
 import * as http from 'node:http';
-import { describeNetworkError, runContract, runContracts, sendRequest } from '../../src/main/contract/contract-runner';
+import { describeNetworkError, sendRequest } from '../../src/main/contract/contract-runner';
 import type { Contract } from '../../src/shared/contract';
 
 let server: http.Server | undefined;
@@ -48,117 +48,25 @@ function contract(over: Partial<Contract> = {}, path = '/users'): Contract {
   };
 }
 
-describe('runContract', () => {
-  it('변수를 채워 실제로 보내고 통과를 보고한다', async () => {
-    const baseUrl = await start();
-    const r = await runContract(contract(), { baseUrl, vars: { authorization: 'Bearer t' } });
-    expect(r).toMatchObject({ status: 'passed', httpStatus: 200, violations: [] });
-    expect(seen[0]).toEqual({ method: 'GET', url: '/users?page=2', auth: 'Bearer t' });
-  });
-
-  it('응답 모양이 다르면 실패와 위반 경로를 보고한다', async () => {
-    const baseUrl = await start();
-    const c = contract({
-      expect: { status: 200, headers: [], bodyShape: { kind: 'object', props: { id: { kind: 'string' } }, required: ['id'] } }
-    });
-    const r = await runContract(c, { baseUrl, vars: { authorization: 'x' } });
-    expect(r.status).toBe('failed');
-    expect(r.violations[0].path).toBe('$.id');
-  });
-
-  it('위험 메서드·검증 불가 계약은 서버로 보내지 않고 건너뛴다', async () => {
-    const baseUrl = await start();
-    const post = contract({ safeToRun: false });
-    post.request.method = 'POST';
-    expect((await runContract(post, { baseUrl, vars: { authorization: 'x' } })).status).toBe('skipped');
-    expect((await runContract(contract({ verifiable: false }), { baseUrl, vars: {} })).status).toBe('skipped');
-    expect(seen).toHaveLength(0);
-  });
-
-  it('값이 비어 있는 변수 헤더는 건너뛰지 않고 헤더만 빼서 보낸다', async () => {
-    const baseUrl = await start();
-    const r = await runContract(contract(), { baseUrl, vars: {} });
-    expect(r).toMatchObject({ status: 'passed', reason: '값이 없어 헤더 생략: Authorization' });
-    expect(seen[0].auth).toBeUndefined();
-  });
-
-  it('주소·쿼리·본문의 변수가 비어 있으면 건너뛴다', async () => {
-    const baseUrl = await start();
-    const c = contract();
-    c.request.query = [['t', '{{token}}']];
-    expect(await runContract(c, { baseUrl, vars: {} })).toMatchObject({ status: 'skipped', reason: '변수 값이 필요함: token' });
-    expect(seen).toHaveLength(0);
-  });
-
-  it('allowUnsafe면 위험 메서드도 실행한다', async () => {
-    const baseUrl = await start();
-    const post = contract({ safeToRun: false });
-    post.request.method = 'POST';
-    const r = await runContract(post, { baseUrl, vars: { authorization: 'x' }, allowUnsafe: true });
-    expect(r.status).toBe('passed');
-    expect(seen[0].method).toBe('POST');
-  });
-
-  it('타임아웃과 연결 거부는 error로 보고한다', async () => {
-    const baseUrl = await start();
-    const slow = await runContract(contract({}, '/slow'), { baseUrl, vars: { authorization: 'x' }, timeoutMs: 100 });
-    expect(slow).toMatchObject({ status: 'error', reason: '100ms 안에 응답이 없음(타임아웃)' });
-    await new Promise<void>((r) => server!.close(() => r())); // 닫힌 포트로 연결 거부 재현
-    const refused = await runContract(contract(), { baseUrl, vars: { authorization: 'x' } });
-    expect(refused.status).toBe('error');
-    expect(refused.reason).toContain('ECONNREFUSED');
-  });
-});
-
-describe('서버 지정', () => {
-  it('hostMap이 캡처한 서버보다 우선하고, 지정이 없으면 캡처한 서버로 보낸다', async () => {
-    const baseUrl = await start();
-    const mapped = await runContract(contract(), { hostMap: { 'http://127.0.0.1:9': baseUrl }, vars: { authorization: 'x' } });
-    expect(mapped.status).toBe('passed');
-    const own = contract();
-    own.source = { capturedAt: 1, origin: baseUrl };
-    expect((await runContract(own, { vars: { authorization: 'x' } })).status).toBe('passed');
-  });
-
-  it('캡처 출처가 없고 서버 지정도 없으면 건너뛴다', async () => {
-    const c = contract();
-    delete c.source;
-    expect((await runContract(c, { vars: { authorization: 'x' } })).status).toBe('skipped');
-  });
-});
-
-describe('runContracts', () => {
-  it('입력 순서대로 결과를 돌려주고 하나씩 알린다', async () => {
-    const baseUrl = await start();
-    const notified: string[] = [];
-    const list = ['/a', '/b', '/c'].map((p) => contract({}, p));
-    const results = await runContracts(list, { baseUrl, vars: { authorization: 'x' }, concurrency: 2 }, (r) =>
-      notified.push(r.contractName)
-    );
-    expect(results.map((r) => r.contractName)).toEqual(['GET /a', 'GET /b', 'GET /c']);
-    expect(notified.sort()).toEqual(['GET /a', 'GET /b', 'GET /c']);
-  });
-});
-
-describe('describeNetworkError', () => {
-  it('SSL 인터셉션 오류는 NODE_EXTRA_CA_CERTS를 안내한다', () => {
-    const msg = describeNetworkError({ cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN' } }, 1000);
-    expect(msg).toContain('NODE_EXTRA_CA_CERTS');
-  });
-});
-
 describe('sendRequest (컬렉션 Send)', () => {
-  it('검증 없이 응답을 그대로 돌려준다(상태/헤더/본문/시간)', async () => {
+  it('변수를 채워 실제로 보내고 응답을 그대로 돌려준다(상태/헤더/본문/시간)', async () => {
     const baseUrl = await start();
     const r = await sendRequest(contract(), { baseUrl, vars: { authorization: 'Bearer t' } });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r).toMatchObject({ status: 200, method: 'GET', bodyEncoding: 'text', truncated: false });
+    expect(r).toMatchObject({ status: 200, method: 'GET', bodyEncoding: 'text', truncated: false, omittedHeaders: [] });
     expect(r.url).toBe(`${baseUrl}/users?page=2`);
     expect(JSON.parse(r.body)).toEqual({ id: 1, name: 'a' });
     expect(r.headers.some(([n]) => n === 'content-type')).toBe(true);
     expect(r.sizeBytes).toBeGreaterThan(0);
-    expect(seen[0].auth).toBe('Bearer t');
+    expect(seen[0]).toEqual({ method: 'GET', url: '/users?page=2', auth: 'Bearer t' });
+  });
+
+  it('값이 비어 있는 변수 헤더는 건너뛰지 않고 헤더만 빼서 보낸다', async () => {
+    const baseUrl = await start();
+    const r = await sendRequest(contract(), { baseUrl, vars: {} });
+    expect(r).toMatchObject({ ok: true, omittedHeaders: ['Authorization'] });
+    expect(seen[0].auth).toBeUndefined();
   });
 
   it('재현 불가/위험 메서드 표시가 있어도 직접 보낸 요청은 보낸다', async () => {
@@ -171,18 +79,48 @@ describe('sendRequest (컬렉션 Send)', () => {
     expect(seen[0].method).toBe('POST');
   });
 
-  it('변수가 비어 있거나 서버를 모르면 이유를 알려 준다', async () => {
-    const noServer = await sendRequest(contract({ source: undefined }), { vars: { authorization: 'x' } });
-    expect(noServer).toMatchObject({ ok: false });
+  it('주소·쿼리·본문의 변수가 비어 있으면 보내지 않고 이유를 알려 준다', async () => {
+    const baseUrl = await start();
+    const c = contract();
+    c.request.query = [['t', '{{token}}']];
+    expect(await sendRequest(c, { baseUrl, vars: {} })).toEqual({ ok: false, error: '변수 값이 필요함: token' });
     const missing = await sendRequest(
       contract({ request: { method: 'GET', urlTemplate: '{{baseUrl}}/{{id}}', query: [], headers: [] } }),
-      { baseUrl: 'http://127.0.0.1:9', vars: {} }
+      { baseUrl, vars: {} }
     );
     expect(missing).toMatchObject({ ok: false, error: expect.stringContaining('id') });
+    expect(seen).toHaveLength(0);
   });
 
-  it('연결 실패는 오류로 돌려준다', async () => {
-    const r = await sendRequest(contract(), { baseUrl: 'http://127.0.0.1:1', vars: { authorization: 'x' } });
-    expect(r.ok).toBe(false);
+  it('hostMap이 캡처한 서버보다 우선하고, 지정이 없으면 캡처한 서버로 보낸다', async () => {
+    const baseUrl = await start();
+    const mapped = await sendRequest(contract(), { hostMap: { 'http://127.0.0.1:9': baseUrl }, vars: { authorization: 'x' } });
+    expect(mapped.ok).toBe(true);
+    const own = contract();
+    own.source = { capturedAt: 1, origin: baseUrl };
+    expect((await sendRequest(own, { vars: { authorization: 'x' } })).ok).toBe(true);
+  });
+
+  it('캡처 출처가 없고 서버 지정도 없으면 이유를 알려 준다', async () => {
+    const c = contract();
+    delete c.source;
+    expect(await sendRequest(c, { vars: { authorization: 'x' } })).toMatchObject({ ok: false, error: expect.stringContaining('서버') });
+  });
+
+  it('타임아웃과 연결 거부는 오류로 돌려준다', async () => {
+    const baseUrl = await start();
+    const slow = await sendRequest(contract({}, '/slow'), { baseUrl, vars: { authorization: 'x' }, timeoutMs: 100 });
+    expect(slow).toEqual({ ok: false, error: '100ms 안에 응답이 없음(타임아웃)' });
+    await new Promise<void>((r) => server!.close(() => r())); // 닫힌 포트로 연결 거부 재현
+    const refused = await sendRequest(contract(), { baseUrl, vars: { authorization: 'x' } });
+    expect(refused.ok).toBe(false);
+    expect(!refused.ok && refused.error).toContain('ECONNREFUSED');
+  });
+});
+
+describe('describeNetworkError', () => {
+  it('SSL 인터셉션 오류는 NODE_EXTRA_CA_CERTS를 안내한다', () => {
+    const msg = describeNetworkError({ cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN' } }, 1000);
+    expect(msg).toContain('NODE_EXTRA_CA_CERTS');
   });
 });

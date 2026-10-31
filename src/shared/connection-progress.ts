@@ -63,8 +63,8 @@ const hasLanIp = (i: WizardInput): boolean => !!i.proxyAddress && !i.proxyAddres
 
 const proxyStep: StepDef = {
   id: 'proxy',
-  title: '프록시 시작',
-  detail: '상단의 "프록시 시작"을 눌러 캡처 프록시를 켭니다.',
+  title: '프록시 켜기',
+  detail: '기기 인터셉트를 시작하거나 이 안내의 Wi-Fi 탭을 열면 앱이 캡처 프록시를 자동으로 켭니다.',
   kind: 'auto',
   evidence: (i) => ({ done: i.proxyRunning })
 };
@@ -258,7 +258,7 @@ export function stepCount(tab: WizardTab): number {
  * 단계별 상태 계산.
  * - 증거가 있는 가장 뒤 단계까지는 모두 done(수동 단계 포함: 뒤가 되면 앞도 된 것). 막힌 단계는 그 앞까지를 done으로 본다.
  * - 그 다음 첫 단계가 current(막힘 사유가 있으면 blocked), 나머지는 pending.
- * - 프록시가 꺼져 있으면 첫 단계(프록시 시작)부터 다시 시작한다.
+ * - 프록시가 꺼져 있으면 첫 단계(프록시 켜기)부터 다시 시작한다.
  */
 export function connectionProgress(tab: WizardTab, input: WizardInput): WizardStep[] {
   const defs = TABS[tab];

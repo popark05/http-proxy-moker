@@ -3,8 +3,6 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  BookMarked,
-  FileJson,
   FlaskConical,
   FolderClock,
   Layers,
@@ -39,27 +37,23 @@ interface ProjectTreeProps {
   onDeleteScenario: (name: string) => void;
   onUpdateActiveScenario: () => void;
   onOpenLibrary: () => void;
-  onOpenContracts: () => void;
-  onRemoveContract: (name: string) => void;
 }
 
 const GROUP_ICON: Record<GroupId, typeof Layers> = {
   sessions: FolderClock,
   mocks: FlaskConical,
   scenarios: Layers,
-  library: Library,
-  contracts: FileJson
+  library: Library
 };
 
 const EMPTY_HINT: Record<GroupId, string> = {
-  sessions: '저장한 캡처 세션이 없습니다',
+  sessions: '저장한 저장된 캡처이 없습니다',
   mocks: '요청을 우클릭해 "목으로 복제"하면 여기에 쌓입니다',
   scenarios: '저장한 시나리오가 없습니다',
-  library: '케이스가 없습니다',
-  contracts: '컬렉션에 저장한 요청이 없습니다'
+  library: '케이스가 없습니다'
 };
 
-/** 프로젝트 자산 트리(캡처 세션·목·시나리오·케이스 라이브러리·컬렉션). 클릭은 기본 동작, 우클릭은 메뉴. */
+/** 프로젝트 자산 트리(저장된 캡처·목·시나리오·응답 케이스). 클릭은 기본 동작, 우클릭은 메뉴. */
 export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set());
@@ -91,17 +85,12 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         return [
           { label: '활성화', icon: Play, disabled: node.active, onSelect: () => props.onActivateScenario(node.label) },
           { label: '편집', icon: Pencil, onSelect: () => props.onEditScenario(node.label) },
-          ...(node.active ? [{ label: '현재 작업 공간으로 갱신', icon: RefreshCw, onSelect: props.onUpdateActiveScenario }] : []),
+          ...(node.active ? [{ label: '현재 현재 목으로 갱신', icon: RefreshCw, onSelect: props.onUpdateActiveScenario }] : []),
           { label: '삭제', icon: Trash2, destructive: true, onSelect: () => props.onDeleteScenario(node.label) }
         ];
       case 'endpoint':
       case 'case':
-        return [{ label: '케이스 라이브러리 열기', icon: LibraryBig, onSelect: props.onOpenLibrary }];
-      case 'contract':
-        return [
-          { label: '컬렉션 열기', icon: BookMarked, onSelect: props.onOpenContracts },
-          { label: '삭제', icon: Trash2, destructive: true, onSelect: () => props.onRemoveContract(node.label) }
-        ];
+        return [{ label: '응답 케이스 열기', icon: LibraryBig, onSelect: props.onOpenLibrary }];
     }
   };
 
@@ -112,8 +101,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         return () => props.onRemoveMock(node.key.slice('mock:'.length));
       case 'scenario':
         return () => props.onDeleteScenario(node.label);
-      case 'contract':
-        return () => props.onRemoveContract(node.label);
       default:
         return undefined;
     }
@@ -214,8 +201,6 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
       case 'endpoint':
       case 'case':
         return props.onOpenLibrary();
-      case 'contract':
-        return props.onOpenContracts();
     }
   };
 
@@ -281,7 +266,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
               focusables()[0]?.focus();
             }
           }}
-          placeholder="목 · 시나리오 · 컬렉션 검색"
+          placeholder="목 · 시나리오 검색"
           aria-label="프로젝트 검색"
           className="h-8 pl-7 text-xs"
         />
@@ -294,7 +279,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         )}
         {!props.input.hasProject && !query && (
           <p className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-            프로젝트를 열면 캡처 세션, 시나리오, 케이스 라이브러리, 컬렉션이 여기에 나타납니다.
+            프로젝트를 열면 저장된 캡처, 시나리오, 응답 케이스가 여기에 나타납니다.
           </p>
         )}
       </div>
@@ -365,12 +350,5 @@ function NodeBody({
       );
     case 'case':
       return <span className="truncate text-muted-foreground">{node.label}</span>;
-    case 'contract':
-      return (
-        <>
-          <span className="shrink-0 text-2xs font-semibold text-muted-foreground">{node.method}</span>
-          <span className="truncate">{node.label}</span>
-        </>
-      );
   }
 }

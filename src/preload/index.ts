@@ -10,7 +10,7 @@ import type {
 import type { OperationProgress } from '@shared/progress';
 import type { ApplyMocksArgs } from '@shared/mock';
 import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
-import type { Contract, ContractRunOptions, ContractRunResult, ContractServer } from '@shared/contract';
+import type { Contract, ContractRunOptions, ContractServer } from '@shared/contract';
 
 const api: MokerApi = {
   ping: (request: PingRequest) => ipcRenderer.invoke(IpcChannels.ping, request),
@@ -36,18 +36,11 @@ const api: MokerApi = {
   },
 
   contract: {
-    run: (contracts: Contract[], options: ContractRunOptions) =>
-      ipcRenderer.invoke(IpcChannels.contractRun, { contracts, options }),
     send: (contract: Contract, options: ContractRunOptions) =>
       ipcRenderer.invoke(IpcChannels.contractSend, { contract, options }),
     exportBruno: (name: string, contracts: Contract[], servers: ContractServer[]) =>
       ipcRenderer.invoke(IpcChannels.contractExportBruno, { name, contracts, servers }),
-    importBruno: () => ipcRenderer.invoke(IpcChannels.contractImportBruno),
-    onResult: (listener: (result: ContractRunResult) => void) => {
-      const handler = (_event: IpcRendererEvent, payload: ContractRunResult): void => listener(payload);
-      ipcRenderer.on(IpcChannels.contractResult, handler);
-      return () => ipcRenderer.removeListener(IpcChannels.contractResult, handler);
-    }
+    importBruno: () => ipcRenderer.invoke(IpcChannels.contractImportBruno)
   },
 
   ca: {

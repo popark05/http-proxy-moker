@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { CapturedExchange } from '../../src/shared/capture';
 import {
   applyVariables,
-  checkResponse,
   exchangeToContract,
   inferShape,
   listVariables,
@@ -121,40 +120,11 @@ describe('exchangeToContract', () => {
   });
 });
 
-describe('checkResponse', () => {
-  const contract = exchangeToContract(exchange(), 'c1')!;
-
-  it('같은 모양의 응답은 통과한다', () => {
-    const r = checkResponse(contract.expect, {
-      status: 200,
-      headers: [['Content-Type', 'application/json']],
-      body: '{"items":[],"next":"abc"}'
-    });
-    expect(r.passed).toBe(false); // next: null → string 은 모양이 다르다
-    expect(r.violations[0].path).toBe('$.next');
-  });
-
-  it('상태·헤더·본문 위반을 모두 모은다', () => {
-    const r = checkResponse(contract.expect, { status: 404, headers: [], body: 'oops' });
-    expect(r.violations.map((v) => v.path)).toEqual(['status', 'headers.content-type', '$']);
-  });
-
-  it('통과 케이스', () => {
-    const r = checkResponse(contract.expect, {
-      status: 200,
-      headers: [['content-type', 'application/json']],
-      body: '{"items":[{"id":3,"name":"z"}],"next":null}'
-    });
-    expect(r).toEqual({ passed: true, violations: [] });
-  });
-});
-
 import {
   looksLikeProduction,
   normalizeBaseUrl,
   planRequest,
   requiredVariables,
-  summarizeRun,
   uniqueContractName
 } from '../../src/shared/contract';
 
@@ -193,24 +163,12 @@ describe('서버/폼 보조', () => {
       request: { url: 'https://dev.example.com/v1/users?page=2', headers: [['Authorization', 'Bearer t'], ['Accept', 'application/json']] }
     });
   });
-
-  it('결과 개수를 센다', () => {
-    const base = { contractName: 'a', endpointId: 'GET /a', violations: [] };
-    expect(summarizeRun([{ ...base, status: 'passed' }, { ...base, status: 'failed' }, { ...base, status: 'passed' }])).toEqual({
-      passed: 2,
-      failed: 1,
-      skipped: 0,
-      error: 0
-    });
-  });
 });
 
 describe('캡처한 서버(origin)', () => {
-  it('계약에 캡처한 origin을 담고 목록으로 모은다', async () => {
-    const { contractOrigins } = await import('../../src/shared/contract');
+  it('계약에 캡처한 origin을 담는다', () => {
     const c = exchangeToContract(exchange(), 'c')!;
     expect(c.source?.origin).toBe('https://api.example.com');
-    expect(contractOrigins([c, c])).toEqual(['https://api.example.com']);
   });
 });
 
@@ -264,17 +222,6 @@ describe('필드 규칙', () => {
     ]);
   });
 
-  it('checkResponse가 계약의 fieldRules를 적용한다', () => {
-    const c = exchangeToContract(exchange(), 'c')!;
-    c.expect.fieldRules = { '$.items[].name': { mode: 'ignore' } };
-    const r = checkResponse(c.expect, {
-      status: 200,
-      headers: [['content-type', 'x']],
-      body: '{"items":[{"id":1}],"next":null}'
-    });
-    expect(r.passed).toBe(true);
-  });
-
   it('모양을 필드 목록으로 펼친다', () => {
     expect(listShapeFields(shape).map((f) => f.path)).toEqual(['$.items', '$.items[]', '$.items[].id', '$.items[].at', '$.code']);
   });
@@ -297,15 +244,5 @@ describe('같은 요청 합치기', () => {
     expect(merged.expect.headers).toEqual(['content-type']);
     expect(validateShape({ items: [{ id: 1 }], next: 'z' }, merged.expect.bodyShape!)).toEqual([]);
     expect(validateShape({ items: [{ id: 1 }] }, merged.expect.bodyShape!)).toHaveLength(1);
-  });
-});
-
-describe('contractsFromExchanges', () => {
-  it('같은 요청은 합치고 응답 없는 것은 센다', async () => {
-    const { contractsFromExchanges } = await import('../../src/shared/contract');
-    let n = 0;
-    const r = contractsFromExchanges([exchange(), exchange(), { ...exchange(), response: undefined }], () => `i${n++}`);
-    expect(r.contracts).toHaveLength(1);
-    expect(r.skipped).toBe(1);
   });
 });

@@ -24,13 +24,13 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
     }
     if (
       scenarioLib.scenarios.some((s) => s.name === trimmed) &&
-      !window.confirm(`"${trimmed}" 시나리오를 현재 작업 공간 내용으로 덮어쓸까요?`)
+      !window.confirm(`"${trimmed}" 시나리오를 현재 현재 목 내용으로 덮어쓸까요?`)
     ) {
       return;
     }
     try {
       const saved = await scenarioLib.saveFromWorkspace(trimmed);
-      toast.success('시나리오 저장됨', { description: `${saved} · 목이 케이스 라이브러리에 저장되었습니다` });
+      toast.success('시나리오 저장됨', { description: `${saved} · 목이 응답 케이스에 저장되었습니다` });
     } catch (e) {
       toast.error('시나리오 저장 실패', { description: errMsg(e) });
     }
@@ -48,7 +48,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
   };
 
   const deleteScenario = async (name: string): Promise<void> => {
-    if (!window.confirm(`"${name}" 시나리오를 삭제할까요? (케이스 라이브러리는 유지됩니다)`)) return;
+    if (!window.confirm(`"${name}" 시나리오를 삭제할까요? (응답 케이스는 유지됩니다)`)) return;
     try {
       await scenarioLib.deleteScenario(name);
       toast('시나리오 삭제됨', { description: name });
@@ -92,7 +92,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
   // 프로젝트를 열 때 v1 시나리오가 변환되었다면 한 번 알린다.
   useEffect(() => {
     if (scenarioLib.migratedCount > 0) {
-      toast.info(`시나리오 ${scenarioLib.migratedCount}개를 케이스 라이브러리 형식으로 변환했습니다`, {
+      toast.info(`시나리오 ${scenarioLib.migratedCount}개를 응답 케이스 형식으로 변환했습니다`, {
         description: '원본은 scenarios/*.v1.bak으로 보관됩니다.'
       });
     }

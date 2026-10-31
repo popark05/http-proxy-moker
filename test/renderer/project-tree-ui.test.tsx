@@ -41,7 +41,6 @@ function setup(over: Record<string, unknown> = {}) {
         activeScenario: '장애',
         scenarioDirty: true,
         library: { version: 2, endpoints: [] },
-        contracts: [],
         ...over
       }}
       {...handlers}
@@ -86,11 +85,11 @@ describe('ProjectTree', () => {
     expect(h.onDeleteScenario).toHaveBeenCalledWith('정상');
   });
 
-  it('활성 시나리오의 메뉴는 "활성화"가 꺼지고 "현재 작업 공간으로 갱신"이 나온다', () => {
+  it('활성 시나리오의 메뉴는 "활성화"가 꺼지고 "현재 현재 목으로 갱신"이 나온다', () => {
     const h = setup();
     fireEvent.contextMenu(screen.getByText('장애'));
     expect((screen.getByRole('menuitem', { name: '활성화' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('menuitem', { name: '현재 작업 공간으로 갱신' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '현재 현재 목으로 갱신' }));
     expect(h.onUpdateActiveScenario).toHaveBeenCalled();
   });
 
@@ -111,7 +110,7 @@ describe('ProjectTree', () => {
 
   it('프로젝트가 없으면 목만 보이고 안내 문구가 나온다', () => {
     setup({ hasProject: false });
-    expect(screen.queryByText('캡처 세션')).toBeNull();
+    expect(screen.queryByText('저장된 캡처')).toBeNull();
     expect(screen.getByText(/프로젝트를 열면/)).toBeTruthy();
   });
 });
@@ -143,8 +142,8 @@ describe('ProjectTree 키보드 탐색', () => {
     const items = within(tree()).getAllByRole('treeitem');
     items[0].focus();
     fireEvent.keyDown(items[0], { key: 'End' });
-    // 보이는 항목 중 마지막은 항목이 없는 마지막 그룹(컬렉션)의 헤더다.
-    expect(document.activeElement?.getAttribute('data-group-id')).toBe('contracts');
+    // 보이는 항목 중 마지막은 항목이 없는 마지막 그룹(응답 케이스)의 헤더다.
+    expect(document.activeElement?.getAttribute('data-group-id')).toBe('library');
     fireEvent.keyDown(document.activeElement!, { key: 'Home' });
     expect(document.activeElement?.getAttribute('data-tree-focus')).toBe('group');
   });

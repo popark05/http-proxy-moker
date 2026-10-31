@@ -176,7 +176,7 @@ describe('탭 표시(variant="tab")', () => {
     const onOpenChange = vi.fn();
     render(<LibraryModal variant="tab" open onOpenChange={onOpenChange} library={library} scenarios={[base]} onCommit={() => {}} />);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByRole('heading', { name: '케이스 라이브러리' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '응답 케이스' })).toBeTruthy();
     fireEvent.click(screen.getByText('닫기'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

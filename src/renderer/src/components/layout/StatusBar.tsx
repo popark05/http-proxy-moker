@@ -7,12 +7,16 @@ import type { AppMode } from '../../state/app-mode';
 
 interface StatusBarProps {
   proxy: ProxyStatus;
+  /** 켜는/끄는 중. */
+  proxyBusy?: 'starting' | 'stopping';
+  /** 프록시 상태/설정 패널 열기. */
+  onOpenProxy: () => void;
   mode: AppMode;
   /** 프록시에 접속한 기기 수. */
   clientCount: number;
   activeMockCount: number;
   activeScenario?: string;
-  /** 활성 시나리오에서 작업 공간이 수정되었는가. */
+  /** 활성 시나리오에서 현재 목이 수정되었는가. */
   scenarioDirty?: boolean;
   /** 마지막 mock-hit 시각(활성 목 배지 pulse 트리거). */
   lastHitAt?: number;
@@ -22,6 +26,8 @@ interface StatusBarProps {
 /** 하단 상태바. 프록시·기기·목킹 상태를 항상 보여 준다. */
 export function StatusBar({
   proxy,
+  proxyBusy,
+  onOpenProxy,
   mode,
   clientCount,
   activeMockCount,
@@ -46,15 +52,28 @@ export function StatusBar({
       aria-label="상태"
       className="flex h-6 shrink-0 items-center gap-4 border-t border-border bg-card/80 px-3 text-xs text-muted-foreground"
     >
-      <span role="status" className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onOpenProxy}
+        aria-label="프록시 상태와 설정"
+        className="inline-flex items-center gap-1.5 rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <span
           className={cn(
             'inline-block size-1.5 rounded-full',
-            proxy.running ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/50'
+            proxyBusy ? 'animate-pulse bg-[hsl(var(--warning))]' : proxy.running ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/50'
           )}
         />
-        {proxy.running ? `프록시 :${proxy.port} 수신 중` : '프록시 중지됨'}
-      </span>
+        <span role="status">
+          {proxyBusy === 'starting'
+            ? '프록시 켜는 중…'
+            : proxyBusy === 'stopping'
+              ? '프록시 끄는 중…'
+              : proxy.running
+                ? `프록시 :${proxy.port}`
+                : '프록시 꺼짐(필요할 때 자동으로 켜집니다)'}
+        </span>
+      </button>
       <button
         type="button"
         onClick={onOpenConnect}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CapturedExchange, ProxyStatus } from '@shared/capture';
 import type { TlsErrorRecord } from '@shared/clients';
 import { reduceCapture, addTag as addTagReducer, removeTag as removeTagReducer } from './capture-store';
@@ -8,6 +8,9 @@ interface UseCaptureResult {
   /** 기기가 CA를 신뢰하지 않아 TLS 핸드셰이크가 실패한 기록(접속 기기 진단용). */
   tlsErrors: TlsErrorRecord[];
   status: ProxyStatus;
+  /** true면 새 요청을 목록에 쌓지 않는다(프록시는 계속 통과시킨다). */
+  paused: boolean;
+  setPaused: (paused: boolean) => void;
   startProxy: (port?: number) => Promise<ProxyStatus>;
   stopProxy: () => Promise<ProxyStatus>;
   clear: () => void;
@@ -27,6 +30,9 @@ export function useCapture(): UseCaptureResult {
   const [exchanges, setExchanges] = useState<CapturedExchange[]>([]);
   const [tlsErrors, setTlsErrors] = useState<TlsErrorRecord[]>([]);
   const [status, setStatus] = useState<ProxyStatus>({ running: false });
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  pausedRef.current = paused;
 
   useEffect(() => {
     void window.mokerApi.proxy.status().then(setStatus);
@@ -36,6 +42,8 @@ export function useCapture(): UseCaptureResult {
         setTlsErrors((prev) => [...prev.slice(-499), { clientIp: event.clientIp, hostname: event.hostname, at: event.at }]);
         return;
       }
+      // 일시중지 중에는 새 요청을 쌓지 않는다(기기 통신은 그대로 통과). 이미 쌓인 요청의 응답은 계속 반영한다.
+      if (pausedRef.current && event.type === 'request') return;
       setExchanges((prev) => reduceCapture(prev, event));
     });
     return unsubscribe;
@@ -75,6 +83,8 @@ export function useCapture(): UseCaptureResult {
     exchanges,
     tlsErrors,
     status,
+    paused,
+    setPaused,
     startProxy,
     stopProxy,
     clear,

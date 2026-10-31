@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Smartphone, Apple, RefreshCw, SmartphoneNfc, CircleHelp, Loader2 } from 'lucide-react';
 import type { AndroidInterceptionMode, AndroidTrafficPath, DeviceInfo, InterceptionResult } from '@shared/device';
@@ -140,6 +140,8 @@ interface DevicePanelProps {
   clients: ClientInfo[];
   now: number;
   proxyRunning: boolean;
+  /** 프록시를 켠다(이미 켜져 있으면 바로 true). 켜지 못하면 false — 이유는 호출한 쪽이 이미 알렸다. */
+  ensureProxy: () => Promise<boolean>;
   /** 이 IP의 요청만 보기(같은 기기를 다시 누르면 해제). */
   onFilterClient: (ip: string | undefined) => void;
   activeClientFilter: string | undefined;
@@ -151,6 +153,7 @@ export function DevicePanel({
   clients,
   now,
   proxyRunning,
+  ensureProxy,
   onFilterClient,
   activeClientFilter,
   untrackedCount
@@ -172,6 +175,12 @@ export function DevicePanel({
     });
   const openWizard = (tab: WizardPlatformTab): void => setGuideTab(tab);
 
+  // Wi-Fi 수동 설정 안내는 접속 주소를 보여 줘야 하므로 프록시가 켜져 있어야 한다.
+  useEffect(() => {
+    if (guideTab !== 'android-usb') void ensureProxy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideTab]);
+
   const handleStart = async (
     device: DeviceInfo,
     mode: AndroidInterceptionMode,
@@ -179,6 +188,8 @@ export function DevicePanel({
   ): Promise<void> => {
     setBusy((prev) => ({ ...prev, [device.id]: 'starting' }));
     try {
+      // 인터셉트에는 프록시가 필요하다. 꺼져 있으면 여기서 켠다.
+      if (!(await ensureProxy())) return;
       const result = await withProgress(operationId.deviceStart(device.id), `${device.name} 연결 중`, () =>
         start(device, mode, trafficPath)
       );

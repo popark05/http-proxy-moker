@@ -72,7 +72,7 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   app.on('will-quit', () => proxy.dispose());
 
   ipcMain.handle(IpcChannels.proxyStart, (_event, args: ProxyStartArgs | undefined) =>
-    proxy.start(args?.port ?? DEFAULT_PROXY_PORT, progress(operationId.proxyStart))
+    proxy.start(args?.port, progress(operationId.proxyStart))
   );
   ipcMain.handle(IpcChannels.proxyStop, () => proxy.stop(progress(operationId.proxyStop)));
   ipcMain.handle(IpcChannels.proxyStatus, () => proxy.getStatus());
@@ -232,15 +232,6 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
     if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
     return projectStore.deleteScenario(openProjectDir, name);
   });
-
-  ipcMain.handle(
-    IpcChannels.contractRun,
-    async (_event, arg: { contracts: Contract[]; options: ContractRunOptions }) =>
-      proxy.runContracts(arg.contracts, arg.options, (result) => {
-        const window = getWindow();
-        if (window && !window.isDestroyed()) window.webContents.send(IpcChannels.contractResult, result);
-      })
-  );
 
   ipcMain.handle(
     IpcChannels.contractSend,

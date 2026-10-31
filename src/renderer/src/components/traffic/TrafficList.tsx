@@ -78,7 +78,7 @@ export function TrafficList({
       <EmptyState
         icon={Radio}
         title="아직 캡처된 요청이 없습니다"
-        description="프록시를 시작하고 기기 인터셉션을 켠 뒤, 앱에서 트래픽을 발생시키면 여기에 표시됩니다."
+        description="기기를 연결(인터셉트)한 뒤 앱에서 트래픽을 발생시키면 여기에 표시됩니다. 프록시는 자동으로 켜집니다."
       />
     );
   }

@@ -8,14 +8,14 @@ import { cn } from '@/lib/utils';
 interface ScenarioPanelProps {
   scenarios: ScenarioV2[];
   activeScenario: string | undefined;
-  /** 활성 시나리오와 작업 공간의 차이. */
+  /** 활성 시나리오와 현재 목의 차이. */
   diff: WorkspaceDiff | undefined;
   /** 라이브러리에 케이스가 있는지(새 시나리오를 만들 수 있는지). */
   hasLibrary: boolean;
   onActivate: (name: string) => void;
   onEdit: (scenario: ScenarioV2) => void;
   onDelete: (name: string) => void;
-  /** 활성 시나리오를 작업 공간 내용으로 갱신. */
+  /** 활성 시나리오를 현재 목 내용으로 갱신. */
   onUpdateActive: () => void;
   onNew: () => void;
   onOpenLibrary: () => void;
@@ -31,8 +31,8 @@ function diffTitle(diff: WorkspaceDiff): string {
 }
 
 /**
- * 시나리오 = 재사용하는 케이스 선택의 묶음. 활성화하면 작업 공간(목)에 풀어 넣고,
- * 작업 공간을 고치면 "수정됨"으로 표시해 시나리오에 반영하거나 되돌릴 수 있다.
+ * 시나리오 = 재사용하는 케이스 선택의 묶음. 활성화하면 현재 목(목)에 풀어 넣고,
+ * 현재 목을 고치면 "수정됨"으로 표시해 시나리오에 반영하거나 되돌릴 수 있다.
  */
 export function ScenarioPanel({
   scenarios,
@@ -53,7 +53,7 @@ export function ScenarioPanel({
           시나리오 ({scenarios.length})
         </h3>
         <Button variant="ghost" size="sm" onClick={onOpenLibrary}>
-          <Library /> 케이스 라이브러리
+          <Library /> 응답 케이스
         </Button>
         <Button variant="outline" size="sm" disabled={!hasLibrary} onClick={onNew} title={hasLibrary ? undefined : '먼저 목을 "케이스로 저장"하세요'}>
           <Plus /> 새 시나리오
@@ -65,7 +65,7 @@ export function ScenarioPanel({
           compact
           icon={Layers}
           title="저장된 시나리오가 없습니다"
-          description='목 정의를 만든 뒤 "시나리오 저장"을 누르면 케이스 라이브러리에 저장되고, 여러 시나리오가 같은 케이스를 재사용합니다.'
+          description='목 정의를 만든 뒤 "시나리오 저장"을 누르면 응답 케이스에 저장되고, 여러 시나리오가 같은 케이스를 재사용합니다.'
         />
       ) : (
         scenarios.map((s) => {
@@ -111,10 +111,10 @@ export function ScenarioPanel({
                 </span>
                 {dirty ? (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => onActivate(s.name)} title="저장된 시나리오 내용으로 작업 공간을 되돌립니다">
+                    <Button variant="outline" size="sm" onClick={() => onActivate(s.name)} title="저장된 시나리오 내용으로 현재 목을 되돌립니다">
                       <RotateCcw /> 되돌리기
                     </Button>
-                    <Button size="sm" onClick={onUpdateActive} title="현재 작업 공간 내용을 이 시나리오에 저장합니다">
+                    <Button size="sm" onClick={onUpdateActive} title="현재 현재 목 내용을 이 시나리오에 저장합니다">
                       <Upload /> 현재 작업 반영
                     </Button>
                   </>

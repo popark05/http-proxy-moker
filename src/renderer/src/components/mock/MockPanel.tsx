@@ -171,7 +171,7 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSave
         {mock.path}
       </span>
       {caseName && (
-        <Badge variant="neutral" title="케이스 라이브러리에서 가져온 목">
+        <Badge variant="neutral" title="응답 케이스에서 가져온 목">
           {caseName}
         </Badge>
       )}

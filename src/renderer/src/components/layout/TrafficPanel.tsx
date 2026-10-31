@@ -30,7 +30,7 @@ interface TrafficPanelProps {
   clientPlatforms: ComponentProps<typeof TrafficList>['clientPlatforms'];
   /** 우클릭 메뉴 동작(대상 요청을 받는다). */
   rowActions: Omit<TrafficMenuActions, 'patchFilter' | 'setChecked'>;
-  /** 프로젝트에 저장된 캡처 세션 이름. */
+  /** 프로젝트에 저장된 저장된 캡처 이름. */
   sessions: string[];
   sessionActions: SessionMenuActions;
 }
@@ -80,7 +80,7 @@ export function TrafficPanel({
             );
           }}
         >
-          <History /> 세션
+          <History /> 저장된 캡처
         </Button>
       </div>
       <FilterBar {...filterProps} total={exchanges.length} shown={filtered.length} />

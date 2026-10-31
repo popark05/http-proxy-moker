@@ -18,7 +18,7 @@ import type { OperationProgress } from './progress';
 import type { InterceptionLiveness } from './interception-liveness';
 import type { ApplyMocksArgs } from './mock';
 import type { CaseLibrary, ScenarioFile } from './scenario-library';
-import type { Contract, ContractRunOptions, ContractRunResult, ContractServer, SendOutcome } from './contract';
+import type { Contract, ContractRunOptions, ContractServer, SendOutcome } from './contract';
 
 export const IpcChannels = {
   /** 연결 확인용 왕복(핑퐁). Task 1 데모용. */
@@ -79,11 +79,8 @@ export const IpcChannels = {
   projectSaveContract: 'project:save-contract',
   projectLoadAllContracts: 'project:load-all-contracts',
   projectDeleteContract: 'project:delete-contract',
-  /** 계약 실행. arg: {contracts, options} → ContractRunResult[] (개별 결과는 contractResult로 push). */
   projectLoadContractServers: 'project:load-contract-servers',
   projectSaveContractServers: 'project:save-contract-servers',
-  contractRun: 'contract:run',
-  contractResult: 'contract:result',
   /** 컬렉션 요청 하나 보내기. arg: {contract, options} → SendOutcome */
   contractSend: 'contract:send',
   /** Bruno 컬렉션 내보내기(폴더 선택) → {dir, files} | null. arg: {name, contracts, servers} */
@@ -188,12 +185,8 @@ export interface MokerApi {
     saveContractServers(servers: ContractServer[]): Promise<void>;
   };
   contract: {
-    /** 계약을 실제 서버로 실행(순정 Node 워커). 전체 결과 반환. */
-    run(contracts: Contract[], options: ContractRunOptions): Promise<ContractRunResult[]>;
     /** 컬렉션의 요청 하나를 실제 서버로 보내고 응답을 그대로 받는다. */
     send(contract: Contract, options: ContractRunOptions): Promise<SendOutcome>;
-    /** 실행 중 계약 하나가 끝날 때마다 호출. 구독 해제 함수를 반환. */
-    onResult(listener: (result: ContractRunResult) => void): () => void;
     /** 계약을 Bruno 컬렉션으로 내보낸다(이미 컬렉션인 폴더를 고르면 거기에 추가). 취소하면 null. */
     exportBruno(name: string, contracts: Contract[], servers: ContractServer[]): Promise<{ dir: string; files: number; merged: boolean; added: number; existing: number } | null>;
     /** Bruno 컬렉션 폴더를 계약으로 가져온다(저장은 하지 않음). 취소하면 null. */

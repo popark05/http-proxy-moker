@@ -1,4 +1,4 @@
-import { Copy, Filter, FolderPlus, History, Link, MonitorSmartphone, Save, Send, SquareCheck, SquareMinus, Terminal, Trash2 } from 'lucide-react';
+import { Copy, Filter, FolderPlus, History, Link, MonitorSmartphone, Save, SquareCheck, SquareMinus, Terminal, Trash2 } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { toCurl } from '@shared/curl';
 import type { TrafficFilter } from '@shared/traffic-filter';
@@ -8,7 +8,6 @@ export interface TrafficMenuActions {
   /** 목으로 복제(대상이 여럿이면 method+host+path당 최신 하나). */
   cloneToMock: (targets: CapturedExchange[]) => void;
   saveContracts: (targets: CapturedExchange[]) => void;
-  exportBruno: (targets: CapturedExchange[]) => void;
   patchFilter: (patch: Partial<TrafficFilter>) => void;
   copy: (text: string, what: string) => void;
   setChecked: (next: Set<string>) => void;
@@ -43,7 +42,6 @@ export function buildRowMenu(
   const items: MenuItem[] = [
     { label: `목으로 복제${multi}`, icon: Copy, onSelect: () => actions.cloneToMock(targets) },
     { label: `컬렉션에 추가${multi}`, icon: FolderPlus, onSelect: () => actions.saveContracts(targets) },
-    { label: `Bruno로 내보내기${multi}`, icon: Send, onSelect: () => actions.exportBruno(targets) },
     { label: 'URL 복사', icon: Link, onSelect: () => actions.copy(primary.request.url, 'URL') },
     { label: 'cURL 복사', icon: Terminal, onSelect: () => actions.copy(toCurl(primary.request), 'cURL') }
   ];
@@ -80,14 +78,14 @@ export interface SessionMenuActions {
   clear: () => void;
 }
 
-/** 캡처 세션 메뉴(헤더 버튼과 목록 빈 곳 우클릭 공용). 저장된 세션은 이름별 "불러오기" 항목으로 나온다. */
+/** 저장된 캡처 메뉴(헤더 버튼과 목록 빈 곳 우클릭 공용). 저장된 세션은 이름별 "불러오기" 항목으로 나온다. */
 export function buildSessionMenu(
   exchangeCount: number,
   sessions: readonly string[],
   actions: SessionMenuActions
 ): MenuItem[] {
   return [
-    { label: '캡처 세션으로 저장', icon: Save, onSelect: actions.save, disabled: exchangeCount === 0 },
+    { label: '캡처 저장', icon: Save, onSelect: actions.save, disabled: exchangeCount === 0 },
     ...sessions.map((name) => ({ label: `불러오기: ${name}`, icon: History, onSelect: () => actions.load(name) })),
     { label: '트래픽 비우기', icon: Trash2, onSelect: actions.clear, destructive: true, disabled: exchangeCount === 0 }
   ];

@@ -10,7 +10,7 @@ interface UseProjectResult {
   loadCapture: (name: string) => Promise<CapturedExchange[]>;
 }
 
-/** 열린 프로젝트 상태와 캡처 세션 저장/로드를 관리하는 훅. */
+/** 열린 프로젝트 상태와 저장된 캡처 저장/로드를 관리하는 훅. */
 export function useProject(): UseProjectResult {
   const [project, setProject] = useState<OpenProject | undefined>(undefined);
 
