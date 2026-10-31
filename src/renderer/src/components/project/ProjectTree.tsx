@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, FileJson, FlaskConical, FolderClock, Layers, Library, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set());
   const { open: openMenu, element: menuElement } = useContextMenu();
+  const treeRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => buildProjectTree({ ...props.input, query }), [props.input, query]);
 
@@ -85,6 +86,104 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
     }
   };
 
+  /** 삭제 키로 지울 수 있는 항목의 삭제 동작(확인 창은 각 핸들러가 띄운다). */
+  const deleteFor = (node: TreeNode): (() => void) | undefined => {
+    switch (node.kind) {
+      case 'mock':
+        return () => props.onRemoveMock(node.key.slice('mock:'.length));
+      case 'scenario':
+        return () => props.onDeleteScenario(node.label);
+      case 'contract':
+        return () => props.onRemoveContract(node.label);
+      default:
+        return undefined;
+    }
+  };
+
+  const nodeByKey = useMemo(() => {
+    const map = new Map<string, TreeNode>();
+    const visit = (node: TreeNode): void => {
+      map.set(node.key, node);
+      if (node.kind === 'endpoint') node.children.forEach(visit);
+    };
+    groups.forEach((g) => g.children.forEach(visit));
+    return map;
+  }, [groups]);
+
+  const focusables = (): HTMLElement[] =>
+    Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-tree-focus]') ?? []);
+
+  const onTreeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    const target = e.target as HTMLElement;
+    const kind = target.dataset.treeFocus;
+    if (!kind) return;
+    const all = focusables();
+    const at = all.indexOf(target);
+    const move = (to: number): void => {
+      e.preventDefault();
+      all[Math.max(0, Math.min(all.length - 1, to))]?.focus();
+    };
+    const groupId = target.dataset.groupId as GroupId | undefined;
+    const node = kind === 'item' ? nodeByKey.get(target.dataset.nodeKey ?? '') : undefined;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        return move(at + 1);
+      case 'ArrowUp':
+        return move(at - 1);
+      case 'Home':
+        return move(0);
+      case 'End':
+        return move(all.length - 1);
+      case 'ArrowRight':
+        if (kind === 'group' && groupId) {
+          e.preventDefault();
+          if (collapsed.has(groupId)) toggleGroup(groupId);
+          else move(at + 1);
+        }
+        return;
+      case 'ArrowLeft':
+        if (kind === 'group' && groupId && !collapsed.has(groupId)) {
+          e.preventDefault();
+          toggleGroup(groupId);
+        } else if (kind === 'item') {
+          e.preventDefault();
+          treeRef.current?.querySelector<HTMLElement>(`[data-tree-focus=group][data-group-id=${groupId}]`)?.focus();
+        }
+        return;
+      case 'Enter':
+      case ' ':
+        if (node) {
+          e.preventDefault();
+          activate(node);
+        }
+        return;
+      case 'Delete':
+      case 'Backspace': {
+        const remove = node && deleteFor(node);
+        if (remove) {
+          e.preventDefault();
+          remove();
+        }
+        return;
+      }
+      case 'ContextMenu':
+      case 'F10': {
+        if (!node || (e.key === 'F10' && !e.shiftKey)) return;
+        const rect = target.getBoundingClientRect();
+        openMenu(
+          {
+            clientX: rect.left + 24,
+            clientY: rect.bottom,
+            preventDefault: () => e.preventDefault(),
+            stopPropagation: () => e.stopPropagation()
+          },
+          menuFor(node)
+        );
+      }
+    }
+  };
+
   const activate = (node: TreeNode): void => {
     switch (node.kind) {
       case 'session':
@@ -101,23 +200,23 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
     }
   };
 
-  const renderNode = (node: TreeNode, depth: number): JSX.Element => (
+  const renderNode = (node: TreeNode, depth: number, groupId: GroupId): JSX.Element => (
     <div key={node.key}>
       <div
         role="treeitem"
         tabIndex={0}
+        data-tree-focus="item"
+        data-group-id={groupId}
         onClick={() => activate(node)}
         onDoubleClick={node.kind === 'scenario' ? () => props.onEditScenario(node.label) : undefined}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') activate(node);
-        }}
         onContextMenu={(e) => openMenu(e, menuFor(node))}
+        data-node-key={node.key}
         style={{ paddingLeft: 12 + depth * 14 }}
         className="group flex h-7 cursor-pointer items-center gap-2 pr-3 text-xs hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
       >
         <NodeBody node={node} onToggleMock={props.onToggleMock} />
       </div>
-      {node.kind === 'endpoint' && node.children.map((child) => renderNode(child, depth + 1))}
+      {node.kind === 'endpoint' && node.children.map((child) => renderNode(child, depth + 1, groupId))}
     </div>
   );
 
@@ -129,6 +228,8 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         <button
           type="button"
           aria-expanded={isOpen}
+          data-tree-focus="group"
+          data-group-id={group.id}
           onClick={() => toggleGroup(group.id)}
           className="flex h-7 w-full items-center gap-1.5 px-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
         >
@@ -139,7 +240,7 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         </button>
         {isOpen &&
           (group.children.length > 0 ? (
-            group.children.map((node) => renderNode(node, 0))
+            group.children.map((node) => renderNode(node, 0, group.id))
           ) : (
             <p className="px-8 py-1 text-xs text-muted-foreground">{EMPTY_HINT[group.id]}</p>
           ))}
@@ -154,12 +255,19 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // 검색창에서 아래 화살표로 트리의 첫 항목으로 내려간다.
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              focusables()[0]?.focus();
+            }
+          }}
           placeholder="목 · 시나리오 · 계약 검색"
           aria-label="프로젝트 검색"
           className="h-8 pl-7 text-xs"
         />
       </div>
-      <div role="tree" className="min-h-0 flex-1 overflow-auto pb-3">
+      <div ref={treeRef} role="tree" onKeyDown={onTreeKeyDown} className="min-h-0 flex-1 overflow-auto pb-3">
         {groups.length > 0 ? (
           groups.map(renderGroup)
         ) : (
@@ -176,7 +284,13 @@ export function ProjectTree(props: ProjectTreeProps): JSX.Element {
   );
 }
 
-function NodeBody({ node, onToggleMock }: { node: TreeNode; onToggleMock: (id: string, enabled: boolean) => void }): JSX.Element {
+function NodeBody({
+  node,
+  onToggleMock
+}: {
+  node: TreeNode;
+  onToggleMock: (id: string, enabled: boolean) => void;
+}): JSX.Element {
   switch (node.kind) {
     case 'mock':
       return (

@@ -12,6 +12,8 @@ import { MockWorkspace } from './components/layout/MockWorkspace';
 import { TrafficPanel } from './components/layout/TrafficPanel';
 import { ProjectTree } from './components/project/ProjectTree';
 import { Workspace } from './components/layout/Workspace';
+import { CommandPalette } from './components/layout/CommandPalette';
+import { buildCommands } from './lib/commands';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from './components/common/EmptyState';
 import type { ScenarioV2 } from '@shared/scenario-library';
@@ -97,6 +99,24 @@ function AppInner(): JSX.Element {
   };
 
   const closeExchangeTabs = (): void => workbench.closeWhere((t) => t.target.kind === 'exchange');
+
+  /** 캡처된 요청과 요청 탭, 목 히트 수를 비운다. */
+  const clearCapture = (): void => {
+    clear();
+    mockHits.reset();
+    setSelectedId(undefined);
+    closeExchangeTabs();
+  };
+
+  /** 세션을 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다. */
+  const loadSessionConfirmed = (name: string): void => {
+    if (
+      exchanges.length > 0 &&
+      !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
+    )
+      return;
+    void handleLoadSession(name);
+  };
 
   // 요청 탭을 활성화하면 트래픽 목록의 선택도 따라간다.
   const activeKey = workbench.state.activeKey;
@@ -202,15 +222,7 @@ function AppInner(): JSX.Element {
     <ProjectTree
       input={treeInput}
       onOpenMocks={openMocksTab}
-      onLoadSession={(name) => {
-        // 불러오면 지금 캡처 목록이 대체되므로, 쌓인 요청이 있으면 한 번 확인한다.
-        if (
-          exchanges.length > 0 &&
-          !window.confirm(`"${name}" 세션을 불러오면 지금 캡처된 ${exchanges.length}건이 사라집니다. 계속할까요?`)
-        )
-          return;
-        void handleLoadSession(name);
-      }}
+      onLoadSession={loadSessionConfirmed}
       onToggleMock={(id, enabled) => {
         const mock = mocks.find((m) => m.id === id);
         if (mock) updateMock({ ...mock, enabled });
@@ -250,12 +262,7 @@ function AppInner(): JSX.Element {
         count: exchanges.length,
         onStart: () => void handleStartProxy(),
         onStop: () => void handleStopProxy(),
-        onClear: () => {
-          clear();
-          mockHits.reset();
-          setSelectedId(undefined);
-          closeExchangeTabs();
-        }
+        onClear: clearCapture
       }}
       deviceProps={{
         clients,
@@ -423,6 +430,59 @@ function AppInner(): JSX.Element {
     }
   };
 
+  // Cmd/Ctrl+K: 커맨드 팔레트.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyK') {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // 항목은 팔레트가 열려 있을 때만 만든다(캡처가 쌓이는 동안 매번 만들 필요가 없다).
+  const paletteCommands = paletteOpen
+    ? buildCommands({
+        tabs: workbench.state.tabs,
+        describeTab,
+        exchanges,
+        mocks,
+        scenarios: scenarioLib.scenarios,
+        activeScenario,
+        library: scenarioLib.library,
+        contracts: contractState.contracts,
+        captureSessions: project?.captureSessions ?? [],
+        hasProject: !!project,
+        mode,
+        proxyRunning: status.running,
+        activeTabKey: workbench.state.activeKey,
+        actions: {
+          activateTab: workbench.activate,
+          openSection,
+          openExchange: handleSelect,
+          openMocks: openMocksTab,
+          openScenario: openScenarioTab,
+          activateScenario: (name) => {
+            scenarioActions.activateScenario(name);
+            openMocksTab();
+          },
+          openLibrary: openLibraryTab,
+          openContracts: openContractsTab,
+          loadSession: loadSessionConfirmed,
+          startProxy: () => void handleStartProxy(),
+          stopProxy: () => void handleStopProxy(),
+          setMode,
+          closeActiveTab: () => {
+            if (workbench.state.activeKey) handleCloseTab(workbench.state.activeKey);
+          },
+          clearCapture
+        }
+      })
+    : [];
+
   const workspace = (
     <Workspace
       tabs={workbench.state.tabs}
@@ -475,6 +535,7 @@ function AppInner(): JSX.Element {
         onOpenConnect={() => openSection('connect')}
       />
 
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
       <Toaster />
       <SplashScreen />
     </div>

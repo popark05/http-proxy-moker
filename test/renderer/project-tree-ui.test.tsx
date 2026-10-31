@@ -114,3 +114,73 @@ describe('ProjectTree', () => {
     expect(screen.getByText(/프로젝트를 열면/)).toBeTruthy();
   });
 });
+
+describe('ProjectTree 키보드 탐색', () => {
+  const tree = (): HTMLElement => screen.getByRole('tree');
+  const focused = (): string => document.activeElement?.textContent?.trim() ?? '';
+
+  it('방향키로 그룹 헤더와 항목을 오가고 오른쪽/왼쪽으로 접고 펼친다', () => {
+    setup();
+    const mocksHeader = screen.getByRole('button', { name: /^목/ });
+    mocksHeader.focus();
+    fireEvent.keyDown(mocksHeader, { key: 'ArrowDown' });
+    expect(document.activeElement?.getAttribute('role')).toBe('treeitem');
+    expect(focused()).toContain('/users');
+
+    // 항목에서 왼쪽 → 소속 그룹 헤더로
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(mocksHeader);
+    // 펼친 그룹에서 왼쪽 → 접힘, 오른쪽 → 펼침
+    fireEvent.keyDown(mocksHeader, { key: 'ArrowLeft' });
+    expect(mocksHeader.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.keyDown(mocksHeader, { key: 'ArrowRight' });
+    expect(mocksHeader.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('Home/End로 처음과 끝으로 이동한다', () => {
+    setup();
+    const items = within(tree()).getAllByRole('treeitem');
+    items[0].focus();
+    fireEvent.keyDown(items[0], { key: 'End' });
+    // 보이는 항목 중 마지막은 항목이 없는 마지막 그룹(계약)의 헤더다.
+    expect(document.activeElement?.getAttribute('data-group-id')).toBe('contracts');
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' });
+    expect(document.activeElement?.getAttribute('data-tree-focus')).toBe('group');
+  });
+
+  it('Enter는 기본 동작을, Delete는 삭제를 요청한다', () => {
+    const h = setup();
+    const scenarioRow = screen.getByText('정상').closest('[role=treeitem]') as HTMLElement;
+    scenarioRow.focus();
+    fireEvent.keyDown(scenarioRow, { key: 'Enter' });
+    expect(h.onActivateScenario).toHaveBeenCalledWith('정상');
+    fireEvent.keyDown(scenarioRow, { key: 'Delete' });
+    expect(h.onDeleteScenario).toHaveBeenCalledWith('정상');
+    // 삭제 동작이 없는 세션 항목은 Delete를 무시한다
+    const session = screen.getByText('세션1').closest('[role=treeitem]') as HTMLElement;
+    fireEvent.keyDown(session, { key: 'Delete' });
+    expect(h.onLoadSession).not.toHaveBeenCalled();
+  });
+
+  it('메뉴 키로 연 메뉴는 첫 항목에 포커스가 가고 방향키·Esc가 동작하며 포커스가 돌아온다', () => {
+    const h = setup();
+    const row = screen.getByText('정상').closest('[role=treeitem]') as HTMLElement;
+    row.focus();
+    fireEvent.keyDown(row, { key: 'ContextMenu' });
+    expect(screen.getByRole('menu')).toBeTruthy();
+    expect(document.activeElement?.textContent).toBe('활성화');
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
+    expect(document.activeElement?.textContent).toBe('편집');
+    fireEvent.click(document.activeElement!);
+    expect(h.onEditScenario).toHaveBeenCalledWith('정상');
+    expect(document.activeElement).toBe(row);
+  });
+
+  it('검색창에서 아래 화살표를 누르면 트리 첫 항목으로 내려간다', () => {
+    setup();
+    const search = screen.getByLabelText('프로젝트 검색');
+    search.focus();
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    expect(document.activeElement?.getAttribute('data-tree-focus')).toBe('group');
+  });
+});

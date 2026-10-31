@@ -11,6 +11,14 @@ export interface MenuItem {
 const MENU_WIDTH = 200;
 const ITEM_HEIGHT = 28;
 
+/** 마우스 우클릭이나, 키보드로 연 경우 요소 위치로 만든 같은 모양의 좌표. */
+export interface MenuAnchor {
+  clientX: number;
+  clientY: number;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}
+
 interface OpenMenu {
   x: number;
   y: number;
@@ -22,23 +30,35 @@ interface OpenMenu {
  * `open(event, items)`를 onContextMenu에 연결하고 `element`를 한 번 렌더하면 된다.
  */
 export function useContextMenu(): {
-  open: (event: React.MouseEvent, items: MenuItem[]) => void;
+  open: (event: MenuAnchor, items: MenuItem[]) => void;
   element: JSX.Element | null;
 } {
   const [menu, setMenu] = useState<OpenMenu | undefined>(undefined);
   const ref = useRef<HTMLDivElement>(null);
+  /** 메뉴를 열기 전에 포커스가 있던 요소. 닫으면 거기로 돌려준다(키보드 사용자가 자리를 잃지 않게). */
+  const returnFocus = useRef<HTMLElement | null>(null);
 
-  const close = useCallback(() => setMenu(undefined), []);
+  const close = useCallback(() => {
+    setMenu(undefined);
+    returnFocus.current?.focus?.();
+    returnFocus.current = null;
+  }, []);
 
-  const open = useCallback((event: React.MouseEvent, items: MenuItem[]) => {
+  const open = useCallback((event: MenuAnchor, items: MenuItem[]) => {
     event.preventDefault();
     event.stopPropagation();
     if (items.length === 0) return;
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // 화면 밖으로 나가지 않게 오른쪽/아래 끝에서는 안쪽으로 당긴다.
     const x = Math.min(event.clientX, window.innerWidth - MENU_WIDTH - 8);
     const y = Math.min(event.clientY, window.innerHeight - items.length * ITEM_HEIGHT - 16);
     setMenu({ x: Math.max(4, x), y: Math.max(4, y), items });
   }, []);
+
+  // 열리면 첫 항목에 포커스를 둬서 방향키/Enter로 고를 수 있게 한다.
+  useEffect(() => {
+    if (menu) ref.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }, [menu]);
 
   useEffect(() => {
     if (!menu) return;
@@ -67,6 +87,14 @@ export function useContextMenu(): {
       ref={ref}
       role="menu"
       style={{ left: menu.x, top: menu.y, width: MENU_WIDTH }}
+      onKeyDown={(e) => {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault();
+        const buttons = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const next = (at + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+        buttons[next]?.focus();
+      }}
       className="fixed z-50 rounded-md border border-border bg-popover p-1 text-xs text-popover-foreground shadow-md"
     >
       {menu.items.map((item) => (
