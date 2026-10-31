@@ -15,7 +15,6 @@ import { CloneSourceBar } from './components/mock/CloneSourceBar';
 import { MockPanel } from './components/mock/MockPanel';
 import { ScenarioPanel } from './components/mock/ScenarioPanel';
 import { TrafficPanel } from './components/layout/TrafficPanel';
-import { ProjectTree } from './components/project/ProjectTree';
 import { Workspace } from './components/layout/Workspace';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { buildCommands } from './lib/commands';
@@ -257,40 +256,6 @@ function AppInner(): JSX.Element {
     />
   );
 
-  const treeInput = useMemo(
-    () => ({
-      hasProject: !!project,
-      scenarios: scenarioLib.scenarios,
-      activeScenario,
-      scenarioDirty: !!scenarioLib.diff?.dirty,
-      library: scenarioLib.library
-    }),
-    [
-      project,
-      scenarioLib.scenarios,
-      activeScenario,
-      scenarioLib.diff?.dirty,
-      scenarioLib.library
-    ]
-  );
-
-  const projectTree = (
-    <ProjectTree
-      input={treeInput}
-      onActivateScenario={(name) => {
-        scenarioActions.activateScenario(name);
-        openMocksTab();
-      }}
-      onEditScenario={(name) => {
-        const scenario = scenarioLib.scenarios.find((s) => s.name === name);
-        if (scenario) openScenarioTab(scenario.name);
-      }}
-      onDeleteScenario={(name) => void scenarioActions.deleteScenario(name)}
-      onUpdateActiveScenario={() => void scenarioActions.updateActiveScenario()}
-      onOpenLibrary={openLibraryTab}
-    />
-  );
-
   const captureProps = {
     paused,
     onTogglePaused: () => setPaused(!paused),
@@ -299,7 +264,7 @@ function AppInner(): JSX.Element {
     clearDisabled: captureView.kind === 'saved'
   };
 
-  const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} projectTree={projectTree} />;
+  const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} />;
 
   const connectView = (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">

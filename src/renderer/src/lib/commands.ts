@@ -72,13 +72,6 @@ export function buildCommands(input: CommandInput): Command[] {
   out.push(
     { id: 'go:traffic', group: '이동', label: '트래픽 보기', keywords: 'traffic', run: () => a.openSection('traffic') },
     {
-      id: 'go:project',
-      group: '이동',
-      label: '프로젝트 트리 보기',
-      keywords: 'project tree',
-      run: () => a.openSection('project')
-    },
-    {
       id: 'go:connect',
       group: '이동',
       label: '기기 연결 보기',

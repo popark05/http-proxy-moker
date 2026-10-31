@@ -35,7 +35,7 @@ function Harness({ section, collapsed = false }: { section: SidebarSection; coll
 
 describe('AppShell', () => {
   it('Rail의 맨 위는 기기 연결이다', () => {
-    expect(SIDEBAR_SECTIONS.map((s) => s.id)).toEqual(['connect', 'traffic', 'mocking', 'collection', 'project']);
+    expect(SIDEBAR_SECTIONS.map((s) => s.id)).toEqual(['connect', 'traffic', 'mocking', 'collection']);
     render(<Harness section="traffic" />);
     expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))[0]).toBe('기기 연결');
   });

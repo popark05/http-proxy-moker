@@ -36,4 +36,9 @@ describe('useSidebarLayout', () => {
     localStorage.setItem('evermock.sidebar.section', 'nope');
     expect(renderHook(() => useSidebarLayout()).result.current.section).toBe('traffic');
   });
+
+  it('폐지된 프로젝트 섹션이 저장돼 있으면 트래픽으로 연다', () => {
+    localStorage.setItem('evermock.sidebar.section', 'project');
+    expect(renderHook(() => useSidebarLayout()).result.current.section).toBe('traffic');
+  });
 });

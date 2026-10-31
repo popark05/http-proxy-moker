@@ -3,7 +3,7 @@ import type { SidebarSection } from '../components/layout/sidebar-sections';
 
 const SECTION_KEY = 'evermock.sidebar.section';
 const COLLAPSED_KEY = 'evermock.sidebar.collapsed';
-const SECTIONS: readonly SidebarSection[] = ['traffic', 'project', 'connect', 'mocking', 'collection'];
+const SECTIONS: readonly SidebarSection[] = ['traffic', 'connect', 'mocking', 'collection'];
 
 function read(key: string): string | null {
   try {
@@ -24,7 +24,9 @@ function write(key: string, value: string): void {
 /** 사이드바의 현재 섹션과 접힘 상태. 다음 실행에도 복원되도록 localStorage에 저장한다. */
 export function useSidebarLayout() {
   const [section, setSection] = useState<SidebarSection>(() => {
-    const stored = read(SECTION_KEY) as SidebarSection | null;
+    const raw = read(SECTION_KEY);
+    // 폐지된 '프로젝트' 섹션이 저장돼 있으면 트래픽으로 대신한다.
+    const stored = (raw === 'project' ? 'traffic' : raw) as SidebarSection | null;
     return stored && SECTIONS.includes(stored) ? stored : 'traffic';
   });
   const [collapsed, setCollapsed] = useState(() => read(COLLAPSED_KEY) === '1');
