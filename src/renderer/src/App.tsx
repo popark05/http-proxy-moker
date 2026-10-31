@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -10,6 +10,11 @@ import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
 import { MockWorkspace } from './components/layout/MockWorkspace';
 import { TrafficPanel } from './components/layout/TrafficPanel';
+import { Workspace } from './components/layout/Workspace';
+import { Button } from '@/components/ui/button';
+import { FlaskConical } from 'lucide-react';
+import { useWorkbench } from './state/useWorkbench';
+import type { Tab } from './lib/workbench';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
@@ -68,7 +73,33 @@ function AppInner(): JSX.Element {
   const [blockUnmatched, setBlockUnmatched] = useState(false);
   const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
+  const workbench = useWorkbench();
+
   const selected = exchanges.find((e) => e.id === selectedId);
+
+  /** 트래픽 행 선택. 캡처 모드에서는 상세를 미리보기 탭으로 연다(목킹 모드에서는 복제 소스 선택일 뿐이라 탭을 바꾸지 않는다). */
+  const handleSelect = (id: string | undefined): void => {
+    setSelectedId(id);
+    if (id && mode === 'capture') workbench.open({ kind: 'exchange', id });
+  };
+
+  const handleCloseTab = (key: string): void => {
+    workbench.close(key);
+    if (selectedId && key === `exchange:${selectedId}`) setSelectedId(undefined);
+  };
+
+  const closeExchangeTabs = (): void => workbench.closeWhere((t) => t.target.kind === 'exchange');
+
+  // 목킹 모드로 바꾸면 목 · 시나리오 탭을 열어 보여 준다.
+  useEffect(() => {
+    if (mode === 'mock') workbench.open({ kind: 'mocks' }, { pin: true });
+  }, [mode, workbench.open]);
+
+  // 요청 탭을 활성화하면 트래픽 목록의 선택도 따라간다.
+  const activeKey = workbench.state.activeKey;
+  useEffect(() => {
+    if (activeKey?.startsWith('exchange:')) setSelectedId(activeKey.slice('exchange:'.length));
+  }, [activeKey]);
 
   const { proxyBusy, handleStartProxy, handleStopProxy } = useProxyActions({
     status,
@@ -82,7 +113,10 @@ function AppInner(): JSX.Element {
     projectState,
     exchanges,
     replaceExchanges,
-    onSessionLoaded: () => setSelectedId(undefined)
+    onSessionLoaded: () => {
+      setSelectedId(undefined);
+      closeExchangeTabs();
+    }
   });
   const scenarioActions = useScenarioActions({ scenarioLib, hasProject: !!project, mode });
   const exchangeActions = useExchangeActions({
@@ -113,7 +147,7 @@ function AppInner(): JSX.Element {
       exchanges={exchanges}
       filtered={filtered}
       selectedId={selectedId}
-      onSelect={setSelectedId}
+      onSelect={handleSelect}
       checkedIds={checkedIds}
       setCheckedIds={setCheckedIds}
       view={trafficView}
@@ -138,6 +172,7 @@ function AppInner(): JSX.Element {
           clear();
           mockHits.reset();
           setSelectedId(undefined);
+          closeExchangeTabs();
         }
       }}
       deviceProps={{
@@ -156,20 +191,27 @@ function AppInner(): JSX.Element {
     />
   );
 
-  const workspace =
-    mode === 'capture' ? (
-      /* 캡처 모드: 요청·응답 상세 */
-      <div className="h-full overflow-auto">
-        <ExchangeDetail
-          exchange={selected}
-          clientDescription={clientDescriptionOf(selected)}
-          onCloneToMock={exchangeActions.cloneToMock}
-          onAddTag={handleAddTag}
-          onRemoveTag={handleRemoveTag}
-        />
-      </div>
-    ) : (
-      /* 목킹 모드: 복제 소스 + 목 정의/편집 + 시나리오 */
+  const activeTarget = workbench.state.tabs.find((t) => t.key === workbench.state.activeKey)?.target;
+  const activeExchange =
+    activeTarget?.kind === 'exchange' ? exchanges.find((e) => e.id === activeTarget.id) : undefined;
+
+  const describeTab = (tab: Tab): { label: string; method?: string } => {
+    if (tab.target.kind === 'mocks') return { label: '목 · 시나리오' };
+    const id = tab.target.id;
+    const exchange = exchanges.find((e) => e.id === id);
+    return exchange ? { method: exchange.request.method, label: exchange.request.path } : { label: '(지워진 요청)' };
+  };
+
+  const activeContent =
+    activeTarget?.kind === 'exchange' ? (
+      <ExchangeDetail
+        exchange={activeExchange}
+        clientDescription={clientDescriptionOf(activeExchange)}
+        onCloneToMock={exchangeActions.cloneToMock}
+        onAddTag={handleAddTag}
+        onRemoveTag={handleRemoveTag}
+      />
+    ) : activeTarget?.kind === 'mocks' ? (
       <MockWorkspace
         selected={selected}
         cloneSourceProps={{
@@ -205,7 +247,28 @@ function AppInner(): JSX.Element {
           onOpenLibrary: () => setLibraryOpen(true)
         }}
       />
-    );
+    ) : null;
+
+  const workspace = (
+    <Workspace
+      tabs={workbench.state.tabs}
+      activeKey={workbench.state.activeKey}
+      tabBarProps={{
+        describe: describeTab,
+        onActivate: workbench.activate,
+        onClose: handleCloseTab,
+        onPin: workbench.pin,
+        onMove: workbench.move
+      }}
+      emptyAction={
+        <Button variant="outline" size="sm" onClick={() => workbench.open({ kind: 'mocks' }, { pin: true })}>
+          <FlaskConical /> 목 · 시나리오 열기
+        </Button>
+      }
+    >
+      {activeContent}
+    </Workspace>
+  );
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">

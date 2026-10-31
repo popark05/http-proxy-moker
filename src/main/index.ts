@@ -89,12 +89,23 @@ app.whenReady().then(() => {
 
   // 배포본에서는 Cmd/Ctrl+R 새로고침·DevTools 단축키가 든 기본 메뉴를 쓰지 않는다(새로고침하면 캡처 상태가 날아간다).
   // macOS는 복사/붙여넣기 등 편집 단축키가 메뉴 role에 의존하므로 최소 메뉴를 둔다.
-  if (app.isPackaged) {
+  // Window 메뉴는 role: 'windowMenu'를 쓰지 않는다: 그 안의 "닫기"가 Cmd+W를 가져가 탭 닫기 단축키 대신 창이 닫힌다.
+  const windowMenu: Electron.MenuItemConstructorOptions = {
+    label: 'Window',
+    submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
+  };
+  if (process.platform === 'darwin') {
     Menu.setApplicationMenu(
-      process.platform === 'darwin'
-        ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
-        : null
+      Menu.buildFromTemplate([
+        { role: 'appMenu' },
+        { role: 'editMenu' },
+        // 개발 중에는 새로고침·DevTools 단축키를 남긴다.
+        ...(app.isPackaged ? [] : [{ role: 'viewMenu' } as Electron.MenuItemConstructorOptions]),
+        windowMenu
+      ])
     );
+  } else if (app.isPackaged) {
+    Menu.setApplicationMenu(null);
   }
 
   registerIpcHandlers(() => mainWindow);
