@@ -38,10 +38,10 @@ describe('커맨드 팔레트 모델', () => {
     const idle = labels(buildCommands(input()));
     expect(idle).toContain('프록시 시작');
     expect(idle).not.toContain('프록시 중지');
-    expect(idle).toContain('목킹 모드로 전환');
+    expect(idle).toContain('목 적용 켜기');
     const running = labels(buildCommands(input({ proxyRunning: true, mode: 'mock' })));
     expect(running).toContain('프록시 중지');
-    expect(running).toContain('캡처 모드로 전환');
+    expect(running).toContain('목 적용 끄기');
   });
 
   it('새 시나리오는 라이브러리에 케이스가 있을 때만, 세션은 프로젝트가 있을 때만 만든다', () => {

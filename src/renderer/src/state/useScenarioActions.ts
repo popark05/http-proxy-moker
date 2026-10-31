@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { toastNoProject } from '../lib/no-project';
 import type { MockDefinition } from '@shared/mock';
 import { errMsg } from '../lib/errors';
 import type { AppMode } from './app-mode';
@@ -19,7 +20,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (!hasProject) {
-      toast.error('시나리오 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
+      toastNoProject('시나리오 저장 실패');
       return;
     }
     if (
@@ -39,7 +40,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
   const activateScenario = (name: string): void => {
     const { missing, cycle } = scenarioLib.activate(name);
     toast.success('시나리오 활성화', {
-      description: mode === 'mock' ? `${name} 적용됨` : `${name} 로드됨 (목킹 모드에서 적용)`
+      description: mode === 'mock' ? `${name} 적용됨` : `${name} 로드됨 (목 적용을 켜면 반영)`
     });
     if (cycle) toast.warning('베이스 상속이 순환합니다', { description: '시나리오 편집에서 베이스를 확인하세요.' });
     if (missing.length > 0) {
@@ -68,7 +69,7 @@ export function useScenarioActions({ scenarioLib, hasProject, mode }: Params) {
 
   const saveMockAsCase = async (mock: MockDefinition): Promise<void> => {
     if (!hasProject) {
-      toast.error('케이스 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
+      toastNoProject('케이스 저장 실패');
       return;
     }
     try {

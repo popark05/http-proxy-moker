@@ -92,7 +92,7 @@ export function StatusBar({
           isMock && 'text-[hsl(var(--warning))]'
         )}
       >
-        {isMock ? '목킹 모드' : '캡처 모드'}
+        {isMock ? '목 적용 중' : '목 적용 꺼짐'}
       </button>
       <span role="status" className="contents">
         {isMock &&

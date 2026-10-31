@@ -100,15 +100,15 @@ export function buildCommands(input: CommandInput): Command[] {
       ? {
           id: 'act:mode',
           group: '동작',
-          label: '캡처 모드로 전환',
-          keywords: 'capture mode',
+          label: '목 적용 끄기',
+          keywords: 'capture mode mock off 캡처 모드',
           run: () => a.setMode('capture')
         }
       : {
           id: 'act:mode',
           group: '동작',
-          label: '목킹 모드로 전환',
-          keywords: 'mock mode',
+          label: '목 적용 켜기',
+          keywords: 'mock mode mock on 목킹 모드',
           run: () => a.setMode('mock')
         },
     { id: 'act:clear', group: '동작', label: '캡처 지우기', keywords: 'clear capture', run: a.clearCapture }

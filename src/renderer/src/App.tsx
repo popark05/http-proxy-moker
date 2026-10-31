@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { registerProjectOpeners, toastNoProject } from './lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -244,7 +245,7 @@ function AppInner(): JSX.Element {
       sourceActions={{
         save: () => {
           if (!project) {
-            toast.error('캡처 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+            toastNoProject('캡처 저장 실패');
             return;
           }
           void handleSaveCapture(newSessionName());
@@ -255,6 +256,12 @@ function AppInner(): JSX.Element {
       }}
     />
   );
+
+  // 저장 실패 토스트의 "프로젝트 만들기 / 열기" 버튼이 쓴다.
+  useEffect(() => {
+    registerProjectOpeners({ create: () => void handleCreateProject(), open: () => void handleOpenProject() });
+    return () => registerProjectOpeners(undefined);
+  });
 
   const captureProps = {
     paused,

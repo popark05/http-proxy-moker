@@ -57,7 +57,7 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
     <Modal open={open} onOpenChange={onOpenChange} title="프록시" className="max-w-md">
       <div className="flex flex-col gap-3 text-sm">
         <p className="text-xs text-muted-foreground">
-          프록시는 기기를 연결하거나 목킹 모드를 켜면 자동으로 켜집니다. 포트를 바꾸거나 문제를 확인할 때만 여기서 다루세요.
+          프록시는 기기를 연결하거나 목 적용을 켜면 자동으로 켜집니다. 포트를 바꾸거나 문제를 확인할 때만 여기서 다루세요.
         </p>
 
         <div role="status" className="flex items-center gap-2">

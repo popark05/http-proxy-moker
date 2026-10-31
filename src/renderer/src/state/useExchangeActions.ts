@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { toastNoProject } from '../lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { errMsg } from '../lib/errors';
 import type { AppMode } from './app-mode';
@@ -44,8 +45,8 @@ export function useExchangeActions({
       });
     } else {
       toast.success(`${added}개 목으로 복제됨`, {
-        description: `목킹 모드로 전환하면 반영됩니다${detail}`,
-        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
+        description: `목 적용을 켜면 반영됩니다${detail}`,
+        action: { label: '목 적용 켜기', onClick: () => setMode('mock') }
       });
     }
   };
@@ -53,7 +54,7 @@ export function useExchangeActions({
   /** 요청들을 컬렉션(프로젝트의 contracts/ 폴더)에 추가. */
   const saveContracts = async (targets: CapturedExchange[]): Promise<void> => {
     if (!project) {
-      toast.error('컬렉션 추가 실패', { description: '프로젝트를 먼저 열거나 만드세요. (상단 "열기" 또는 "새 프로젝트")' });
+      toastNoProject('컬렉션 추가 실패');
       return;
     }
     try {
@@ -84,10 +85,10 @@ export function useExchangeActions({
         action: { label: '현재 목 보기', onClick: openMocking }
       });
     } else {
-      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
+      // 목 적용이 꺼져 있으면 켜는 것을 한 번의 클릭으로 유도(제품 핵심 흐름).
       toast.success('목으로 복제됨', {
-        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
-        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
+        description: `${desc} · 목 적용을 켜면 이 응답이 반영됩니다`,
+        action: { label: '목 적용 켜기', onClick: () => setMode('mock') }
       });
     }
   };

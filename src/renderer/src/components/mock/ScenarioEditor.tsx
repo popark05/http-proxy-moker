@@ -115,14 +115,20 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
         <Input id="sc-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="이 시나리오가 재현하는 상황" />
         <Label htmlFor="sc-tags" className="text-muted-foreground">태그</Label>
         <Input id="sc-tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="쉼표로 구분 (예: 결제, 에러)" />
-        <Label htmlFor="sc-base" className="text-muted-foreground">베이스</Label>
-        <select id="sc-base" className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={base} onChange={(e) => setBase(e.target.value)}>
-          <option value="">없음 (독립 시나리오)</option>
-          {baseCandidates.map((s) => (
-            <option key={s.name} value={s.name}>{s.name}</option>
-          ))}
-        </select>
       </div>
+      {/* 상속은 자주 쓰지 않으므로 접어 둔다(이미 베이스가 있으면 펼쳐서 보여 준다). */}
+      <details className="mb-3 text-sm" open={!!scenario?.base || undefined}>
+        <summary className="cursor-pointer select-none text-xs text-muted-foreground">고급: 다른 시나리오를 베이스로 상속</summary>
+        <div className="mt-2 grid grid-cols-[90px_1fr] items-center gap-2">
+          <Label htmlFor="sc-base" className="text-muted-foreground">베이스</Label>
+          <select id="sc-base" className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={base} onChange={(e) => setBase(e.target.value)}>
+            <option value="">없음 (독립 시나리오)</option>
+            {baseCandidates.map((s) => (
+              <option key={s.name} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      </details>
 
       <div className="mb-1 flex items-center gap-2">
         <Input aria-label="엔드포인트 검색" className="h-8" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="엔드포인트 검색" />

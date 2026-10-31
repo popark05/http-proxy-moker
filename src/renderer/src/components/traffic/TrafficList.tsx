@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Radio } from 'lucide-react';
+import { MoreHorizontal, Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '../common/EmptyState';
@@ -167,6 +167,17 @@ export function TrafficList({
                   <Badge variant="neutral">…</Badge>
                 )}
               </button>
+              {onRowContextMenu && (
+                <button
+                  type="button"
+                  aria-label="요청 메뉴"
+                  aria-haspopup="menu"
+                  onClick={(e) => onRowContextMenu(e, [exchange])}
+                  className="mr-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+              )}
               </div>
             </div>
           );
