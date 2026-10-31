@@ -38,31 +38,31 @@
 
 .dark {
   /*
-   * EverMock 다크 — 차가운 슬레이트(blue-tinted) 톤 + 최소 색상.
-   * hue를 215~222(쿨 블루그레이)로 통일. 배경 명도 단계를 뚜렷이 해 위계 형성.
-   * 액센트는 primary 블루 하나만 강조하고, 상태색은 채도를 낮춰 절제.
+   * EverMock 다크 — Catppuccin Mocha 팔레트(https://catppuccin.com/palette).
+   * 표면: mantle(배경) < base(패널) < surface0(hover/선택) < surface1(입력 테두리).
+   * 액센트는 mauve 하나만 강조하고, 상태색은 green/peach/red를 쓴다. 값은 팔레트 hex의 HSL 변환.
    */
-  --background: 220 26% 8%;       /* 가장 어두운 캔버스 */
-  --foreground: 214 24% 92%;
-  --card: 219 24% 11%;            /* 패널/사이드 표면 */
-  --card-foreground: 214 24% 92%;
-  --popover: 219 26% 12%;
-  --popover-foreground: 214 24% 92%;
-  --primary: 218 90% 66%;         /* 유일한 강조색 — 쿨 블루 */
-  --primary-foreground: 220 40% 10%;
-  --secondary: 218 18% 18%;
-  --secondary-foreground: 214 20% 88%;
-  --muted: 219 20% 15%;
-  --muted-foreground: 216 14% 60%;
-  --accent: 216 22% 20%;          /* hover/선택 표면 */
-  --accent-foreground: 214 24% 94%;
-  --destructive: 6 66% 58%;       /* 절제된 레드(대비 확보) */
-  --destructive-foreground: 210 30% 96%;
-  --success: 158 42% 46%;         /* 절제된 틸그린 */
-  --warning: 38 70% 56%;          /* 절제된 앰버 */
-  --border: 218 18% 18%;          /* 표면과 미세한 대비 */
-  --input: 218 16% 22%;
-  --ring: 218 90% 66%;
+  --background: 240 21% 12%;      /* mantle #181825 — 가장 어두운 캔버스 */
+  --foreground: 226 64% 88%;      /* text #cdd6f4 */
+  --card: 240 21% 15%;            /* base #1e1e2e — 패널/사이드 표면 */
+  --card-foreground: 226 64% 88%;
+  --popover: 240 21% 15%;
+  --popover-foreground: 226 64% 88%;
+  --primary: 267 84% 81%;         /* mauve #cba6f7 — 유일한 강조색 */
+  --primary-foreground: 240 23% 9%; /* crust #11111b */
+  --secondary: 237 16% 23%;       /* surface0 #313244 */
+  --secondary-foreground: 226 64% 88%;
+  --muted: 237 16% 23%;
+  --muted-foreground: 228 17% 64%; /* overlay2 #9399b2 */
+  --accent: 237 16% 23%;          /* hover/선택 표면 */
+  --accent-foreground: 226 64% 88%;
+  --destructive: 343 81% 75%;     /* red #f38ba8 */
+  --destructive-foreground: 240 23% 9%;
+  --success: 115 54% 76%;         /* green #a6e3a1 */
+  --warning: 23 92% 75%;          /* peach #fab387 */
+  --border: 237 16% 23%;          /* surface0 */
+  --input: 234 13% 31%;           /* surface1 #45475a */
+  --ring: 267 84% 81%;
 }
 
 /* Tailwind v4: CSS 변수를 유틸 색상으로 매핑. */

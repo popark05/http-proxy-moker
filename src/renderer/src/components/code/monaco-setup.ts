@@ -35,8 +35,50 @@ export function setupMonaco(): void {
     }
   };
 
+  monaco.editor.defineTheme(MONACO_THEME, catppuccinMocha);
   loader.config({ monaco });
 }
+
+/** 앱 전체 Catppuccin Mocha 테마에 맞춘 Monaco 테마 이름. */
+export const MONACO_THEME = 'catppuccin-mocha';
+
+const catppuccinMocha: monaco.editor.IStandaloneThemeData = {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: '', foreground: 'cdd6f4' },
+    { token: 'comment', foreground: '6c7086', fontStyle: 'italic' },
+    { token: 'string', foreground: 'a6e3a1' },
+    { token: 'string.key.json', foreground: '89b4fa' },
+    { token: 'string.value.json', foreground: 'a6e3a1' },
+    { token: 'number', foreground: 'fab387' },
+    { token: 'keyword', foreground: 'cba6f7' },
+    { token: 'keyword.json', foreground: 'fab387' },
+    { token: 'delimiter', foreground: '9399b2' },
+    { token: 'tag', foreground: 'cba6f7' },
+    { token: 'attribute.name', foreground: 'f9e2af' },
+    { token: 'attribute.value', foreground: 'a6e3a1' },
+    { token: 'type', foreground: 'f9e2af' }
+  ],
+  colors: {
+    'editor.background': '#1e1e2e',
+    'editor.foreground': '#cdd6f4',
+    'editorLineNumber.foreground': '#6c7086',
+    'editorLineNumber.activeForeground': '#cba6f7',
+    'editor.lineHighlightBackground': '#313244',
+    'editor.selectionBackground': '#45475a',
+    'editor.inactiveSelectionBackground': '#313244',
+    'editorCursor.foreground': '#f5e0dc',
+    'editorIndentGuide.background1': '#313244',
+    'editorWidget.background': '#181825',
+    'editorSuggestWidget.background': '#181825',
+    'scrollbarSlider.background': '#45475a80',
+    'diffEditor.insertedTextBackground': '#a6e3a126',
+    'diffEditor.removedTextBackground': '#f38ba826',
+    'diffEditor.insertedLineBackground': '#a6e3a114',
+    'diffEditor.removedLineBackground': '#f38ba814'
+  }
+};
 
 // 모듈 로드 시점에 즉시 설정(Editor 마운트보다 먼저 보장).
 setupMonaco();

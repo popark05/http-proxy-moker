@@ -40,10 +40,10 @@ export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): JSX.
         className="min-h-0 flex-1 overflow-auto p-3"
         // 체크무늬(투명 PNG/SVG 확인용). 색은 테마와 무관한 중립 회색.
         style={{
-          backgroundColor: '#2a2d35',
+          backgroundColor: '#313244',
           backgroundImage:
-            'linear-gradient(45deg,#343843 25%,transparent 25%,transparent 75%,#343843 75%),' +
-            'linear-gradient(45deg,#343843 25%,transparent 25%,transparent 75%,#343843 75%)',
+            'linear-gradient(45deg,#45475a 25%,transparent 25%,transparent 75%,#45475a 75%),' +
+            'linear-gradient(45deg,#45475a 25%,transparent 25%,transparent 75%,#45475a 75%)',
           backgroundSize: '16px 16px',
           backgroundPosition: '0 0, 8px 8px'
         }}

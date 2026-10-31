@@ -5,6 +5,7 @@ import type { CaptureEvent, ProxyStatus } from '@shared/capture';
 import type { MockDefinition, UnmatchedPolicy } from '@shared/mock';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import type { WorkerCommand, WorkerMessage } from '@shared/proxy-worker';
+import type { Contract, ContractRunOptions, ContractRunResult } from '@shared/contract';
 import type { ProgressReporter } from '@shared/progress';
 import type { CaManager } from '../cert/ca-manager';
 
@@ -32,8 +33,10 @@ export class ProxyService {
   /** 워커 result 응답을 requestId로 매칭하기 위한 대기 맵. */
   private pending = new Map<
     number,
-    { resolve: (status?: ProxyStatus) => void; reject: (err: Error) => void }
+    { resolve: (status?: ProxyStatus, results?: ContractRunResult[]) => void; reject: (err: Error) => void }
   >();
+  /** 계약 실행 중 개별 결과 콜백(requestId별). */
+  private contractProgress = new Map<number, (result: ContractRunResult) => void>();
   private nextRequestId = 1;
 
   /** 동기 getStatus()를 위해 마지막으로 알려진 상태를 캐시. */
@@ -106,6 +109,33 @@ export class ProxyService {
       kind: 'clearMocks',
       requestId
     }));
+  }
+
+  /**
+   * 계약을 실제 서버로 실행한다(프록시가 꺼져 있어도 된다). 워커가 순정 Node(OpenSSL)라 사내 CA 설정
+   * (NODE_EXTRA_CA_CERTS)을 따른다. onResult는 계약 하나가 끝날 때마다 불린다.
+   */
+  async runContracts(
+    contracts: Contract[],
+    options: ContractRunOptions,
+    onResult?: (result: ContractRunResult) => void
+  ): Promise<ContractRunResult[]> {
+    const worker = await this.ensureWorker();
+    const requestId = this.nextRequestId++;
+    if (onResult) this.contractProgress.set(requestId, onResult);
+    try {
+      return await new Promise<ContractRunResult[]>((resolve, reject) => {
+        this.pending.set(requestId, { resolve: (_s, results) => resolve(results ?? []), reject });
+        worker.send({ kind: 'runContracts', requestId, contracts, options } satisfies WorkerCommand, (err) => {
+          if (err) {
+            this.pending.delete(requestId);
+            reject(err);
+          }
+        });
+      });
+    } finally {
+      this.contractProgress.delete(requestId);
+    }
   }
 
   /** 워커 프로세스를 종료한다(앱 종료 시 정리용). */
@@ -205,13 +235,17 @@ export class ProxyService {
       this.emit(msg.event);
       return;
     }
+    if (msg.kind === 'contract-result') {
+      this.contractProgress.get(msg.requestId)?.(msg.result);
+      return;
+    }
     if (msg.kind === 'result') {
       const entry = this.pending.get(msg.requestId);
       if (!entry) return;
       this.pending.delete(msg.requestId);
       if (msg.ok) {
         if (msg.status) this.lastStatus = msg.status;
-        entry.resolve(msg.status);
+        entry.resolve(msg.status, msg.results);
       } else {
         entry.reject(new Error(msg.error));
       }

@@ -1,6 +1,6 @@
 import { DiffEditor } from '@monaco-editor/react';
 // import 시점에 monaco를 로컬 번들로 설정(Editor 마운트 전 보장).
-import './monaco-setup';
+import { MONACO_THEME } from './monaco-setup';
 
 interface CodeDiffViewProps {
   /** 원본(왼쪽). */
@@ -22,7 +22,7 @@ export function CodeDiffView({
       language={language}
       original={original}
       modified={modified}
-      theme="vs-dark"
+      theme={MONACO_THEME}
       options={{
         readOnly: true,
         renderSideBySide: true,

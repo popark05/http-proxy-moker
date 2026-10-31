@@ -16,6 +16,7 @@ import { Modal, methodTone, statusTone } from '../primitives';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { MockEditor } from './MockEditor';
 
 interface LibraryModalProps {
@@ -25,6 +26,8 @@ interface LibraryModalProps {
   scenarios: ScenarioV2[];
   /** 라이브러리(와 삭제로 영향받은 시나리오)를 저장. */
   onCommit: (next: { library: CaseLibrary; scenarios?: ScenarioV2[] }) => void;
+  /** 'tab'이면 워크스페이스 탭 안에 그린다. */
+  variant?: 'modal' | 'tab';
 }
 
 /** 편집기(MockEditor)에 넘기기 위한 케이스 → 목 정의 변환. 이름은 label에 담는다. */
@@ -46,7 +49,7 @@ function caseAsMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
  * 케이스 라이브러리 관리: 엔드포인트별 응답 케이스(정상/500/타임아웃...)를 보고, 고치고, 지우고,
  * 엣지케이스 프리셋을 추가한다. 케이스를 고치면 그것을 참조하는 모든 시나리오에 반영된다.
  */
-export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit }: LibraryModalProps): JSX.Element {
+export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit, variant }: LibraryModalProps): JSX.Element {
   const [filter, setFilter] = useState('');
   const [editing, setEditing] = useState<{ endpoint: LibraryEndpoint; mockCase: MockCase } | undefined>(undefined);
 
@@ -65,13 +68,13 @@ export function LibraryModal({ open, onOpenChange, library, scenarios, onCommit 
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="케이스 라이브러리" className="w-[94vw] max-w-none sm:max-w-3xl">
+    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title="케이스 라이브러리" className="w-[94vw] max-w-none sm:max-w-3xl">
       <p className="mb-2 text-xs text-muted-foreground">
         엔드포인트마다 응답 케이스를 모아 두고 시나리오가 참조합니다. 케이스를 고치면 그것을 쓰는 모든 시나리오에 반영됩니다.
       </p>
       <Input aria-label="엔드포인트 검색" className="mb-2 h-8" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="엔드포인트 검색" />
 
-      <div className="flex max-h-[55vh] flex-col gap-2 overflow-auto">
+      <div className={cn('flex flex-col gap-2', variant !== 'tab' && 'max-h-[55vh] overflow-auto')}>
         {library.endpoints.length === 0 ? (
           <p className="rounded-md border border-border p-4 text-center text-sm text-muted-foreground">
             아직 케이스가 없습니다. 목 정의 행의 &quot;케이스로 저장&quot; 또는 &quot;시나리오 저장&quot;으로 만들어 보세요.

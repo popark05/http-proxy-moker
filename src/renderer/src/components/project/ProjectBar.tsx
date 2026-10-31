@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderOpen, Save, Plus } from 'lucide-react';
+import { FileCheck, FolderOpen, Save, Plus } from 'lucide-react';
 import type { OpenProject } from '@shared/project';
 import type { CapturedExchange } from '@shared/capture';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,9 @@ interface ProjectBarProps {
   onOpen: () => void;
   onSave: (name: string) => void;
   onLoadSession: (name: string) => void;
+  /** 계약 테스트 화면 열기(프로젝트가 없으면 버튼 비활성). */
+  onOpenContracts?: () => void;
+  contractCount?: number;
 }
 
 export function ProjectBar({
@@ -21,7 +24,9 @@ export function ProjectBar({
   onCreate,
   onOpen,
   onSave,
-  onLoadSession
+  onLoadSession,
+  onOpenContracts,
+  contractCount = 0
 }: ProjectBarProps): JSX.Element {
   const [sessionName, setSessionName] = useState('session-1');
 
@@ -67,6 +72,18 @@ export function ProjectBar({
       )}
 
       <div className="flex-1" />
+
+      {onOpenContracts && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!project}
+          title={project ? undefined : '프로젝트를 열면 사용할 수 있습니다'}
+          onClick={onOpenContracts}
+        >
+          <FileCheck /> 계약 테스트{contractCount > 0 ? ` (${contractCount})` : ''}
+        </Button>
+      )}
 
       <Button variant="ghost" size="sm" onClick={() => onCreate('QA Project')}>
         <Plus /> 새 프로젝트

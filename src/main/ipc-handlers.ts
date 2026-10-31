@@ -16,6 +16,7 @@ import type {
   AndroidInterceptionMode,
   AndroidTrafficPath
 } from '@shared/device';
+import { readBrunoCollection, writeBrunoCollection } from './contract/bruno-io';
 import { ProxyService } from './proxy/proxy-service';
 import { CaManager } from './cert/ca-manager';
 import { generateMobileConfig } from './cert/mobileconfig';
@@ -30,6 +31,7 @@ import { ProjectStore } from './project/project-store';
 import type { CapturedExchange } from '@shared/capture';
 import type { ApplyMocksArgs } from '@shared/mock';
 import type { CaseLibrary, ScenarioFile } from '@shared/scenario-library';
+import type { Contract, ContractRunOptions, ContractServer } from '@shared/contract';
 
 /**
  * main 프로세스의 IPC 핸들러를 등록한다.
@@ -229,5 +231,61 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | undefined):
   ipcMain.handle(IpcChannels.projectDeleteScenario, async (_event, name: string) => {
     if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
     return projectStore.deleteScenario(openProjectDir, name);
+  });
+
+  ipcMain.handle(
+    IpcChannels.contractRun,
+    async (_event, arg: { contracts: Contract[]; options: ContractRunOptions }) =>
+      proxy.runContracts(arg.contracts, arg.options, (result) => {
+        const window = getWindow();
+        if (window && !window.isDestroyed()) window.webContents.send(IpcChannels.contractResult, result);
+      })
+  );
+
+  ipcMain.handle(
+    IpcChannels.contractExportBruno,
+    async (_event, arg: { name: string; contracts: Contract[]; servers: ContractServer[] }) => {
+      const result = await dialog.showOpenDialog(getWindow() ?? undefined!, {
+        title: 'Bruno 컬렉션을 만들 폴더(또는 기존 컬렉션 폴더) 선택',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return writeBrunoCollection(result.filePaths[0], arg.name, arg.contracts, arg.servers);
+    }
+  );
+
+  ipcMain.handle(IpcChannels.contractImportBruno, async () => {
+    const result = await dialog.showOpenDialog(getWindow() ?? undefined!, {
+      title: 'Bruno 컬렉션 폴더 선택',
+      properties: ['openDirectory']
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    let n = 0;
+    return readBrunoCollection(result.filePaths[0], () => `br-${Date.now().toString(36)}-${n++}`);
+  });
+
+  ipcMain.handle(IpcChannels.projectSaveContract, async (_event, contract: Contract) => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.saveContract(openProjectDir, contract);
+  });
+
+  ipcMain.handle(IpcChannels.projectLoadAllContracts, async () => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.loadAllContracts(openProjectDir);
+  });
+
+  ipcMain.handle(IpcChannels.projectLoadContractServers, async () => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.loadContractServers(openProjectDir);
+  });
+
+  ipcMain.handle(IpcChannels.projectSaveContractServers, async (_event, servers: ContractServer[]) => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.saveContractServers(openProjectDir, servers);
+  });
+
+  ipcMain.handle(IpcChannels.projectDeleteContract, async (_event, name: string) => {
+    if (!openProjectDir) throw new Error('열린 프로젝트가 없습니다.');
+    return projectStore.deleteContract(openProjectDir, name);
   });
 }
