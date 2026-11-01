@@ -414,6 +414,9 @@ function AppInner(): JSX.Element {
             scenarios={scenarioLib.scenarios}
             library={scenarioLib.library}
             onSave={handleSaveScenario}
+            activeScenario={activeScenario}
+            onSwitch={(name) => setEditingScenario(name)}
+            onActivate={scenarioActions.activateScenario}
           />
         )
       }

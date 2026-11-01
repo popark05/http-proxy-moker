@@ -117,6 +117,62 @@ describe('ScenarioEditor', () => {
   });
 });
 
+describe('ScenarioEditor 편집 대상 전환', () => {
+  beforeEach(() => {
+    window.confirm = vi.fn(() => true);
+  });
+
+  it('편집 대상 목록으로 다른 시나리오로 옮기고, 활성 여부를 보여 준다', () => {
+    const { library, base } = fixture();
+    const other: ScenarioV2 = { version: 2, id: 'o', name: '앱초기화', picks: [] };
+    const onSwitch = vi.fn();
+    const onActivate = vi.fn();
+    render(
+      <ScenarioEditor
+        open
+        onOpenChange={() => {}}
+        scenario={other}
+        scenarios={[base, other]}
+        library={library}
+        onSave={() => {}}
+        activeScenario="정상"
+        onSwitch={onSwitch}
+        onActivate={onActivate}
+      />
+    );
+    expect(screen.getByText('지금 활성: 정상')).toBeTruthy();
+    fireEvent.click(screen.getByText('이 시나리오 활성화'));
+    expect(onActivate).toHaveBeenCalledWith('앱초기화');
+    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '정상' } });
+    expect(onSwitch).toHaveBeenCalledWith('정상');
+    // 변경이 없으면 확인창 없이 옮긴다.
+    expect(window.confirm).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '__new__' } });
+    expect(onSwitch).toHaveBeenCalledWith(null);
+  });
+
+  it('저장하지 않은 변경이 있으면 확인하고, 거절하면 옮기지 않는다', () => {
+    const { library, base } = fixture();
+    const other: ScenarioV2 = { version: 2, id: 'o', name: '앱초기화', picks: [] };
+    window.confirm = vi.fn(() => false);
+    const onSwitch = vi.fn();
+    render(
+      <ScenarioEditor open onOpenChange={() => {}} scenario={other} scenarios={[base, other]} library={library} onSave={() => {}} onSwitch={onSwitch} />
+    );
+    fireEvent.change(screen.getByLabelText('설명'), { target: { value: '바꿈' } });
+    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '정상' } });
+    expect(window.confirm).toHaveBeenCalled();
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it('활성 시나리오를 편집 중이면 "활성" 배지를 보여 준다', () => {
+    const { library, base } = fixture();
+    render(<ScenarioEditor open onOpenChange={() => {}} scenario={base} scenarios={[base]} library={library} onSave={() => {}} activeScenario="정상" onSwitch={() => {}} onActivate={() => {}} />);
+    expect(screen.getByText('활성')).toBeTruthy();
+    expect(screen.queryByText('이 시나리오 활성화')).toBeNull();
+  });
+});
+
 describe('LibraryModal', () => {
   beforeEach(() => {
     window.confirm = vi.fn(() => true);

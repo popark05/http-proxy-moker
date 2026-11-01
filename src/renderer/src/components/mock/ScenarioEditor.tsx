@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CaseLibrary, ScenarioV2 } from '@shared/scenario-library';
 import { effectivePicks } from '@shared/scenario-library';
 import { Modal, methodTone } from '../primitives';
@@ -18,7 +18,15 @@ interface ScenarioEditorProps {
   onSave: (scenario: ScenarioV2) => void;
   /** 'tab'이면 워크스페이스 탭 안에 그린다. */
   variant?: 'modal' | 'tab';
+  /** 지금 활성화된 시나리오 이름(편집 대상과 같은지 보여 준다). */
+  activeScenario?: string;
+  /** 주어지면 편집 대상을 바꾸는 선택(null = 새 시나리오)을 보여 준다. */
+  onSwitch?: (name: string | null) => void;
+  /** 주어지면 편집 중인 시나리오를 활성화하는 버튼을 보여 준다. */
+  onActivate?: (name: string) => void;
 }
+
+const NEW_VALUE = '__new__';
 
 const selectClass =
   'h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -45,7 +53,7 @@ function descendantsOf(self: string, scenarios: readonly ScenarioV2[]): Set<stri
 }
 
 /** 시나리오 편집: 이름/설명/태그/베이스 + 엔드포인트별 케이스 선택(상속과 덮어쓰기를 구분해 표시). */
-export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant }: ScenarioEditorProps): JSX.Element {
+export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant, activeScenario, onSwitch, onActivate }: ScenarioEditorProps): JSX.Element {
   const editing = !!scenario;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -56,8 +64,19 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
   const [onlyPicked, setOnlyPicked] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
+  /** 편집을 시작한 시점의 입력값(저장 전 변경 여부 판단용). */
+  const initialRef = useRef('');
+  const snapshot = (): string => JSON.stringify([name, description, tagsText, base, selection]);
+
   useEffect(() => {
     if (!open) return;
+    initialRef.current = JSON.stringify([
+      scenario?.name ?? '',
+      scenario?.description ?? '',
+      (scenario?.tags ?? []).join(', '),
+      scenario?.base ?? '',
+      Object.fromEntries((scenario?.picks ?? []).map((p) => [p.endpointId, p.caseId === null ? NONE : p.caseId]))
+    ]);
     setName(scenario?.name ?? '');
     setDescription(scenario?.description ?? '');
     setTagsText((scenario?.tags ?? []).join(', '));
@@ -108,6 +127,41 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} variant={variant} title={editing ? '시나리오 편집' : '새 시나리오'} className="w-[94vw] max-w-none sm:max-w-3xl">
+      {onSwitch && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Label htmlFor="sc-target" className="text-muted-foreground">편집 대상</Label>
+          <select
+            id="sc-target"
+            className="h-9 min-w-48 rounded-md border border-input bg-transparent px-2 text-sm"
+            value={scenario ? scenario.name : NEW_VALUE}
+            onChange={(e) => {
+              const next = e.target.value === NEW_VALUE ? null : e.target.value;
+              if (snapshot() !== initialRef.current && !window.confirm('저장하지 않은 변경 사항이 있습니다. 버리고 이동할까요?')) return;
+              onSwitch(next);
+            }}
+          >
+            {scenarios.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}{s.name === activeScenario ? ' (활성)' : ''}
+              </option>
+            ))}
+            <option value={NEW_VALUE}>+ 새 시나리오</option>
+          </select>
+          {scenario && scenario.name === activeScenario ? (
+            <Badge variant="warning">활성</Badge>
+          ) : (
+            scenario &&
+            onActivate && (
+              <Button size="sm" variant="outline" onClick={() => onActivate(scenario.name)}>
+                이 시나리오 활성화
+              </Button>
+            )
+          )}
+          {activeScenario && scenario?.name !== activeScenario && (
+            <span className="text-xs text-muted-foreground">지금 활성: {activeScenario}</span>
+          )}
+        </div>
+      )}
       <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
         <Label htmlFor="sc-name" className="text-muted-foreground">이름</Label>
         <Input id="sc-name" value={name} disabled={editing} onChange={(e) => setName(e.target.value)} placeholder="예: 결제 실패" />
