@@ -82,7 +82,7 @@ export function ConnectionScene({ tab, steps }: ConnectionSceneProps): JSX.Eleme
   };
 
   return (
-    <div className="hairline-theme flex flex-col gap-2 self-start rounded-lg border border-border p-4">
+    <div className="hairline-theme mx-auto flex w-full max-w-2xl flex-col gap-2 rounded-lg border border-border p-6">
       <div className="flex items-center">
         <Figure narrow={hasRouter} label={tab === 'ios-wifi' ? 'iPhone' : 'Android'}>
           <Phone label={tab === 'ios-wifi' ? 'iPhone 또는 iPad' : 'Android 기기'} />

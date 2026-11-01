@@ -12,7 +12,6 @@ import { ProxyPanel } from './components/layout/ProxyPanel';
 import { useSidebarLayout } from './state/useSidebarLayout';
 import { StatusBar } from './components/layout/StatusBar';
 import { MockingView, type MockingTab } from './components/mock/MockingView';
-import { CloneSourceBar } from './components/mock/CloneSourceBar';
 import { MockPanel } from './components/mock/MockPanel';
 import { ScenarioPanel } from './components/mock/ScenarioPanel';
 import { TrafficPanel } from './components/layout/TrafficPanel';
@@ -117,8 +116,6 @@ function AppInner(): JSX.Element {
   };
   const openLibraryTab = (): void => openMocking('library');
   const openCollection = (): void => openSection('collection');
-
-  const selected = exchanges.find((e) => e.id === selectedId);
 
   /** 트래픽 행 선택. 모드와 무관하게 상세를 미리보기 탭으로 연다. */
   const handleSelect = (id: string | undefined): void => {
@@ -274,7 +271,7 @@ function AppInner(): JSX.Element {
   const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} />;
 
   const connectView = (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
+    <div className="mx-auto flex max-w-[1600px] flex-col gap-4 p-8">
       <DevicePanel
         ensureProxy={async () => !!(await ensureProxy())?.running}
         clients={clients}
@@ -361,16 +358,6 @@ function AppInner(): JSX.Element {
       scenarioDirty={!!scenarioLib.diff?.dirty}
       mocks={
         <div className="flex h-full flex-col overflow-auto">
-          {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
-          {selected && (
-            <CloneSourceBar
-              exchange={selected}
-              clientDescription={clientDescriptionOf(selected)}
-              onCloneToMock={exchangeActions.cloneToMock}
-              onAddTag={handleAddTag}
-              onRemoveTag={handleRemoveTag}
-            />
-          )}
           <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
             <MockPanel
               mocks={mocks}

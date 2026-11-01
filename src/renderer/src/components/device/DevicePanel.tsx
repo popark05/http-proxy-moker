@@ -223,11 +223,34 @@ export function DevicePanel({
     }
   };
 
+  const interceptCount = Object.keys(interceptions).length;
+  const summary: Array<{ label: string; value: string; tone: 'ok' | 'idle' }> = [
+    { label: '프록시', value: proxyRunning ? '켜짐' : '꺼짐', tone: proxyRunning ? 'ok' : 'idle' },
+    { label: 'USB 기기', value: `${devices.length}대`, tone: devices.length > 0 ? 'ok' : 'idle' },
+    { label: '인터셉트', value: `${interceptCount}대`, tone: interceptCount > 0 ? 'ok' : 'idle' },
+    { label: '접속 중 기기', value: `${clients.length}대`, tone: clients.length > 0 ? 'ok' : 'idle' }
+  ];
+
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)]">
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-6">
+      <div role="status" aria-label="연결 상태 요약" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {summary.map((item) => (
+          <div key={item.label} className="flex items-center gap-3 rounded-lg border border-border bg-card/40 px-4 py-3">
+            <span
+              aria-hidden
+              className={`size-2 shrink-0 rounded-full ${item.tone === 'ok' ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/40'}`}
+            />
+            <div className="min-w-0">
+              <div className="text-2xs uppercase tracking-wider text-muted-foreground">{item.label}</div>
+              <div className="text-base font-medium">{item.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">기기</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">기기</h3>
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" aria-label="기기 새로고침" onClick={() => void refresh()}>
               <RefreshCw className={refreshing ? 'animate-spin' : ''} />
@@ -243,7 +266,7 @@ export function DevicePanel({
             </p>
           ) : (
             <EmptyState
-              compact
+              className="rounded-lg border border-dashed border-border"
               icon={SmartphoneNfc}
               title="연결된 기기가 없습니다"
               description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
@@ -280,7 +303,7 @@ export function DevicePanel({
         />
       </div>
 
-      <section aria-label="연결 안내" className="rounded-lg border border-border bg-card/40 p-4">
+      <section aria-label="연결 안내" className="rounded-lg border border-border bg-card/40 p-6">
         <ConnectionGuide
           active
           tab={guideTab}
@@ -288,6 +311,7 @@ export function DevicePanel({
           input={{ proxyRunning, devices, interceptions, clients, now }}
         />
       </section>
+      </div>
     </div>
   );
 }

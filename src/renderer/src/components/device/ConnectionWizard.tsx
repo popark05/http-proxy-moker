@@ -92,7 +92,7 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
 
   return (
     <>
-      <Tabs value={tab} onValueChange={(v) => onTabChange(v as GuideTab)}>
+      <Tabs value={tab} onValueChange={(v) => onTabChange(v as GuideTab)} className="mb-4">
         <TabsList>
           <TabsTrigger value="android-usb">Android · USB</TabsTrigger>
           <TabsTrigger value="android-wifi">Android · Wi-Fi</TabsTrigger>
@@ -111,9 +111,11 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <div className="flex flex-col gap-3">
-          <p className="text-2xs text-muted-foreground">
+      {/* 그림을 위에 넓게, 단계는 그 아래에 둔다. */}
+      <div className="flex flex-col gap-6">
+        <ConnectionScene tab={wizardTab} steps={steps} />
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
             {doneCount}/{steps.length} 단계 완료 · 앱 상태에 따라 자동으로 체크됩니다
           </p>
           <ol className="flex flex-col">
@@ -156,8 +158,6 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
             ))}
           </ol>
         </div>
-
-        <ConnectionScene tab={wizardTab} steps={steps} />
       </div>
     </>
   );
