@@ -6,6 +6,7 @@ import { ClientList, formatAgo } from '../../src/renderer/src/components/device/
 import { FilterBar } from '../../src/renderer/src/components/traffic/FilterBar';
 import { TrafficList } from '../../src/renderer/src/components/traffic/TrafficList';
 import { useCapture } from '../../src/renderer/src/state/useCapture';
+import { chooseOption, openSelector, selectorOf } from './selector-helper';
 
 const client = (over: Partial<ClientInfo> = {}): ClientInfo => ({
   ip: '192.168.45.12',
@@ -157,7 +158,7 @@ describe('FilterBar 기기 필터', () => {
     fireEvent.click(screen.getByLabelText('필터 펼치기'));
     expect(screen.queryByLabelText('기기 필터')).toBeNull();
     rerender(<FilterBar {...props} patchFilter={patch} clients={clients} />);
-    fireEvent.change(screen.getByLabelText('기기 필터'), { target: { value: '2.2.2.2' } });
+    chooseOption('기기 필터', '2.2.2.2');
     expect(patch).toHaveBeenCalledWith({ client: '2.2.2.2' });
   });
 });

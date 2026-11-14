@@ -16,12 +16,14 @@ import {
 import { Modal, methodTone, statusTone } from '../primitives';
 import { useContextMenu, type MenuItem } from '../primitives/ContextMenu';
 import { MockEditor } from './MockEditor';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Icon } from '@astryxdesign/core/Icon';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
+import { FormLayout } from '@astryxdesign/core/FormLayout';
+import { Selector } from '@astryxdesign/core/Selector';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { cn } from '@/lib/utils';
 
 interface ScenarioEditorProps {
@@ -61,6 +63,8 @@ function caseAsMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
 }
 
 const NEW_VALUE = '__new__';
+/** 베이스를 지정하지 않는 선택지의 값. */
+const NO_BASE = '__no-base__';
 
 /** 선택 값 인코딩: '' = 이 시나리오에서는 정하지 않음(상속/미사용), NONE = 끔(상속 끄기), 그 외 = 케이스 ID. */
 const NONE = '__none__';
@@ -218,24 +222,20 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
     <Modal open={open} onOpenChange={onOpenChange} variant={variant} title={editing ? '시나리오 편집' : '새 시나리오'} width={768}>
       {onSwitch && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Label htmlFor="sc-target" className="text-muted-foreground">편집 대상</Label>
-          <select
-            id="sc-target"
-            className="h-9 min-w-48 rounded-md border border-input bg-transparent px-2 text-sm"
+          <Selector
+            label="편집 대상"
             value={scenario ? scenario.name : NEW_VALUE}
-            onChange={(e) => {
-              const next = e.target.value === NEW_VALUE ? null : e.target.value;
+            options={[
+              ...scenarios.map((s) => ({ value: s.name, label: `${s.name}${s.name === activeScenario ? ' (활성)' : ''}` })),
+              { value: NEW_VALUE, label: '+ 새 시나리오' }
+            ]}
+            onChange={(v) => {
+              const next = v === NEW_VALUE ? null : v;
+              if (next === (scenario?.name ?? null)) return;
               if (snapshot() !== initialRef.current && !window.confirm('저장하지 않은 변경 사항이 있습니다. 버리고 이동할까요?')) return;
               onSwitch(next);
             }}
-          >
-            {scenarios.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name}{s.name === activeScenario ? ' (활성)' : ''}
-              </option>
-            ))}
-            <option value={NEW_VALUE}>+ 새 시나리오</option>
-          </select>
+          />
           {scenario && scenario.name === activeScenario ? (
             <Badge variant="warning" label="활성" />
           ) : (
@@ -254,34 +254,41 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
           )}
         </div>
       )}
-      <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
-        <Label htmlFor="sc-name" className="text-muted-foreground">이름</Label>
-        <Input id="sc-name" value={name} disabled={editing} onChange={(e) => setName(e.target.value)} placeholder="예: 결제 실패" />
-        <Label htmlFor="sc-desc" className="text-muted-foreground">설명</Label>
-        <Input id="sc-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="이 시나리오가 재현하는 상황" />
-        <Label htmlFor="sc-tags" className="text-muted-foreground">태그</Label>
-        <Input id="sc-tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="쉼표로 구분 (예: 결제, 에러)" />
-      </div>
+      <FormLayout direction="horizontal-labels">
+        <TextInput label="이름" value={name} isDisabled={editing} onChange={setName} placeholder="예: 결제 실패" />
+        <TextInput label="설명" value={description} onChange={setDescription} placeholder="이 시나리오가 재현하는 상황" />
+        <TextInput label="태그" value={tagsText} onChange={setTagsText} placeholder="쉼표로 구분 (예: 결제, 에러)" />
+      </FormLayout>
+      <div className="h-3" />
       {/* 상속은 자주 쓰지 않으므로 접어 둔다(이미 베이스가 있으면 펼쳐서 보여 준다). */}
       <details className="mb-3 text-sm" open={!!scenario?.base || undefined}>
         <summary className="cursor-pointer select-none text-xs text-muted-foreground">고급: 다른 시나리오를 베이스로 상속</summary>
-        <div className="mt-2 grid grid-cols-[90px_1fr] items-center gap-2">
-          <Label htmlFor="sc-base" className="text-muted-foreground">베이스</Label>
-          <select id="sc-base" className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={base} onChange={(e) => setBase(e.target.value)}>
-            <option value="">없음 (독립 시나리오)</option>
-            {baseCandidates.map((s) => (
-              <option key={s.name} value={s.name}>{s.name}</option>
-            ))}
-          </select>
+        <div className="mt-2">
+          <FormLayout direction="horizontal-labels">
+            <Selector
+              label="베이스"
+              value={base || NO_BASE}
+              options={[
+                { value: NO_BASE, label: '없음 (독립 시나리오)' },
+                ...baseCandidates.map((s) => ({ value: s.name, label: s.name }))
+              ]}
+              onChange={(v) => setBase(v === NO_BASE ? '' : v)}
+            />
+          </FormLayout>
         </div>
       </details>
 
       <div className="mb-1 flex items-center gap-2">
-        <Input aria-label="엔드포인트 검색" className="h-8" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="엔드포인트 검색" />
-        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <input type="checkbox" checked={onlyPicked} onChange={(e) => setOnlyPicked(e.target.checked)} className="accent-[hsl(var(--primary))]" />
-          선택된 것만
-        </label>
+        <TextInput
+          label="엔드포인트 검색"
+          isLabelHidden
+          size="sm"
+          containerClassName="flex-1"
+          value={filter}
+          onChange={setFilter}
+          placeholder="엔드포인트 검색"
+        />
+        <CheckboxInput label="선택된 것만" value={onlyPicked} onChange={setOnlyPicked} />
       </div>
       {base && (
         <p className="mb-1 text-xs text-muted-foreground">

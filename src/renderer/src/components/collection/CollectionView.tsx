@@ -18,9 +18,10 @@ import {
   type ContractServer,
   type SendOutcome
 } from '@shared/contract';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
 import { cn } from '@/lib/utils';
 import { CodeView } from '../code/CodeView';
 import { EmptyState } from '../common/EmptyState';
@@ -35,6 +36,11 @@ import {
   variablesOf,
   withRequest
 } from '../../lib/collection';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Selector } from '@astryxdesign/core/Selector';
+
+/** "보낼 서버"를 고르지 않은 상태(캡처한 서버로 보냄)의 선택지 값. */
+const DEFAULT_TARGET = '__default__';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -197,15 +203,28 @@ export function CollectionView({
       <aside aria-label="컬렉션 요청" className="flex w-72 shrink-0 flex-col border-r border-border">
         <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
           <span className="mr-auto px-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">컬렉션</span>
-          <Button variant="ghost" size="icon" aria-label="새 요청" title="새 요청" onClick={() => void create()}>
-            <Plus />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Bruno 가져오기" title="Bruno 컬렉션 가져오기" onClick={() => void importBruno()}>
-            <Upload />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Bruno 내보내기" title="Bruno 컬렉션으로 내보내기" disabled={contracts.length === 0} onClick={() => void exportBruno()}>
-            <Download />
-          </Button>
+          <IconButton
+            label="새 요청"
+            icon={<Icon icon={Plus} />}
+            variant="ghost"
+            tooltip="새 요청"
+            onClick={() => void create()}
+          />
+          <IconButton
+            label="Bruno 가져오기"
+            icon={<Icon icon={Upload} />}
+            variant="ghost"
+            tooltip="Bruno 컬렉션 가져오기"
+            onClick={() => void importBruno()}
+          />
+          <IconButton
+            label="Bruno 내보내기"
+            icon={<Icon icon={Download} />}
+            variant="ghost"
+            tooltip="Bruno 컬렉션으로 내보내기"
+            isDisabled={contracts.length === 0}
+            onClick={() => void exportBruno()}
+          />
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
@@ -254,7 +273,7 @@ export function CollectionView({
                           selected === c.name ? 'bg-accent' : 'hover:bg-accent/50'
                         )}
                       >
-                        <Badge variant={methodTone(c.request.method)}>{c.request.method}</Badge>
+                        <Badge variant={methodTone(c.request.method)} label={c.request.method} />
                         <span className="truncate font-mono text-xs" title={c.name}>
                           {c.endpointId.replace(/^\S+ /, '') || c.name}
                         </span>
@@ -275,18 +294,19 @@ export function CollectionView({
               <li key={s.name} className="flex items-center gap-1 text-xs">
                 <span className="font-medium">{s.name}</span>
                 <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{s.baseUrl}</span>
-                <Button variant="ghost" size="icon" aria-label={`${s.name} 서버 삭제`} onClick={() => onRemoveServer(s.name)}>
-                  <Trash2 />
-                </Button>
+                <IconButton
+                  label={`${s.name} 서버 삭제`}
+                  icon={<Icon icon={Trash2} />}
+                  variant="ghost"
+                  onClick={() => onRemoveServer(s.name)}
+                />
               </li>
             ))}
           </ul>
           <div className="mt-1 flex flex-col gap-1">
-            <Input aria-label="새 서버 이름" className="h-8" placeholder="이름 (dev)" value={newServer.name} onChange={(e) => setNewServer({ ...newServer, name: e.target.value })} />
-            <Input aria-label="새 서버 주소" className="h-8" placeholder="https://dev.example.com" value={newServer.baseUrl} onChange={(e) => setNewServer({ ...newServer, baseUrl: e.target.value })} />
-            <Button variant="outline" size="sm" onClick={() => void addServer()}>
-              서버 등록
-            </Button>
+            <TextInput label="새 서버 이름" isLabelHidden size="sm" placeholder="이름 (dev)" value={newServer.name} onChange={(v) => setNewServer({ ...newServer, name: v })} />
+            <TextInput label="새 서버 주소" isLabelHidden size="sm" placeholder="https://dev.example.com" value={newServer.baseUrl} onChange={(v) => setNewServer({ ...newServer, baseUrl: v })} />
+            <Button label="서버 등록" variant="secondary" size="sm" onClick={() => void addServer()} />
           </div>
         </details>
       </aside>
@@ -307,41 +327,46 @@ export function CollectionView({
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
-              <select
-                aria-label="메서드"
-                className="h-9 rounded-md border border-input bg-transparent px-2 font-mono text-sm"
+              <Selector
+                label="메서드"
                 value={draft.request.method}
-                onChange={(e) => setRequest({ method: e.target.value })}
-              >
-                {METHODS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-              <Input
-                aria-label="URL"
-                className="h-9 min-w-64 flex-1 font-mono"
-                value={urlTextOf(draft.request)}
-                onChange={(e) => setDraft((d) => (d ? withRequest(d, applyUrlText(d.request, e.target.value)) : d))}
+                options={METHODS.map((m) => ({ value: m, label: m }))}
+                onChange={(v) => setRequest({ method: v })}
               />
-              <select
-                aria-label="보낼 서버"
-                className="h-9 max-w-52 rounded-md border border-input bg-transparent px-2 text-sm"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              >
-                <option value="">{draft.source?.origin ? `캡처한 서버 (${draft.source.origin.replace(/^https?:\/\//, '')})` : '서버를 고르세요'}</option>
-                {servers.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.name} — {s.baseUrl}
-                  </option>
-                ))}
-              </select>
-              <Button disabled={sending} onClick={() => void send()}>
-                <Send /> {sending ? '보내는 중…' : '보내기'}
-              </Button>
-              <Button variant="outline" disabled={!dirty} onClick={() => void save()}>
-                <Save /> 저장{dirty ? ' •' : ''}
-              </Button>
+              <TextInput
+                label="URL"
+                isLabelHidden
+                containerClassName="min-w-64 flex-1"
+                controlClassName="font-mono"
+                value={urlTextOf(draft.request)}
+                onChange={(v) => setDraft((d) => (d ? withRequest(d, applyUrlText(d.request, v)) : d))}
+              />
+              <Selector
+                label="보낼 서버"
+                value={target || DEFAULT_TARGET}
+                options={[
+                  {
+                    value: DEFAULT_TARGET,
+                    label: draft.source?.origin ? `캡처한 서버 (${draft.source.origin.replace(/^https?:\/\//, '')})` : '서버를 고르세요'
+                  },
+                  ...servers.map((s) => ({ value: s.name, label: `${s.name} — ${s.baseUrl}` }))
+                ]}
+                onChange={(v) => setTarget(v === DEFAULT_TARGET ? '' : v)}
+              />
+              <Button
+                label={sending ? '보내는 중…' : '보내기'}
+                icon={<Icon icon={Send} />}
+                variant="primary"
+                isDisabled={sending}
+                onClick={() => void send()}
+              />
+              <Button
+                label={`저장${dirty ? ' •' : ''}`}
+                icon={<Icon icon={Save} />}
+                variant="secondary"
+                isDisabled={!dirty}
+                onClick={() => void save()}
+              />
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
@@ -409,13 +434,15 @@ export function CollectionView({
                             <span className="w-28 shrink-0 truncate font-mono text-xs" title={v}>
                               {v}
                             </span>
-                            <Input
-                              aria-label={`변수 ${v}`}
+                            <TextInput
+                              label={`변수 ${v}`}
+                              isLabelHidden
+                              size="sm"
                               type="password"
                               autoComplete="off"
-                              className="h-8"
+                              containerClassName="flex-1"
                               value={vars[v] ?? ''}
-                              onChange={(e) => setVars({ ...vars, [v]: e.target.value })}
+                              onChange={(val) => setVars({ ...vars, [v]: val })}
                             />
                           </label>
                         ))}
@@ -435,12 +462,13 @@ export function CollectionView({
                 ) : (
                   <>
                     <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
-                      <Badge variant={statusTone(outcome.status)}>
-                        {outcome.status} {outcome.statusText}
-                      </Badge>
+                      <Badge
+                        variant={statusTone(outcome.status)}
+                        label={`${outcome.status} ${outcome.statusText}`}
+                      />
                       <span className="text-muted-foreground">{outcome.durationMs} ms</span>
                       <span className="text-muted-foreground">{formatSize(outcome.sizeBytes)}</span>
-                      {outcome.truncated && <Badge variant="warning">본문 일부만 표시</Badge>}
+                      {outcome.truncated && <Badge variant="warning" label="본문 일부만 표시" />}
                       {outcome.omittedHeaders.length > 0 && (
                         <span className="text-muted-foreground" title="값이 없어 보내지 않은 헤더">
                           생략한 헤더: {outcome.omittedHeaders.join(', ')}

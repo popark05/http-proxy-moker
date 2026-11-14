@@ -269,3 +269,11 @@
 [data-platform='win32'] .astryx-top-nav {
   padding-inline-end: 150px;
 }
+
+/*
+ * Astryx TextInput의 네이티브 input은 글꼴을 직접 지정한다. 값이 코드/주소인 필드는 controlClassName="font-mono"를 주고,
+ * 그 안의 input이 컨트롤의 글꼴(DM Mono)을 상속하도록 한다. 레이어 밖에 두어 Astryx 레이어보다 우선한다.
+ */
+.font-mono input {
+  font-family: inherit;
+}

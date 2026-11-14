@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import type { TrafficFilter, StatusClass } from '@shared/traffic-filter';
-import { Input } from '@/components/ui/input';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Chip } from '../primitives';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Selector } from '@astryxdesign/core/Selector';
+
+/** 필터를 지정하지 않는 선택지("전체")의 값. */
+const ALL = '__all__';
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const;
 const STATUS_CLASSES: StatusClass[] = ['2xx', '3xx', '4xx', '5xx', 'pending', 'error'];
@@ -44,13 +48,15 @@ export function FilterBar({
   return (
     <div className="flex flex-col gap-1.5 border-b border-border px-3 py-2">
       <div className="flex items-center gap-2">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
-        <Input
-          className="h-8"
+        <TextInput
+          label="트래픽 검색"
+          isLabelHidden
+          size="sm"
+          startIcon={Search}
+          containerClassName="flex-1"
           placeholder="URL · 헤더 · 본문 검색"
           value={filter.text ?? ''}
-          onChange={(e) => patchFilter({ text: e.target.value })}
-          aria-label="트래픽 검색"
+          onChange={(v) => patchFilter({ text: v })}
         />
         <IconButton
           label="필터 펼치기"
@@ -102,38 +108,26 @@ export function FilterBar({
           </div>
 
           <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-xs text-muted-foreground">호스트</span>
-            <select
-              value={filter.host ?? ''}
-              onChange={(e) => patchFilter({ host: e.target.value || undefined })}
-              aria-label="호스트 필터"
-              className="rounded-md border border-input bg-transparent px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">전체</option>
-              {hosts.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
+            <Selector
+              label="호스트 필터"
+              size="sm"
+              variant="secondary"
+              value={filter.host ?? ALL}
+              options={[{ value: ALL, label: '전체' }, ...hosts.map((h) => ({ value: h, label: h }))]}
+              onChange={(v) => patchFilter({ host: v === ALL ? undefined : v })}
+            />
           </div>
 
           {(clients.length > 1 || !!filter.client) && (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-xs text-muted-foreground">기기</span>
-              <select
-                value={filter.client ?? ''}
-                onChange={(e) => patchFilter({ client: e.target.value || undefined })}
-                aria-label="기기 필터"
-                className="rounded-md border border-input bg-transparent px-2 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">전체</option>
-                {clients.map((c) => (
-                  <option key={c.ip} value={c.ip}>
-                    {c.label} ({c.ip})
-                  </option>
-                ))}
-              </select>
+              <Selector
+                label="기기 필터"
+                size="sm"
+                variant="secondary"
+                value={filter.client ?? ALL}
+                options={[{ value: ALL, label: '전체' }, ...clients.map((c) => ({ value: c.ip, label: `${c.label} (${c.ip})` }))]}
+                onChange={(v) => patchFilter({ client: v === ALL ? undefined : v })}
+              />
             </div>
           )}
 

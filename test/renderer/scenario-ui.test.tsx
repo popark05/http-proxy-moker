@@ -16,6 +16,7 @@ vi.mock('../../src/renderer/src/components/code/CodeDiffView', () => ({ CodeDiff
 import { ScenarioPanel } from '../../src/renderer/src/components/mock/ScenarioPanel';
 import { ScenarioEditor } from '../../src/renderer/src/components/mock/ScenarioEditor';
 import { isDisabled } from './disabled-helper';
+import { chooseOption, openSelector, selectorOf } from './selector-helper';
 
 const mock = (method: string, path: string, status = 200, body = '{}'): MockDefinition => ({
   id: `m${method}${path}${status}`,
@@ -86,7 +87,7 @@ describe('ScenarioEditor', () => {
     const onSave = vi.fn();
     render(<ScenarioEditor open onOpenChange={() => {}} scenario={undefined} scenarios={[base]} library={library} onSave={onSave} />);
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '결제 실패' } });
-    fireEvent.change(screen.getByLabelText('베이스'), { target: { value: '정상' } });
+    chooseOption('베이스', '정상');
     // 상속된 선택이 기본 옵션으로 보인다.
     expect(screen.getAllByText(/상속: 200/).length).toBeGreaterThan(0);
     const failName = library.endpoints.find((e) => e.id === 'POST /pay')!.cases.find((c) => c.id === failCaseId)!.name;
@@ -121,7 +122,7 @@ describe('ScenarioEditor', () => {
     const { library, base } = fixture();
     const child: ScenarioV2 = { version: 2, id: 'c', name: '자식', base: '정상', picks: [] };
     render(<ScenarioEditor open onOpenChange={() => {}} scenario={base} scenarios={[base, child]} library={library} onSave={() => {}} />);
-    const options = within(screen.getByLabelText('베이스')).getAllByRole('option').map((o) => o.textContent);
+    const options = openSelector('베이스');
     expect(options).toEqual(['없음 (독립 시나리오)']);
   });
 });
@@ -152,11 +153,11 @@ describe('ScenarioEditor 편집 대상 전환', () => {
     expect(screen.getByText('지금 활성: 정상')).toBeTruthy();
     fireEvent.click(screen.getByText('이 시나리오 활성화'));
     expect(onActivate).toHaveBeenCalledWith('앱초기화');
-    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '정상' } });
+    chooseOption('편집 대상', '정상');
     expect(onSwitch).toHaveBeenCalledWith('정상');
     // 변경이 없으면 확인창 없이 옮긴다.
     expect(window.confirm).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '__new__' } });
+    chooseOption('편집 대상', '+ 새 시나리오');
     expect(onSwitch).toHaveBeenCalledWith(null);
   });
 
@@ -169,7 +170,7 @@ describe('ScenarioEditor 편집 대상 전환', () => {
       <ScenarioEditor open onOpenChange={() => {}} scenario={other} scenarios={[base, other]} library={library} onSave={() => {}} onSwitch={onSwitch} />
     );
     fireEvent.change(screen.getByLabelText('설명'), { target: { value: '바꿈' } });
-    fireEvent.change(screen.getByLabelText('편집 대상'), { target: { value: '정상' } });
+    chooseOption('편집 대상', '정상');
     expect(window.confirm).toHaveBeenCalled();
     expect(onSwitch).not.toHaveBeenCalled();
   });
@@ -245,7 +246,7 @@ describe('ScenarioEditor 응답 케이스 통합', () => {
     pickMenu('GET /feed', '선택한 케이스 편집');
     fireEvent.change(screen.getByLabelText('케이스 이름'), { target: { value: '정상 응답' } });
     // 엔드포인트는 고정(경로 입력이 비활성)
-    expect((screen.getByLabelText('경로') as HTMLInputElement).disabled).toBe(true);
+    expect(isDisabled(screen.getByLabelText('경로'))).toBe(true);
     fireEvent.click(screen.getAllByText('저장').at(-1)!);
     const names = onCommitLibrary.mock.calls[0][0].library.endpoints.flatMap((e: { cases: Array<{ name: string }> }) => e.cases.map((c) => c.name));
     expect(names).toContain('정상 응답');

@@ -8,6 +8,7 @@ vi.mock('../../src/renderer/src/components/code/CodeView', () => ({
 
 import { CollectionView, type CollectionViewProps } from '../../src/renderer/src/components/collection/CollectionView';
 import { isDisabled } from './disabled-helper';
+import { chooseOption, openSelector, selectorOf } from './selector-helper';
 
 const contract = (name: string, over: Partial<Contract> = {}): Contract => ({
   version: 1,
@@ -78,7 +79,7 @@ describe('CollectionView', () => {
     expect(within(tree).getByText('api.example.com')).toBeTruthy();
     fireEvent.click(within(tree).getByText('/users'));
     expect((screen.getByLabelText('URL') as HTMLInputElement).value).toBe('{{baseUrl}}/users?page=1');
-    expect((screen.getByLabelText('메서드') as HTMLSelectElement).value).toBe('GET');
+    expect(selectorOf('메서드').textContent).toContain('GET');
   });
 
   it('보내기: 변수와 선택한 서버로 요청하고 응답을 보여 준다', async () => {
@@ -86,7 +87,7 @@ describe('CollectionView', () => {
     fireEvent.click(screen.getByText('/users'));
     fireEvent.click(screen.getByRole('tab', { name: /변수/ }));
     fireEvent.change(screen.getByLabelText('변수 token'), { target: { value: 'Bearer t' } });
-    fireEvent.change(screen.getByLabelText('보낼 서버'), { target: { value: 'dev' } });
+    chooseOption('보낼 서버', 'dev');
     fireEvent.click(screen.getByText('보내기'));
 
     await waitFor(() => expect(send).toHaveBeenCalled());
@@ -123,7 +124,7 @@ describe('CollectionView', () => {
     fireEvent.click(screen.getByText('/users'));
     const save = screen.getByText(/^저장/).closest('button') as HTMLButtonElement;
     expect(isDisabled(save)).toBe(true);
-    fireEvent.change(screen.getByLabelText('메서드'), { target: { value: 'DELETE' } });
+    chooseOption('메서드', 'DELETE');
     expect(isDisabled(save)).toBe(false);
     fireEvent.click(save);
     await waitFor(() => expect(props.onSave).toHaveBeenCalled());

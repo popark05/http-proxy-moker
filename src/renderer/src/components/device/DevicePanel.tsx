@@ -12,6 +12,7 @@ import { operationId } from '@shared/progress';
 import { ConnectionGuide, type WizardPlatformTab } from './ConnectionWizard';
 import { ClientList } from './ClientList';
 import type { ClientInfo } from '@shared/clients';
+import { Selector } from '@astryxdesign/core/Selector';
 
 function statusTone(status: DeviceInfo['status']): 'success' | 'warning' | 'neutral' {
   if (status === 'ready') return 'success';
@@ -74,31 +75,34 @@ function DeviceItem({
         <Badge variant={statusTone(device.status)} label={device.status} />
 
         {!isIos && !active && (
-          <select
-            aria-label="인터셉션 방식"
-            disabled={!!busy}
+          <Selector
+            label="인터셉션 방식"
+            size="sm"
+            variant="secondary"
+            isDisabled={!!busy}
             value={mode}
-            onChange={(e) => setMode(e.target.value as AndroidInterceptionMode)}
-            className="rounded-md border border-input bg-transparent px-1.5 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="auto">자동</option>
-            <option value="root">시스템 CA (root)</option>
-            <option value="vpn">VPN (non-root)</option>
-          </select>
+            options={[
+              { value: 'auto', label: '자동' },
+              { value: 'root', label: '시스템 CA (root)' },
+              { value: 'vpn', label: 'VPN (non-root)' }
+            ]}
+            onChange={(v) => setMode(v as AndroidInterceptionMode)}
+          />
         )}
 
         {!isIos && !active && (
-          <select
-            aria-label="트래픽 경로"
-            disabled={!!busy}
-            title="기기 트래픽이 PC 프록시에 도달하는 경로"
+          <Selector
+            label="트래픽 경로"
+            size="sm"
+            variant="secondary"
+            isDisabled={!!busy}
             value={trafficPath}
-            onChange={(e) => setTrafficPath(e.target.value as AndroidTrafficPath)}
-            className="rounded-md border border-input bg-transparent px-1.5 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="usb">USB 터널</option>
-            <option value="wifi">Wi-Fi</option>
-          </select>
+            options={[
+              { value: 'usb', label: 'USB 터널' },
+              { value: 'wifi', label: 'Wi-Fi' }
+            ]}
+            onChange={(v) => setTrafficPath(v as AndroidTrafficPath)}
+          />
         )}
 
         {isIos ? (

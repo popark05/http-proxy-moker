@@ -50,8 +50,9 @@ describe('MockEditor 호스트', () => {
     const onSave = vi.fn();
     render(<MockEditor mock={{ ...mock(), host: '' }} open onOpenChange={() => {}} onSave={onSave} />);
     const save = screen.getByText('저장') as HTMLButtonElement;
-    expect(screen.getByRole('alert').textContent).toContain('호스트는 필수');
     expect(isDisabled(save)).toBe(true);
+    expect(screen.getByText(/호스트는 필수/)).toBeTruthy();
+    expect(screen.getByLabelText('호스트').getAttribute('aria-invalid')).toBe('true');
     fireEvent.change(screen.getByLabelText('호스트'), { target: { value: 'API.example.com' } });
     expect(isDisabled(save)).toBe(false);
     fireEvent.click(save);

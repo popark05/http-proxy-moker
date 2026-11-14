@@ -3,12 +3,11 @@ import { Copy, Power, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ProxyStatus } from '@shared/capture';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@astryxdesign/core/Button';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Modal } from '../primitives';
+import { TextInput } from '@astryxdesign/core/TextInput';
 
 interface ProxyPanelProps {
   open: boolean;
@@ -83,20 +82,15 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
         )}
 
         <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="proxy-port" className="text-muted-foreground">
-              포트
-            </Label>
-            <Input
-              id="proxy-port"
-              className="w-28 font-mono"
-              inputMode="numeric"
-              value={port}
-              aria-invalid={!portValid}
-              onChange={(e) => setPort(e.target.value.replace(/\D/g, ''))}
-            />
-          </div>
+          <TextInput
+            label="포트"
             width={112}
+            controlClassName="font-mono"
+            inputMode="numeric"
+            value={port}
+            status={portValid ? undefined : { type: 'error' }}
+            onChange={(v) => setPort(v.replace(/\D/g, ''))}
+          />
           {status.running ? (
             <Button
               label={changed ? '포트 바꿔 다시 시작' : '다시 시작'}

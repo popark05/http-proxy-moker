@@ -3,10 +3,12 @@ import { GitCompare, ImageUp, Pencil } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import { isBodyModified } from '@shared/mock';
 import { Modal } from '../primitives';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Button } from '@astryxdesign/core/Button';
+import { FormLayout } from '@astryxdesign/core/FormLayout';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { Selector } from '@astryxdesign/core/Selector';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { CodeView } from '../code/CodeView';
 import { CodeDiffView } from '../code/CodeDiffView';
 import { ImagePreview } from '../traffic/ImagePreview';
@@ -27,9 +29,6 @@ interface MockEditorProps {
   nameLabel?: string;
   title?: string;
 }
-
-const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** JSON이면 보기 좋게 들여쓴다(아니면 원본 유지). */
 function prettifyJson(body: string): string {
@@ -131,96 +130,65 @@ export function MockEditor({
       title={title}
       width={1024}
     >
-      <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
-        <Label htmlFor="mock-label" className="text-muted-foreground">
-          {nameLabel}
-        </Label>
-        <Input
-          id="mock-label"
-          className="font-mono"
-          value={draft.label}
-          onChange={(e) => update({ label: e.target.value })}
-        />
-
-        <Label htmlFor="mock-method" className="text-muted-foreground">
-          메서드
-        </Label>
-        <Input
-          id="mock-method"
-          className="font-mono"
+      <FormLayout direction="horizontal-labels">
+        <TextInput label={nameLabel} controlClassName="font-mono" value={draft.label} onChange={(v) => update({ label: v })} />
+        <TextInput
+          label="메서드"
+          controlClassName="font-mono"
           value={draft.method}
-          disabled={lockEndpoint}
-          onChange={(e) => update({ method: e.target.value.toUpperCase() })}
+          isDisabled={lockEndpoint}
+          onChange={(v) => update({ method: v.toUpperCase() })}
         />
-
-        <Label htmlFor="mock-host" className="text-muted-foreground">
-          호스트
-        </Label>
-        <Input
-          id="mock-host"
-          className="font-mono"
+        <TextInput
+          label="호스트"
+          controlClassName="font-mono"
           placeholder="api.example.com"
           value={draft.host}
-          disabled={lockEndpoint}
-          aria-invalid={!hostValid}
-          onChange={(e) => update({ host: e.target.value.trim().toLowerCase() })}
+          isDisabled={lockEndpoint}
+          status={
+            hostValid
+              ? undefined
+              : {
+                  type: 'error',
+                  message: '호스트는 필수입니다. 예: api.example.com 또는 localhost:8080 (프로토콜·경로 없이)'
+                }
+          }
+          onChange={(v) => update({ host: v.trim().toLowerCase() })}
         />
-        {!hostValid && (
-          <p role="alert" className="col-start-2 -mt-1 text-xs text-destructive">
-            호스트는 필수입니다. 예: api.example.com 또는 localhost:8080 (프로토콜·경로 없이)
-          </p>
-        )}
-
-        <Label htmlFor="mock-path" className="text-muted-foreground">
-          경로
-        </Label>
-        <Input
-          id="mock-path"
-          className="font-mono"
+        <TextInput
+          label="경로"
+          controlClassName="font-mono"
           value={draft.path}
-          disabled={lockEndpoint}
-          onChange={(e) => update({ path: e.target.value })}
+          isDisabled={lockEndpoint}
+          onChange={(v) => update({ path: v })}
         />
-
-        <Label htmlFor="mock-status" className="text-muted-foreground">
-          상태코드
-        </Label>
-        <Input
-          id="mock-status"
-          type="number"
-          className="font-mono"
+        <NumberInput
+          label="상태코드"
           value={draft.response.status}
-          disabled={hasFault}
-          onChange={(e) => updateResponse({ status: parseInt(e.target.value, 10) || 200 })}
+          isIntegerOnly
+          isDisabled={hasFault}
+          onChange={(n) => updateResponse({ status: n || 200 })}
         />
-
-        <Label htmlFor="mock-delay" className="text-muted-foreground">
-          지연(ms)
-        </Label>
-        <Input
-          id="mock-delay"
-          type="number"
+        <NumberInput
+          label="지연(ms)"
           min={0}
-          className="font-mono"
+          isIntegerOnly
           value={draft.delayMs ?? 0}
-          onChange={(e) => update({ delayMs: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+          onChange={(n) => update({ delayMs: Math.max(0, n || 0) })}
         />
-
-        <Label htmlFor="mock-fault" className="text-muted-foreground">
-          에러 주입
-        </Label>
-        <select
-          id="mock-fault"
-          className={selectClass}
+        <Selector
+          label="에러 주입"
           value={draft.fault ?? 'none'}
-          onChange={(e) => update({ fault: e.target.value as MockFault })}
-        >
-          <option value="none">없음 (정상 응답)</option>
-          <option value="timeout">타임아웃 (응답 없이 대기)</option>
-          <option value="reset">연결 리셋 (RST)</option>
-          <option value="close">연결 종료</option>
-        </select>
-      </div>
+          options={[
+            { value: 'none', label: '없음 (정상 응답)' },
+            { value: 'timeout', label: '타임아웃 (응답 없이 대기)' },
+            { value: 'reset', label: '연결 리셋 (RST)' },
+            { value: 'close', label: '연결 종료' }
+          ]}
+          onChange={(v) => update({ fault: v as MockFault })}
+        />
+      </FormLayout>
+      <div className="h-3" />
 
       {hasFault ? (
         <div className="mb-3 text-xs text-[hsl(var(--warning))]">
