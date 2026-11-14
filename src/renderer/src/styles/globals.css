@@ -251,3 +251,21 @@
     background-clip: content-box;
   }
 }
+
+/*
+ * Electron 창 크롬: 상단 내비는 창 드래그 영역이고 컨트롤만 클릭을 받는다.
+ * macOS는 왼쪽에 신호등 버튼 자리를, Windows는 오른쪽에 창 컨트롤 자리를 비운다(preload가 html에 data-platform을 설정).
+ * 레이어 밖에 두어 Astryx 레이어보다 우선한다.
+ */
+.astryx-top-nav {
+  -webkit-app-region: drag;
+}
+.astryx-top-nav :is(button, a, input, label, [role='switch'], [role='menuitem']) {
+  -webkit-app-region: no-drag;
+}
+[data-platform='darwin'] .astryx-top-nav {
+  padding-inline-start: 84px;
+}
+[data-platform='win32'] .astryx-top-nav {
+  padding-inline-end: 150px;
+}

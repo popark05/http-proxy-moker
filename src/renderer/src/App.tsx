@@ -5,7 +5,7 @@ import { AppModeProvider, useAppMode } from './state/app-mode';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { TopBar } from './components/layout/TopBar';
-import { AppShell } from './components/layout/AppShell';
+import { AppFrame } from './components/layout/AppFrame';
 import { Sidebar } from './components/layout/Sidebar';
 import { DevicePanel } from './components/device/DevicePanel';
 import { ProxyPanel } from './components/layout/ProxyPanel';
@@ -36,7 +36,6 @@ import { useTrafficFilter } from './state/useTrafficFilter';
 import { useMockHits } from './state/useMockHits';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { SplashScreen } from './components/brand/SplashScreen';
-import { ProjectBar } from './components/project/ProjectBar';
 import { ScenarioEditor } from './components/mock/ScenarioEditor';
 import { useProxyActions } from './state/useProxyActions';
 import { useProjectActions } from './state/useProjectActions';
@@ -521,14 +520,29 @@ function AppInner(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TopBar />
-      <ProjectBar
-        project={project}
-        onCreate={() => void handleCreateProject()}
-        onOpen={() => void handleOpenProject()}
-      />
-
-      <AppShell
+      <AppFrame
+        topNav={
+          <TopBar
+            project={project}
+            onCreateProject={() => void handleCreateProject()}
+            onOpenProject={() => void handleOpenProject()}
+          />
+        }
+        statusBar={
+          <StatusBar
+            proxy={status}
+            proxyBusy={proxyBusy}
+            onOpenProxy={() => setProxyPanelOpen(true)}
+            mode={mode}
+            clientCount={clients.length}
+            activeMockCount={mocks.filter((m) => m.enabled).length}
+            activeScenario={activeScenario}
+            scenarioDirty={scenarioLib.diff?.dirty}
+            lastHitAt={mockHits.lastHitOverall}
+            onOpenConnect={() => openSection('connect')}
+            onOpenMocking={openMocksTab}
+          />
+        }
         section={section}
         collapsed={collapsed}
         onToggleSection={toggleSection}
@@ -537,19 +551,6 @@ function AppInner(): React.JSX.Element {
         connectView={connectView}
         mockingView={mockingView}
         collectionView={collectionView}
-      />
-      <StatusBar
-        proxy={status}
-        proxyBusy={proxyBusy}
-        onOpenProxy={() => setProxyPanelOpen(true)}
-        mode={mode}
-        clientCount={clients.length}
-        activeMockCount={mocks.filter((m) => m.enabled).length}
-        activeScenario={activeScenario}
-        scenarioDirty={scenarioLib.diff?.dirty}
-        lastHitAt={mockHits.lastHitOverall}
-        onOpenConnect={() => openSection('connect')}
-        onOpenMocking={openMocksTab}
       />
 
       <ProxyPanel

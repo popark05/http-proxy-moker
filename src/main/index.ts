@@ -26,14 +26,14 @@ function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     backgroundColor: '#181825',
-    // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이는 TopBar와 동일).
+    // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이 46은 Astryx TopNav의 실측 높이, 색은 배경 #181825와 동일; TopNav를 바꾸면 함께 맞출 것).
     // 그 외(Linux)는 기본 프레임을 쓴다.
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }
       : process.platform === 'win32'
         ? {
             titleBarStyle: 'hidden' as const,
-            titleBarOverlay: { color: '#16181e', symbolColor: '#e5e7eb', height: 52 }
+            titleBarOverlay: { color: '#181825', symbolColor: '#e5e7eb', height: 46 }
           }
         : {}),
     ...(iconPath ? { icon: iconPath } : {}),
