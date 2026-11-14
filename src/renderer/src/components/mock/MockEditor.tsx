@@ -78,7 +78,7 @@ export function MockEditor({
         open={open}
         onOpenChange={onOpenChange}
         title="목 편집"
-        className="w-[94vw] max-w-none sm:max-w-5xl"
+        width={1024}
         children={<div />}
       />
     );
@@ -129,7 +129,7 @@ export function MockEditor({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      className="w-[94vw] max-w-none sm:max-w-5xl"
+      width={1024}
     >
       <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
         <Label htmlFor="mock-label" className="text-muted-foreground">

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { useState } from 'react';
-import { TooltipProvider } from '../../src/renderer/src/components/ui/tooltip';
 import { Theme } from '@astryxdesign/core/theme';
 import { evermockTheme } from '../../src/renderer/src/theme/astryx-theme';
 import { AppFrame } from '../../src/renderer/src/components/layout/AppFrame';
@@ -20,8 +19,7 @@ function Connect(): React.JSX.Element {
 
 function Harness({ section, collapsed = false }: { section: SidebarSection; collapsed?: boolean }): React.JSX.Element {
   return (
-    <TooltipProvider>
-      <Theme theme={evermockTheme} mode="dark">
+    <Theme theme={evermockTheme} mode="dark">
       <AppFrame
         topNav={<div>상단</div>}
         statusBar={<div>상태바</div>}
@@ -34,8 +32,7 @@ function Harness({ section, collapsed = false }: { section: SidebarSection; coll
         mockingView={<div>목킹 화면</div>}
         collectionView={<div>컬렉션 화면</div>}
       />
-      </Theme>
-    </TooltipProvider>
+    </Theme>
   );
 }
 

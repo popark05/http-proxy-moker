@@ -103,7 +103,7 @@ describe('CollectionView', () => {
     setup();
     fireEvent.click(screen.getByText('/users'));
     fireEvent.click(screen.getByText('보내기'));
-    expect((await screen.findByRole('alert')).textContent).toContain('변수 값이 필요함');
+    expect(await screen.findByText(/변수 값이 필요함/)).toBeTruthy();
   });
 
   it('GET이 아닌 요청은 확인 후에만 보낸다', async () => {

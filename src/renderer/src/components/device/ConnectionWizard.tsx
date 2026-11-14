@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Download, Hand, Zap } from 'lucide-react';
 import { connectionProgress, type StepStatus, type WizardInput, type WizardTab } from '@shared/connection-progress';
 import { Modal } from '../primitives';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@astryxdesign/core/Button';
 import { Icon } from '@astryxdesign/core/Icon';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { cn } from '@/lib/utils';
 import { ConnectionScene } from './ConnectionScene';
 
@@ -93,13 +93,12 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
 
   return (
     <>
-      <Tabs value={tab} onValueChange={(v) => onTabChange(v as GuideTab)} className="mb-4">
-        <TabsList>
-          <TabsTrigger value="android-usb">Android · USB</TabsTrigger>
-          <TabsTrigger value="android-wifi">Android · Wi-Fi</TabsTrigger>
-          <TabsTrigger value="ios-wifi">iPhone/iPad · Wi-Fi</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <TabList role="tablist" value={tab} onChange={(v) => onTabChange(v as GuideTab)} hasDivider>
+        <Tab value="android-usb" label="Android · USB" />
+        <Tab value="android-wifi" label="Android · Wi-Fi" />
+        <Tab value="ios-wifi" label="iPhone/iPad · Wi-Fi" />
+      </TabList>
+      <div className="mb-4" />
 
       {tab === 'android-wifi' && (
         <div className="flex gap-1.5 text-xs" role="group" aria-label="Android Wi-Fi 방식">
@@ -190,7 +189,7 @@ export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb
   }, [open, initialTab]);
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="기기 연결 가이드" className="max-w-4xl">
+    <Modal open={open} onOpenChange={onOpenChange} title="기기 연결 가이드" width={896}>
       <ConnectionGuide active={open} tab={tab} onTabChange={setTab} input={input} />
       <div className="flex justify-end">
         <Button label="닫기" variant="secondary" size="sm" onClick={() => onOpenChange(false)} />

@@ -56,7 +56,7 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
   const changed = status.running && parsed !== status.port;
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title="프록시" className="max-w-md">
+    <Modal open={open} onOpenChange={onOpenChange} title="프록시" width={448}>
       <div className="flex flex-col gap-3 text-sm">
         <p className="text-xs text-muted-foreground">
           프록시는 기기를 연결하거나 목 적용을 켜면 자동으로 켜집니다. 포트를 바꾸거나 문제를 확인할 때만 여기서 다루세요.
@@ -96,6 +96,7 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
               onChange={(e) => setPort(e.target.value.replace(/\D/g, ''))}
             />
           </div>
+            width={112}
           {status.running ? (
             <Button
               label={changed ? '포트 바꿔 다시 시작' : '다시 시작'}

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { registerProjectOpeners, toastNoProject } from './lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { TopBar } from './components/layout/TopBar';
 import { AppFrame } from './components/layout/AppFrame';
@@ -587,10 +586,8 @@ function AppInner(): React.JSX.Element {
 
 export function App(): React.JSX.Element {
   return (
-    <TooltipProvider delayDuration={300}>
-      <AppModeProvider>
-        <AppInner />
-      </AppModeProvider>
-    </TooltipProvider>
+    <AppModeProvider>
+      <AppInner />
+    </AppModeProvider>
   );
 }

@@ -215,7 +215,7 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
   };
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title={editing ? '시나리오 편집' : '새 시나리오'} className="w-[94vw] max-w-none sm:max-w-3xl">
+    <Modal open={open} onOpenChange={onOpenChange} variant={variant} title={editing ? '시나리오 편집' : '새 시나리오'} width={768}>
       {onSwitch && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Label htmlFor="sc-target" className="text-muted-foreground">편집 대상</Label>
