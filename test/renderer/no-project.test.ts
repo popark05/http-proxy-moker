@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const error = vi.fn();
-vi.mock('sonner', () => ({ toast: { error: (...a: unknown[]) => error(...a) } }));
+vi.mock('../../src/renderer/src/lib/toast', () => ({ toast: { error: (...a: unknown[]) => error(...a) } }));
 
 import { registerProjectOpeners, toastNoProject } from '../../src/renderer/src/lib/no-project';
 

@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
 import { Badge } from '@astryxdesign/core/Badge';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
@@ -111,17 +112,15 @@ export function TrafficList({
                 )}
               >
                 {checkedIds && (
-                  <label className="flex shrink-0 cursor-pointer items-center self-stretch pl-3 pr-1">
-                    <input
-                      type="checkbox"
-                      aria-label="복제할 요청 선택"
-                      checked={checked}
-                      // onChange에는 shiftKey가 없어서 click 이벤트에서 처리한다.
-                      onChange={() => {}}
-                      onClick={(e) => toggleChecked(item.index, e.shiftKey)}
-                      className="size-4 cursor-pointer accent-[hsl(var(--primary))]"
+                  <span className="flex shrink-0 items-center self-stretch pl-3 pr-1">
+                    <CheckboxInput
+                      label="복제할 요청 선택"
+                      isLabelHidden
+                      value={checked}
+                      // 체크박스의 change는 click에서 나오므로 nativeEvent로 Shift 여부를 읽는다(범위 선택).
+                      onChange={(_checked, e) => toggleChecked(item.index, (e.nativeEvent as MouseEvent).shiftKey === true)}
                     />
-                  </label>
+                  </span>
                 )}
               <button
                 type="button"

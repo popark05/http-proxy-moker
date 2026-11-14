@@ -8,7 +8,6 @@
 @import 'tailwindcss';
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
-@plugin 'tailwindcss-animate';
 
 /* 다크 테마를 .dark 클래스로 토글(기본 다크). */
 @custom-variant dark (&:is(.dark *));

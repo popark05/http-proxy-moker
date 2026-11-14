@@ -27,7 +27,12 @@ describe('MockingView', () => {
   it('현재 목 / 시나리오 탭과 개수를 보여 준다', () => {
     render(<Harness />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['현재 목 3', '시나리오 2']);
+    expect(tabs).toHaveLength(2);
+    // Astryx Tab은 굵기 변화에 대비해 라벨을 한 번 더 숨겨 렌더하므로 정확 비교 대신 포함 여부를 본다.
+    expect(tabs[0].textContent).toContain('현재 목');
+    expect(tabs[0].textContent).toContain('3');
+    expect(tabs[1].textContent).toContain('시나리오');
+    expect(tabs[1].textContent).toContain('2');
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
   });
 

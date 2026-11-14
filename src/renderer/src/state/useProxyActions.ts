@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import type { ProxyStatus } from '@shared/capture';
 import type { MockDefinition } from '@shared/mock';

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Badge } from '@astryxdesign/core/Badge';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { cn } from '@/lib/utils';
 
 export type MockingTab = 'mocks' | 'scenarios';
 
@@ -41,27 +41,17 @@ export function MockingView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-3">
-        <div role="tablist" aria-label="목킹" className="flex gap-1 pt-1">
+        <TabList role="tablist" aria-label="목킹" value={tab} onChange={(v) => onTabChange(v as MockingTab)}>
           {TABS.map(({ id, label, count }) => (
-            <button
+            <Tab
               key={id}
-              id={`mocking-tab-${id}`}
-              role="tab"
-              type="button"
-              aria-selected={tab === id}
-              aria-controls={`mocking-panel-${id}`}
-              onClick={() => onTabChange(id)}
-              className={cn(
-                'rounded-t-md border-t-2 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                tab === id
-                  ? 'border-t-primary bg-background text-foreground'
-                  : 'border-t-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {label} <span className="text-xs text-muted-foreground">{counts[count]}</span>
-            </button>
+              value={id}
+              label={label}
+              panelId={`mocking-panel-${id}`}
+              endContent={<span className="text-xs text-muted-foreground">{counts[count]}</span>}
+            />
           ))}
-        </div>
+        </TabList>
         <div className="ml-auto">
           {activeScenario ? (
             <Tooltip content="지금 활성화된 시나리오" hasHoverIndication={false}>

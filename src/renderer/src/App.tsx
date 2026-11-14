@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { registerProjectOpeners, toastNoProject } from './lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
-import { Toaster } from '@/components/ui/sonner';
 import { TopBar } from './components/layout/TopBar';
 import { AppFrame } from './components/layout/AppFrame';
 import { Sidebar } from './components/layout/Sidebar';
@@ -41,7 +40,7 @@ import { useProxyActions } from './state/useProxyActions';
 import { useProjectActions } from './state/useProjectActions';
 import { useScenarioActions } from './state/useScenarioActions';
 import { useExchangeActions } from './state/useExchangeActions';
-import { toast } from 'sonner';
+import { ToastBridge, toast } from '@/lib/toast';
 import { newSessionName } from './lib/session-name';
 import { errMsg } from './lib/errors';
 
@@ -578,7 +577,7 @@ function AppInner(): React.JSX.Element {
         onRestart={(port) => void restartProxy(port)}
       />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
-      <Toaster />
+      <ToastBridge />
       <SplashScreen />
     </div>
   );

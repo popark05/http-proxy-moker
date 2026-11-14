@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Smartphone, Apple, RefreshCw, SmartphoneNfc, CircleHelp, Loader2 } from 'lucide-react';
 import type { AndroidInterceptionMode, AndroidTrafficPath, DeviceInfo, InterceptionResult } from '@shared/device';
 import { Button } from '@astryxdesign/core/Button';

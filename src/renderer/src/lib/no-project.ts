@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 /** 프로젝트를 만들거나 여는 동작. App이 등록해 두면 저장 실패 토스트에서 바로 쓸 수 있다. */
 interface ProjectOpeners {

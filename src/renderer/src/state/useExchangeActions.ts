@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { toastNoProject } from '../lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { errMsg } from '../lib/errors';

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, renderHook, act, waitFor } from '@testing-li
 import type { ProxyStatus } from '../../src/shared/capture';
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(), loading: vi.fn(() => 't'), dismiss: vi.fn() }));
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../../src/renderer/src/lib/toast', () => ({ toast }));
 
 import { useProxyActions } from '../../src/renderer/src/state/useProxyActions';
 import { CaptureControls } from '../../src/renderer/src/components/traffic/CaptureControls';

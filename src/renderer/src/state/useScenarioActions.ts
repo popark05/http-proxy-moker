@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { toastNoProject } from '../lib/no-project';
 import type { MockDefinition } from '@shared/mock';
 import { errMsg } from '../lib/errors';

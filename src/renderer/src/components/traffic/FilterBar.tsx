@@ -3,7 +3,7 @@ import { Search, X, SlidersHorizontal } from 'lucide-react';
 import type { TrafficFilter, StatusClass } from '@shared/traffic-filter';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Icon } from '@astryxdesign/core/Icon';
-import { Chip } from '../primitives';
+import { ToggleButton } from '@astryxdesign/core/ToggleButton';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Selector } from '@astryxdesign/core/Selector';
 
@@ -84,26 +84,14 @@ export function FilterBar({
           <div className="flex flex-wrap items-center gap-1">
             <span className="mr-1 text-xs text-muted-foreground">메서드</span>
             {METHODS.map((m) => (
-              <Chip
-                key={m}
-                $active={filter.methods?.includes(m) ?? false}
-                onClick={() => patchFilter({ methods: toggle(filter.methods, m) })}
-              >
-                {m}
-              </Chip>
+              <ToggleButton key={m} label={m} size="sm" isPressed={filter.methods?.includes(m) ?? false} onPressedChange={() => patchFilter({ methods: toggle(filter.methods, m) })} />
             ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-1">
             <span className="mr-1 text-xs text-muted-foreground">상태</span>
             {STATUS_CLASSES.map((s) => (
-              <Chip
-                key={s}
-                $active={filter.statusClasses?.includes(s) ?? false}
-                onClick={() => patchFilter({ statusClasses: toggle(filter.statusClasses, s) })}
-              >
-                {s}
-              </Chip>
+              <ToggleButton key={s} label={s} size="sm" isPressed={filter.statusClasses?.includes(s) ?? false} onPressedChange={() => patchFilter({ statusClasses: toggle(filter.statusClasses, s) })} />
             ))}
           </div>
 
@@ -135,13 +123,7 @@ export function FilterBar({
             <div className="flex flex-wrap items-center gap-1">
               <span className="mr-1 text-xs text-muted-foreground">태그</span>
               {tags.map((t) => (
-                <Chip
-                  key={t}
-                  $active={filter.tags?.includes(t) ?? false}
-                  onClick={() => patchFilter({ tags: toggle(filter.tags, t) })}
-                >
-                  {t}
-                </Chip>
+                <ToggleButton key={t} label={t} size="sm" isPressed={filter.tags?.includes(t) ?? false} onPressedChange={() => patchFilter({ tags: toggle(filter.tags, t) })} />
               ))}
             </div>
           )}

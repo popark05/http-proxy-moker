@@ -38,6 +38,8 @@ import {
 } from '../../lib/collection';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Selector } from '@astryxdesign/core/Selector';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
+import { TextArea } from '@astryxdesign/core/TextArea';
 
 /** "보낼 서버"를 고르지 않은 상태(캡처한 서버로 보냄)의 선택지 값. */
 const DEFAULT_TARGET = '__default__';
@@ -372,54 +374,39 @@ export function CollectionView({
             <div className="flex min-h-0 flex-1 flex-col">
               {/* 요청 설정 */}
               <div className="flex shrink-0 flex-col border-b border-border">
-                <div role="tablist" aria-label="요청 설정" className="flex gap-1 border-b border-border px-2 pt-1">
-                  {(
-                    [
-                      ['headers', `헤더 (${draft.request.headers.length})`],
-                      ['body', draft.request.body ? '본문 •' : '본문'],
-                      ['vars', `변수 (${variables.length})`]
-                    ] as const
-                  ).map(([id, label]) => (
-                    <button
-                      key={id}
-                      role="tab"
-                      type="button"
-                      aria-selected={section === id}
-                      onClick={() => setSection(id)}
-                      className={cn('rounded-t-md px-3 py-1 text-xs', section === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <TabList role="tablist" aria-label="요청 설정" size="sm" value={section} onChange={(v) => setSection(v as typeof section)} hasDivider>
+                  <Tab value="headers" label={`헤더 (${draft.request.headers.length})`} />
+                  <Tab value="body" label={draft.request.body ? '본문 •' : '본문'} />
+                  <Tab value="vars" label={`변수 (${variables.length})`} />
+                </TabList>
                 <div className="p-2">
                   {section === 'headers' && (
-                    <textarea
-                      aria-label="요청 헤더"
-                      spellCheck={false}
+                    <TextArea
+                      label="요청 헤더"
+                      isLabelHidden
+                      hasSpellCheck={false}
                       rows={5}
+                      controlClassName="font-mono text-xs"
                       placeholder="이름: 값 (한 줄에 하나)"
                       value={headersToText(draft.request.headers)}
-                      onChange={(e) => setRequest({ headers: textToHeaders(e.target.value) })}
-                      className="w-full resize-y rounded-md border border-input bg-transparent p-2 font-mono text-xs"
+                      onChange={(v) => setRequest({ headers: textToHeaders(v) })}
                     />
                   )}
                   {section === 'body' && (
-                    <textarea
-                      aria-label="요청 본문"
-                      spellCheck={false}
+                    <TextArea
+                      label="요청 본문"
+                      isLabelHidden
+                      hasSpellCheck={false}
                       rows={7}
+                      controlClassName="font-mono text-xs"
                       placeholder="요청 본문 (비우면 보내지 않음)"
                       value={draft.request.body?.encoding === 'base64' ? '(이진 본문은 편집할 수 없습니다)' : (draft.request.body?.content ?? '')}
-                      disabled={draft.request.body?.encoding === 'base64'}
-                      onChange={(e) =>
+                      isDisabled={draft.request.body?.encoding === 'base64'}
+                      onChange={(v) =>
                         setRequest({
-                          body: e.target.value
-                            ? { encoding: 'text', content: e.target.value, contentType: draft.request.body?.contentType }
-                            : undefined
+                          body: v ? { encoding: 'text', content: v, contentType: draft.request.body?.contentType } : undefined
                         })
                       }
-                      className="w-full resize-y rounded-md border border-input bg-transparent p-2 font-mono text-xs"
                     />
                   )}
                   {section === 'vars' &&

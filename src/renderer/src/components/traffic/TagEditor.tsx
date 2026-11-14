@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { X, Tag as TagIcon } from 'lucide-react';
+import { Tag as TagIcon } from 'lucide-react';
+import { Icon } from '@astryxdesign/core/Icon';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Token } from '@astryxdesign/core/Token';
 
 interface TagEditorProps {
   tags: string[];
@@ -18,34 +21,20 @@ export function TagEditor({ tags, onAdd, onRemove }: TagEditorProps): React.JSX.
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-1.5">
-      <TagIcon className="size-3.5 text-muted-foreground" />
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5">
+      <Icon icon={TagIcon} label="태그" />
       {tags.map((tag) => (
-        <span
-          key={tag}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground"
-        >
-          {tag}
-          <button
-            type="button"
-            aria-label={`태그 ${tag} 제거`}
-            onClick={() => onRemove(tag)}
-            className="inline-flex text-muted-foreground transition-colors hover:text-destructive"
-          >
-            <X className="size-2.5" />
-          </button>
-        </span>
+        <Token key={tag} label={tag} size="sm" onRemove={() => onRemove(tag)} />
       ))}
-      <input
+      <TextInput
+        label="태그 추가"
+        isLabelHidden
+        size="sm"
         placeholder="태그 추가…"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
-        }}
+        onChange={setDraft}
+        onEnter={commit}
         onBlur={commit}
-        aria-label="태그 추가"
-        className="min-w-[100px] flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
       />
     </div>
   );

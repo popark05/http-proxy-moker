@@ -6,7 +6,7 @@ const toast = vi.hoisted(() => {
   const fn = { loading: vi.fn(() => 'toast-1'), dismiss: vi.fn() };
   return fn;
 });
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../../src/renderer/src/lib/toast', () => ({ toast }));
 
 let listener: ((p: { operation: string; step: string }) => void) | undefined;
 const unsubscribe = vi.fn();

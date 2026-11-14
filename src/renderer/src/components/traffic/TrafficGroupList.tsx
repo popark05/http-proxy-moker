@@ -11,6 +11,7 @@ import {
   type TrafficRow
 } from '@shared/traffic-group';
 import { Badge } from '@astryxdesign/core/Badge';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
@@ -39,19 +40,11 @@ function TriCheckbox({
   onToggle: () => void;
 }): React.JSX.Element {
   return (
-    <input
-      type="checkbox"
-      aria-label={label}
-      checked={state === 'all'}
-      ref={(el) => {
-        if (el) el.indeterminate = state === 'some';
-      }}
-      onChange={() => {}}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      className="size-4 shrink-0 cursor-pointer accent-[hsl(var(--primary))]"
+    <CheckboxInput
+      label={label}
+      isLabelHidden
+      value={state === 'all' ? true : state === 'some' ? 'indeterminate' : false}
+      onChange={onToggle}
     />
   );
 }

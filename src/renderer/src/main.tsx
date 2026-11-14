@@ -4,7 +4,10 @@ import { createRoot } from 'react-dom/client';
 // Tailwind v4 + shadcn 디자인 토큰 + Astryx 레이어 순서. 가장 먼저 불러와야 레이어 순서가 맞는다.
 import './styles/globals.css';
 
+import { InternationalizationProvider } from '@astryxdesign/core/i18n';
+import koKR from '@astryxdesign/core/locales/ko-KR.generated.js';
 import { Theme } from '@astryxdesign/core/theme';
+import { ToastViewport } from '@astryxdesign/core/Toast';
 import { evermockTheme } from './theme/astryx-theme';
 
 // 셀프 호스팅 폰트(오프라인 데스크탑). @fontsource가 CSS + woff2를 번들에 포함.
@@ -24,8 +27,12 @@ if (!container) throw new Error('#root element not found');
 
 createRoot(container).render(
   <StrictMode>
-    <Theme theme={evermockTheme} mode="dark">
-      <App />
-    </Theme>
+    <InternationalizationProvider locale="ko-KR" messages={{ 'ko-KR': koKR }}>
+      <Theme theme={evermockTheme} mode="dark">
+        <ToastViewport position="bottomEnd" maxVisible={3}>
+          <App />
+        </ToastViewport>
+      </Theme>
+    </InternationalizationProvider>
   </StrictMode>
 );

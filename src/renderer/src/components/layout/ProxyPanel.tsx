@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Copy, Power, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import type { ProxyStatus } from '@shared/capture';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 import { Button } from '@astryxdesign/core/Button';
