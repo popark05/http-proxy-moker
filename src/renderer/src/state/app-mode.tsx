@@ -11,7 +11,7 @@ interface AppModeContextValue {
 
 const AppModeContext = createContext<AppModeContextValue | undefined>(undefined);
 
-export function AppModeProvider({ children }: { children: ReactNode }): JSX.Element {
+export function AppModeProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [mode, setMode] = useState<AppMode>('capture');
   const value = useMemo(() => ({ mode, setMode }), [mode]);
   return <AppModeContext.Provider value={value}>{children}</AppModeContext.Provider>;

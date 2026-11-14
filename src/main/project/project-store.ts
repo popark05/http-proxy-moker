@@ -4,6 +4,8 @@ import {
   PROJECT_FILE,
   CAPTURES_DIR,
   SCENARIOS_DIR,
+  CONTRACTS_DIR,
+  CONTRACT_SERVERS_FILE,
   LIBRARY_FILE,
   type ProjectMeta,
   type OpenProject
@@ -11,6 +13,7 @@ import {
 import type { CapturedExchange } from '@shared/capture';
 import { exchangesToHar, harToExchanges, type Har } from '@shared/har';
 import { EMPTY_LIBRARY, parseLibrary, type CaseLibrary, type ScenarioFile } from '@shared/scenario-library';
+import { normalizeBaseUrl, type Contract, type ContractServer } from '@shared/contract';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
 
 /** Windows 예약 장치 이름(확장자가 있어도 예약됨). */
@@ -31,16 +34,18 @@ function sanitizeName(name: string): string {
   return cleaned || 'untitled';
 }
 
+const LEGACY_DEFAULT_NAMES = new Set(['QA Project', 'Untitled']);
+
 /**
  * 프로젝트 디렉토리 기반 저장소.
  * project.json / captures/ / scenarios/ 구조를 읽고 쓴다.
  */
 export class ProjectStore {
-  /** 새 프로젝트를 생성(디렉토리 초기화 + project.json). */
-  async create(dir: string, name: string): Promise<OpenProject> {
+  /** 새 프로젝트를 생성(디렉토리 초기화 + project.json). 이름을 안 주면 폴더 이름을 쓴다. */
+  async create(dir: string, name?: string): Promise<OpenProject> {
     const meta: ProjectMeta = {
       version: 1,
-      name,
+      name: name?.trim() || path.basename(dir),
       proxyPort: DEFAULT_PROXY_PORT,
       targetHosts: [],
       createdAt: Date.now()
@@ -54,7 +59,10 @@ export class ProjectStore {
   /** 기존 프로젝트를 연다. project.json이 없으면 예외. */
   async open(dir: string): Promise<OpenProject> {
     const metaRaw = await fs.readFile(path.join(dir, PROJECT_FILE), 'utf-8');
-    const meta = JSON.parse(metaRaw) as ProjectMeta;
+    const parsed = JSON.parse(metaRaw) as ProjectMeta;
+    // 예전 버전은 새 프로젝트를 항상 "QA Project"/"Untitled"로 만들었다. 이름을 고른 적이 없는 값이라 폴더 이름으로 대신 보여 준다.
+    const meta: ProjectMeta =
+      LEGACY_DEFAULT_NAMES.has(parsed.name) || !parsed.name?.trim() ? { ...parsed, name: path.basename(dir) } : parsed;
     const captureSessions = await this.listNames(path.join(dir, CAPTURES_DIR), '.har.json');
     const scenarios = await this.listNames(path.join(dir, SCENARIOS_DIR), '.json');
     return { dir, meta, captureSessions, scenarios };
@@ -73,11 +81,7 @@ export class ProjectStore {
   }
 
   /** 캡처 세션을 HAR 파일로 저장. */
-  async saveCaptureSession(
-    dir: string,
-    name: string,
-    exchanges: CapturedExchange[]
-  ): Promise<string> {
+  async saveCaptureSession(dir: string, name: string, exchanges: CapturedExchange[]): Promise<string> {
     const safe = sanitizeName(name);
     const filePath = path.join(dir, CAPTURES_DIR, `${safe}.har.json`);
     const har = exchangesToHar(exchanges);
@@ -149,5 +153,52 @@ export class ProjectStore {
     const safe = sanitizeName(name);
     const filePath = path.join(dir, SCENARIOS_DIR, `${safe}.json`);
     await fs.rm(filePath, { force: true });
+  }
+
+  /** 계약을 contracts/<이름>.json으로 저장하고 파일 기준(살균된) 이름을 반환한다. */
+  async saveContract(dir: string, contract: Contract): Promise<string> {
+    const safe = sanitizeName(contract.name);
+    const filePath = path.join(dir, CONTRACTS_DIR, `${safe}.json`);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify({ ...contract, name: safe }, null, 2), 'utf-8');
+    return safe;
+  }
+
+  /** contracts/ 의 모든 계약(깨진 파일·알 수 없는 버전은 건너뜀). */
+  async loadAllContracts(dir: string): Promise<Contract[]> {
+    const names = await this.listNames(path.join(dir, CONTRACTS_DIR), '.json');
+    const loaded = await Promise.all(
+      names.map(async (n) => {
+        try {
+          const c = JSON.parse(await fs.readFile(path.join(dir, CONTRACTS_DIR, `${n}.json`), 'utf-8')) as Contract;
+          return c.version === 1 ? { ...c, name: n } : undefined;
+        } catch {
+          return undefined;
+        }
+      })
+    );
+    return loaded.filter((c): c is Contract => !!c);
+  }
+
+  async deleteContract(dir: string, name: string): Promise<void> {
+    await fs.rm(path.join(dir, CONTRACTS_DIR, `${sanitizeName(name)}.json`), { force: true });
+  }
+
+  /** 계약 실행 대상 서버 목록. 없거나 깨졌으면 빈 목록. */
+  async loadContractServers(dir: string): Promise<ContractServer[]> {
+    try {
+      const raw = JSON.parse(await fs.readFile(path.join(dir, CONTRACT_SERVERS_FILE), 'utf-8')) as unknown;
+      if (!Array.isArray(raw)) return [];
+      return raw.flatMap((s: { name?: unknown; baseUrl?: unknown }) => {
+        const baseUrl = typeof s?.baseUrl === 'string' ? normalizeBaseUrl(s.baseUrl) : null;
+        return typeof s?.name === 'string' && s.name.trim() && baseUrl ? [{ name: s.name.trim(), baseUrl }] : [];
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  async saveContractServers(dir: string, servers: ContractServer[]): Promise<void> {
+    await fs.writeFile(path.join(dir, CONTRACT_SERVERS_FILE), JSON.stringify(servers, null, 2), 'utf-8');
   }
 }

@@ -1,16 +1,4 @@
-import * as React from 'react';
-import { Badge as UiBadge } from '@/components/ui/badge';
-
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
-
-/** 레거시 Badge API($tone)를 shadcn Badge로 매핑하는 어댑터. */
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  $tone?: BadgeTone;
-}
-
-export function Badge({ $tone = 'neutral', ...props }: BadgeProps): JSX.Element {
-  return <UiBadge variant={$tone} {...props} />;
-}
 
 /** HTTP 상태 코드를 톤으로 매핑. */
 export function statusTone(statusCode: number): BadgeTone {

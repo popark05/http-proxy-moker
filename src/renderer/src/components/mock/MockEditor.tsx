@@ -3,9 +3,12 @@ import { GitCompare, ImageUp, Pencil } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import { isBodyModified } from '@shared/mock';
 import { Modal } from '../primitives';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Button } from '@astryxdesign/core/Button';
+import { FormLayout } from '@astryxdesign/core/FormLayout';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { Selector } from '@astryxdesign/core/Selector';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { CodeView } from '../code/CodeView';
 import { CodeDiffView } from '../code/CodeDiffView';
 import { ImagePreview } from '../traffic/ImagePreview';
@@ -26,9 +29,6 @@ interface MockEditorProps {
   nameLabel?: string;
   title?: string;
 }
-
-const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** JSON이면 보기 좋게 들여쓴다(아니면 원본 유지). */
 function prettifyJson(body: string): string {
@@ -58,7 +58,7 @@ export function MockEditor({
   lockEndpoint = false,
   nameLabel = '라벨',
   title = '목 편집'
-}: MockEditorProps): JSX.Element {
+}: MockEditorProps): React.JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
   const [showDiff, setShowDiff] = useState(false);
   const [replaceError, setReplaceError] = useState<string | undefined>(undefined);
@@ -77,7 +77,7 @@ export function MockEditor({
         open={open}
         onOpenChange={onOpenChange}
         title="목 편집"
-        className="w-[94vw] max-w-none sm:max-w-5xl"
+        width={1024}
         children={<div />}
       />
     );
@@ -87,6 +87,8 @@ export function MockEditor({
   const updateResponse = (patch: Partial<MockDefinition['response']>): void =>
     setDraft({ ...draft, response: { ...draft.response, ...patch } });
 
+  // 호스트 도입 전 파일에서 온 목은 비어 있다. 라이브러리 케이스(lockEndpoint)는 엔드포인트 쪽에서 고치므로 검사하지 않는다.
+  const hostValid = lockEndpoint || /^[^\s/?#@]+$/.test(draft.host);
   const hasFault = !!draft.fault && draft.fault !== 'none';
   const isBinary = draft.response.bodyEncoding === 'base64';
   const contentTypeHeader = draft.response.headers.find(([k]) => k.toLowerCase() === 'content-type')?.[1];
@@ -126,80 +128,67 @@ export function MockEditor({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      className="w-[94vw] max-w-none sm:max-w-5xl"
+      width={1024}
     >
-      <div className="mb-3 grid grid-cols-[90px_1fr] items-center gap-2">
-        <Label htmlFor="mock-label" className="text-muted-foreground">
-          {nameLabel}
-        </Label>
-        <Input
-          id="mock-label"
-          className="font-mono"
-          value={draft.label}
-          onChange={(e) => update({ label: e.target.value })}
-        />
-
-        <Label htmlFor="mock-method" className="text-muted-foreground">
-          메서드
-        </Label>
-        <Input
-          id="mock-method"
-          className="font-mono"
+      <FormLayout direction="horizontal-labels">
+        <TextInput label={nameLabel} controlClassName="font-mono" value={draft.label} onChange={(v) => update({ label: v })} />
+        <TextInput
+          label="메서드"
+          controlClassName="font-mono"
           value={draft.method}
-          disabled={lockEndpoint}
-          onChange={(e) => update({ method: e.target.value.toUpperCase() })}
+          isDisabled={lockEndpoint}
+          onChange={(v) => update({ method: v.toUpperCase() })}
         />
-
-        <Label htmlFor="mock-path" className="text-muted-foreground">
-          경로
-        </Label>
-        <Input
-          id="mock-path"
-          className="font-mono"
+        <TextInput
+          label="호스트"
+          controlClassName="font-mono"
+          placeholder="api.example.com"
+          value={draft.host}
+          isDisabled={lockEndpoint}
+          status={
+            hostValid
+              ? undefined
+              : {
+                  type: 'error',
+                  message: '호스트는 필수입니다. 예: api.example.com 또는 localhost:8080 (프로토콜·경로 없이)'
+                }
+          }
+          onChange={(v) => update({ host: v.trim().toLowerCase() })}
+        />
+        <TextInput
+          label="경로"
+          controlClassName="font-mono"
           value={draft.path}
-          disabled={lockEndpoint}
-          onChange={(e) => update({ path: e.target.value })}
+          isDisabled={lockEndpoint}
+          onChange={(v) => update({ path: v })}
         />
-
-        <Label htmlFor="mock-status" className="text-muted-foreground">
-          상태코드
-        </Label>
-        <Input
-          id="mock-status"
-          type="number"
-          className="font-mono"
+        <NumberInput
+          label="상태코드"
           value={draft.response.status}
-          disabled={hasFault}
-          onChange={(e) => updateResponse({ status: parseInt(e.target.value, 10) || 200 })}
+          isIntegerOnly
+          isDisabled={hasFault}
+          onChange={(n) => updateResponse({ status: n || 200 })}
         />
-
-        <Label htmlFor="mock-delay" className="text-muted-foreground">
-          지연(ms)
-        </Label>
-        <Input
-          id="mock-delay"
-          type="number"
+        <NumberInput
+          label="지연(ms)"
           min={0}
-          className="font-mono"
+          isIntegerOnly
           value={draft.delayMs ?? 0}
-          onChange={(e) => update({ delayMs: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+          onChange={(n) => update({ delayMs: Math.max(0, n || 0) })}
         />
-
-        <Label htmlFor="mock-fault" className="text-muted-foreground">
-          에러 주입
-        </Label>
-        <select
-          id="mock-fault"
-          className={selectClass}
+        <Selector
+          label="에러 주입"
           value={draft.fault ?? 'none'}
-          onChange={(e) => update({ fault: e.target.value as MockFault })}
-        >
-          <option value="none">없음 (정상 응답)</option>
-          <option value="timeout">타임아웃 (응답 없이 대기)</option>
-          <option value="reset">연결 리셋 (RST)</option>
-          <option value="close">연결 종료</option>
-        </select>
-      </div>
+          options={[
+            { value: 'none', label: '없음 (정상 응답)' },
+            { value: 'timeout', label: '타임아웃 (응답 없이 대기)' },
+            { value: 'reset', label: '연결 리셋 (RST)' },
+            { value: 'close', label: '연결 종료' }
+          ]}
+          onChange={(v) => update({ fault: v as MockFault })}
+        />
+      </FormLayout>
+      <div className="h-3" />
 
       {hasFault ? (
         <div className="mb-3 text-xs text-[hsl(var(--warning))]">
@@ -229,21 +218,12 @@ export function MockEditor({
                   <span className="text-xs text-primary">원본에서 수정됨</span>
                 )}
                 <Button
+                  label={showDiff ? '편집으로' : '원본과 비교'}
+                  icon={<Icon icon={showDiff ? Pencil : GitCompare} />}
                   variant="ghost"
                   size="sm"
-                  className="h-7"
                   onClick={() => setShowDiff((v) => !v)}
-                >
-                  {showDiff ? (
-                    <>
-                      <Pencil /> 편집으로
-                    </>
-                  ) : (
-                    <>
-                      <GitCompare /> 원본과 비교
-                    </>
-                  )}
-                </Button>
+                />
               </div>
             )}
           </div>
@@ -267,9 +247,13 @@ export function MockEditor({
                       if (file) void replaceWithFile(file);
                     }}
                   />
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                    <ImageUp /> 파일로 교체
-                  </Button>
+                  <Button
+                    label="파일로 교체"
+                    icon={<Icon icon={ImageUp} />}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  />
                 </div>
                 {replaceError && <div className="px-3 py-1 text-xs text-destructive">{replaceError}</div>}
                 <div className="min-h-0 flex-1">
@@ -295,11 +279,12 @@ export function MockEditor({
       )}
 
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-          취소
-        </Button>
+        <Button label="취소" variant="ghost" size="sm" onClick={() => onOpenChange(false)} />
         <Button
+          label="저장"
+          variant="primary"
           size="sm"
+          isDisabled={!hostValid}
           onClick={() => {
             // 저장 시에도 JSON이면 pretty-print해 포맷을 일관되게 유지.
             onSave({
@@ -311,16 +296,14 @@ export function MockEditor({
             });
             onOpenChange(false);
           }}
-        >
-          저장
-        </Button>
+        />
       </div>
     </Modal>
   );
 }
 
 /** 이진 본문 미리보기: 이미지면 그림으로, 아니면 크기만 안내한다. */
-function BinaryBody({ body, contentType }: { body: string; contentType?: string }): JSX.Element {
+function BinaryBody({ body, contentType }: { body: string; contentType?: string }): React.JSX.Element {
   const byteLength = Math.floor((body.length * 3) / 4) - (body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0);
   const mime = displayableImageMime({ encoding: 'base64', content: body, byteLength, contentType });
   if (mime) return <ImagePreview src={toDataUrl(mime, body, 'base64')} mime={mime} byteLength={byteLength} />;

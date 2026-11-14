@@ -35,6 +35,7 @@ function mock(id: string, path: string, extra: Partial<MockDefinition> = {}): Mo
     id,
     label: id,
     method: 'GET',
+    host: '',
     path,
     enabled: true,
     response: { status: 200, statusMessage: 'OK', headers: [], body: 'ok' },
@@ -69,6 +70,27 @@ describe('mock-hit 이벤트 (통합)', () => {
       events.flatMap((e) => (e.type === 'mock-hit' ? [e.mockId] : []));
     await waitFor(() => events.filter((e) => e.type === 'request').length >= 4);
     expect(hits().sort()).toEqual(['m-reset', 'm-users', 'm-users']);
+  });
+
+  it('호스트가 있는 목은 그 호스트의 요청에만 매칭되고, 비어 있으면 모든 호스트에 매칭된다', async () => {
+    engine = new ProxyEngine(() => {});
+    const { port } = await engine.start(0);
+    await engine.applyMocks(
+      [
+        mock('m-a', '/user', { host: 'a.example.com', response: { status: 201, headers: [], body: 'a' } }),
+        mock('m-b', '/user', { host: 'b.example.com', response: { status: 202, headers: [], body: 'b' } }),
+        mock('m-any', '/ping')
+      ],
+      'block'
+    );
+
+    // 경로가 같아도 호스트마다 다른 목이 응답한다.
+    expect(await getViaProxy(port!, 'http://a.example.com/user')).toBe(201);
+    expect(await getViaProxy(port!, 'http://b.example.com/user')).toBe(202);
+    // 목이 없는 호스트는 매칭되지 않는다.
+    expect(await getViaProxy(port!, 'http://c.example.com/user')).toBe(503);
+    // 호스트가 빈 목은 호스트를 가리지 않는다.
+    expect(await getViaProxy(port!, 'http://c.example.com/ping')).toBe(200);
   });
 
   it('목을 해제하면 더 이상 mock-hit을 emit하지 않는다', async () => {

@@ -5,11 +5,16 @@
  *   captures/<name>.har.json   캡처 세션(HAR 1.2 확장)
  *   library.json               엔드포인트별 응답 케이스 라이브러리
  *   scenarios/<name>.json      시나리오(v2: 케이스 참조 + 베이스 상속, v1: 목 정의 복사본)
+ *   contracts/<name>.json      계약(요청 견본 + 기대 응답 모양)
  */
 
 export const PROJECT_FILE = 'project.json';
 export const CAPTURES_DIR = 'captures';
 export const SCENARIOS_DIR = 'scenarios';
+/** 계약(캡처 기반 요청 견본 + 기대 응답 모양). */
+export const CONTRACTS_DIR = 'contracts';
+/** 계약 실행 대상 서버 목록(개발/스테이징). */
+export const CONTRACT_SERVERS_FILE = 'contract-servers.json';
 /** 엔드포인트별 응답 케이스 라이브러리(시나리오가 참조). */
 export const LIBRARY_FILE = 'library.json';
 

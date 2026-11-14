@@ -6,7 +6,7 @@ import { looksLikeSpaShell } from '@shared/html-body';
  * - 앱의 CSP(default-src 'self')가 srcdoc에도 적용되어 외부 이미지/CSS/폰트 요청은 차단된다.
  *   따라서 인라인 스타일과 data: 이미지만 표시되는 "정적 미리보기"다.
  */
-export function HtmlPreview({ html }: { html: string }): JSX.Element {
+export function HtmlPreview({ html }: { html: string }): React.JSX.Element {
   const spaShell = looksLikeSpaShell(html);
   return (
     <div className="flex h-full flex-col">

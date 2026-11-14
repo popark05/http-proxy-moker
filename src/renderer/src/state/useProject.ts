@@ -4,18 +4,18 @@ import type { CapturedExchange } from '@shared/capture';
 
 interface UseProjectResult {
   project: OpenProject | undefined;
-  createProject: (name: string) => Promise<void>;
+  createProject: () => Promise<void>;
   openProject: () => Promise<void>;
   saveCapture: (name: string, exchanges: CapturedExchange[]) => Promise<void>;
   loadCapture: (name: string) => Promise<CapturedExchange[]>;
 }
 
-/** 열린 프로젝트 상태와 캡처 세션 저장/로드를 관리하는 훅. */
+/** 열린 프로젝트 상태와 저장된 캡처 저장/로드를 관리하는 훅. */
 export function useProject(): UseProjectResult {
   const [project, setProject] = useState<OpenProject | undefined>(undefined);
 
-  const createProject = useCallback(async (name: string) => {
-    const result = await window.mokerApi.project.create(name);
+  const createProject = useCallback(async () => {
+    const result = await window.mokerApi.project.create();
     if (result) setProject(result);
   }, []);
 

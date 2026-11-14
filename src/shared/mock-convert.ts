@@ -3,6 +3,7 @@
  */
 
 import type { CapturedExchange } from './capture';
+import { endpointIdOf } from './scenario-library';
 import {
   methodToEnum,
   type MockDefinition,
@@ -19,6 +20,15 @@ export function pathWithoutQuery(url: string): string {
     // 상대경로 등: ? 앞부분만.
     const q = url.indexOf('?');
     return q >= 0 ? url.slice(0, q) : url;
+  }
+}
+
+/** URL의 호스트(기본 포트가 아니면 포트 포함). 파싱할 수 없으면 빈 문자열. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
   }
 }
 
@@ -52,10 +62,12 @@ export function exchangeToMock(exchange: CapturedExchange, id: string): MockDefi
   }
 
   const path = pathWithoutQuery(request.url);
+  const host = hostOf(request.url);
   return {
     id,
-    label: `${request.method} ${path}`,
+    label: `${request.method} ${host}${path}`,
     method: request.method,
+    host,
     path,
     response: mockResponse,
     enabled: true,
@@ -66,19 +78,18 @@ export function exchangeToMock(exchange: CapturedExchange, id: string): MockDefi
 
 /**
  * 여러 exchange를 목으로 복제할 대상만 추린다.
- * 같은 method+path는 목이 하나만 의미 있으므로: 이미 목에 있는 조합은 건너뛰고(skipped),
+ * 같은 method+host+path는 목이 하나만 의미 있으므로: 이미 목에 있는 조합은 건너뛰고(skipped),
  * 선택 안에서 겹치면 가장 나중(최신) 캡처를 남긴다. 결과 순서는 입력(선택) 순서를 유지한다.
  */
 export function pickExchangesToClone(
   exchanges: CapturedExchange[],
   existing: MockDefinition[]
 ): { targets: CapturedExchange[]; skipped: number } {
-  const key = (method: string, path: string): string => `${method.toUpperCase()} ${path}`;
-  const taken = new Set(existing.map((m) => key(m.method, m.path)));
+  const taken = new Set(existing.map((m) => endpointIdOf(m.method, m.host, m.path)));
   const latest = new Map<string, CapturedExchange>();
   let skipped = 0;
   for (const ex of exchanges) {
-    const k = key(ex.request.method, pathWithoutQuery(ex.request.url));
+    const k = endpointIdOf(ex.request.method, hostOf(ex.request.url), pathWithoutQuery(ex.request.url));
     if (taken.has(k)) {
       skipped++;
       continue;
@@ -102,7 +113,7 @@ function responseData(response: MockResponse): string | { type: 'Buffer'; data: 
 
 /**
  * 목 정의를 mockttp Serialized<RequestRuleData>로 변환한다.
- * matcher: MethodMatcher(method) + FlexiblePathMatcher(path).
+ * matcher: MethodMatcher(method) + HostMatcher(host, 비어 있으면 생략) + FlexiblePathMatcher(path).
  * step: FixedResponseStep(type:'simple') — 완전 목킹(업스트림 호출 없음).
  */
 export function mockToSerializedRule(mock: MockDefinition): SerializedRequestRule {
@@ -111,6 +122,7 @@ export function mockToSerializedRule(mock: MockDefinition): SerializedRequestRul
     priority: 1, // DEFAULT
     matchers: [
       { type: 'method', method: methodToEnum(mock.method) },
+      ...(mock.host ? [{ type: 'host' as const, host: mock.host }] : []),
       { type: 'simple-path', path: mock.path }
     ],
     steps: [

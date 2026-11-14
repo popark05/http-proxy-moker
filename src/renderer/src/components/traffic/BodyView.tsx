@@ -2,12 +2,12 @@ import { useState } from 'react';
 import type { CapturedBody } from '@shared/capture';
 import { displayableImageMime, isSvgText, toDataUrl } from '@shared/image-body';
 import { isHtmlText, looksLikeSpaShell } from '@shared/html-body';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 import { CodeView } from '../code/CodeView';
 import { ImagePreview } from './ImagePreview';
 import { HtmlPreview } from './HtmlPreview';
 
-function Note({ children }: { children: React.ReactNode }): JSX.Element {
+function Note({ children }: { children: React.ReactNode }): React.JSX.Element {
   return <div className="p-3 text-sm text-muted-foreground">{children}</div>;
 }
 
@@ -30,7 +30,7 @@ function prettify(content: string, language: string): string {
   }
 }
 
-export function BodyView({ body }: { body: CapturedBody }): JSX.Element {
+export function BodyView({ body }: { body: CapturedBody }): React.JSX.Element {
   if (body.encoding === 'empty') {
     return <Note>본문 없음</Note>;
   }
@@ -100,17 +100,23 @@ function PreviewCodeBody({
   defaultView?: 'preview' | 'code';
   preview: React.ReactNode;
   code: React.ReactNode;
-}): JSX.Element {
+}): React.JSX.Element {
   const [view, setView] = useState<'preview' | 'code'>(defaultView);
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 gap-1 border-b border-border px-3 py-1">
-        <Button variant={view === 'preview' ? 'secondary' : 'ghost'} size="sm" onClick={() => setView('preview')}>
-          {previewLabel}
-        </Button>
-        <Button variant={view === 'code' ? 'secondary' : 'ghost'} size="sm" onClick={() => setView('code')}>
-          {codeLabel}
-        </Button>
+        <Button
+          label={previewLabel}
+          variant={view === 'preview' ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => setView('preview')}
+        />
+        <Button
+          label={codeLabel}
+          variant={view === 'code' ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => setView('code')}
+        />
       </div>
       <div className="min-h-0 flex-1">{view === 'preview' ? preview : code}</div>
     </div>

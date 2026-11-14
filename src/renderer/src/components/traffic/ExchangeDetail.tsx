@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Copy, MousePointerClick } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
 import { EmptyState } from '../common/EmptyState';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { methodTone, statusTone } from '../primitives';
 import { HeaderTable } from './HeaderTable';
 import { BodyView } from './BodyView';
@@ -18,7 +20,7 @@ interface ExchangeDetailProps {
   clientDescription?: string;
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
+function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <h4 className="px-3 py-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
       {children}
@@ -32,7 +34,8 @@ export function ExchangeDetail({
   onAddTag,
   onRemoveTag,
   clientDescription
-}: ExchangeDetailProps): JSX.Element {
+}: ExchangeDetailProps): React.JSX.Element {
+  const [tab, setTab] = useState<'request' | 'response'>('request');
   if (!exchange) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -50,15 +53,17 @@ export function ExchangeDetail({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border p-3">
-        <Badge variant={methodTone(request.method)}>{request.method}</Badge>
+        <Badge variant={methodTone(request.method)} label={request.method} className="shrink-0" />
         {response === 'aborted' ? (
-          <Badge variant="error">중단됨</Badge>
+          <Badge variant="error" label="중단됨" className="shrink-0" />
         ) : response ? (
-          <Badge variant={statusTone(response.statusCode)}>
-            {response.statusCode} {response.statusMessage}
-          </Badge>
+          <Badge
+            variant={statusTone(response.statusCode)}
+            label={`${response.statusCode} ${response.statusMessage}`}
+            className="shrink-0"
+          />
         ) : (
-          <Badge variant="neutral">대기 중</Badge>
+          <Badge variant="neutral" label="대기 중" className="shrink-0" />
         )}
         <span className="break-all font-mono text-sm text-muted-foreground">{request.url}</span>
         {clientDescription && (
@@ -68,9 +73,14 @@ export function ExchangeDetail({
         )}
         <div className="flex-1" />
         {onCloneToMock && (
-          <Button variant="outline" size="sm" onClick={() => onCloneToMock(exchange)}>
-            <Copy /> 목으로 복제
-          </Button>
+          <Button
+            label="목으로 복제"
+            icon={<Icon icon={Copy} />}
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => onCloneToMock(exchange)}
+          />
         )}
       </div>
 
@@ -82,22 +92,22 @@ export function ExchangeDetail({
         />
       )}
 
-      <Tabs defaultValue="request" className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="mx-3 mt-2 w-fit">
-          <TabsTrigger value="request">요청</TabsTrigger>
-          <TabsTrigger value="response">응답</TabsTrigger>
-        </TabsList>
+      <TabList role="tablist" value={tab} onChange={(v) => setTab(v as 'request' | 'response')} hasDivider>
+        <Tab value="request" label="요청" panelId="exchange-panel-request" />
+        <Tab value="response" label="응답" panelId="exchange-panel-response" />
+      </TabList>
 
-        <TabsContent value="request" className="min-h-0 flex-1 overflow-auto">
+      {tab === 'request' ? (
+        <div id="exchange-panel-request" role="tabpanel" className="min-h-0 flex-1 overflow-auto">
           <SectionTitle>헤더</SectionTitle>
           <HeaderTable headers={request.headers} />
           <SectionTitle>본문</SectionTitle>
           <div className="h-[60vh] min-h-[420px]">
             <BodyView body={request.body} />
           </div>
-        </TabsContent>
-
-        <TabsContent value="response" className="min-h-0 flex-1 overflow-auto">
+        </div>
+      ) : (
+        <div id="exchange-panel-response" role="tabpanel" className="min-h-0 flex-1 overflow-auto">
           {response && response !== 'aborted' ? (
             <>
               <SectionTitle>헤더</SectionTitle>
@@ -112,8 +122,8 @@ export function ExchangeDetail({
               {response === 'aborted' ? '요청이 중단되었습니다.' : '응답을 기다리는 중...'}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

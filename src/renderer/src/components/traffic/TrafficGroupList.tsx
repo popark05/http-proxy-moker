@@ -10,11 +10,14 @@ import {
   type CheckState,
   type TrafficRow
 } from '@shared/traffic-group';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
 import { useVirtualBlankGuard } from '@/lib/useVirtualBlankGuard';
+import { RowMenuButton } from './RowMenuButton';
 
 interface TrafficGroupListProps {
   exchanges: CapturedExchange[];
@@ -22,6 +25,8 @@ interface TrafficGroupListProps {
   onSelect: (id: string) => void;
   checkedIds: ReadonlySet<string>;
   onCheckedChange: (next: Set<string>) => void;
+  /** 행 우클릭. 호스트/엔드포인트 행이면 묶음 전체를 넘긴다(마지막이 최신). */
+  onRowContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
 }
 
 /** 일부만 체크된 상태(indeterminate)를 표시하는 체크박스. */
@@ -33,30 +38,22 @@ function TriCheckbox({
   state: CheckState;
   label: string;
   onToggle: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
-    <input
-      type="checkbox"
-      aria-label={label}
-      checked={state === 'all'}
-      ref={(el) => {
-        if (el) el.indeterminate = state === 'some';
-      }}
-      onChange={() => {}}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      className="size-4 shrink-0 cursor-pointer accent-[hsl(var(--primary))]"
+    <CheckboxInput
+      label={label}
+      isLabelHidden
+      value={state === 'all' ? true : state === 'some' ? 'indeterminate' : false}
+      onChange={onToggle}
     />
   );
 }
 
-function StatusBadge({ exchange }: { exchange: CapturedExchange }): JSX.Element {
+function StatusBadge({ exchange }: { exchange: CapturedExchange }): React.JSX.Element {
   const r = exchange.response;
-  if (r === 'aborted') return <Badge variant="error">✕</Badge>;
-  if (r) return <Badge variant={statusTone(r.statusCode)}>{r.statusCode}</Badge>;
-  return <Badge variant="neutral">…</Badge>;
+  if (r === 'aborted') return <Badge variant="error" label="✕" />;
+  if (r) return <Badge variant={statusTone(r.statusCode)} label={r.statusCode} />;
+  return <Badge variant="neutral" label="대기" />;
 }
 
 const ROW_HEIGHT: Record<TrafficRow['kind'], number> = { host: 36, endpoint: 44, call: 36 };
@@ -71,8 +68,9 @@ export function TrafficGroupList({
   selectedId,
   onSelect,
   checkedIds,
-  onCheckedChange
-}: TrafficGroupListProps): JSX.Element {
+  onCheckedChange,
+  onRowContextMenu
+}: TrafficGroupListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const [collapsedHosts, setCollapsedHosts] = useState<Set<string>>(new Set());
   const [expandedEndpoints, setExpandedEndpoints] = useState<Set<string>>(new Set());
@@ -114,7 +112,7 @@ export function TrafficGroupList({
       <EmptyState
         icon={Radio}
         title="아직 캡처된 요청이 없습니다"
-        description="프록시를 시작하고 기기 인터셉션을 켠 뒤, 앱에서 트래픽을 발생시키면 여기에 표시됩니다."
+        description="기기를 연결(인터셉트)한 뒤 앱에서 트래픽을 발생시키면 여기에 표시됩니다. 프록시는 자동으로 켜집니다."
       />
     );
   }
@@ -136,7 +134,10 @@ export function TrafficGroupList({
               }}
             >
               {row.kind === 'host' ? (
-                <div className="flex h-9 items-center gap-2 border-b border-border bg-muted/40 px-3">
+                <div
+                  onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, row.group.exchanges) : undefined}
+                  className="flex h-9 items-center gap-2 border-b border-border bg-muted/40 px-3"
+                >
                   <TriCheckbox
                     state={checkStateOf(row.group.exchanges.map((e) => e.id), checkedIds)}
                     label={`${row.group.host} 전체 선택`}
@@ -158,13 +159,14 @@ export function TrafficGroupList({
                     </span>
                   </button>
                   {row.group.errorCount > 0 && (
-                    <Badge variant="error" title="4xx/5xx 또는 중단된 요청">
-                      ⚠ {row.group.errorCount}
-                    </Badge>
+                    <Tooltip content="4xx/5xx 또는 중단된 요청" hasHoverIndication={false}>
+                      <Badge variant="error" label={`⚠ ${row.group.errorCount}`} />
+                    </Tooltip>
                   )}
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {row.group.exchanges.length}건
                   </span>
+                  {onRowContextMenu && <RowMenuButton target={row.group.exchanges} onOpen={onRowContextMenu} />}
                 </div>
               ) : row.kind === 'endpoint' ? (
                 <EndpointRow
@@ -172,6 +174,7 @@ export function TrafficGroupList({
                   selectedId={selectedId}
                   checkedIds={checkedIds}
                   onSelect={onSelect}
+                  onContextMenu={onRowContextMenu}
                   onToggleChecked={() => toggleIds(row.endpoint.exchanges.map((e) => e.id))}
                   onToggleExpanded={() =>
                     toggleSet(
@@ -183,6 +186,7 @@ export function TrafficGroupList({
                 />
               ) : (
                 <div
+                  onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, [row.exchange]) : undefined}
                   className={cn(
                     'flex h-9 items-center gap-2 border-b border-border pl-10 pr-3 transition-colors',
                     row.exchange.id === selectedId ? 'bg-accent' : 'hover:bg-accent/50'
@@ -206,6 +210,7 @@ export function TrafficGroupList({
                     </span>
                     <StatusBadge exchange={row.exchange} />
                   </button>
+                  {onRowContextMenu && <RowMenuButton target={[row.exchange]} onOpen={onRowContextMenu} />}
                 </div>
               )}
             </div>
@@ -237,6 +242,7 @@ function EndpointRow({
   selectedId,
   checkedIds,
   onSelect,
+  onContextMenu,
   onToggleChecked,
   onToggleExpanded
 }: {
@@ -244,9 +250,10 @@ function EndpointRow({
   selectedId: string | undefined;
   checkedIds: ReadonlySet<string>;
   onSelect: (id: string) => void;
+  onContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
   onToggleChecked: () => void;
   onToggleExpanded: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const { endpoint, expanded } = row;
   const count = endpoint.exchanges.length;
   const ids = endpoint.exchanges.map((e) => e.id);
@@ -254,6 +261,7 @@ function EndpointRow({
   const state = checkStateOf(ids, checkedIds);
   return (
     <div
+      onContextMenu={onContextMenu ? (e) => onContextMenu(e, endpoint.exchanges) : undefined}
       className={cn(
         'flex h-11 items-center gap-2 border-b border-border pl-6 pr-3 transition-colors',
         selected ? 'bg-accent' : state !== 'none' ? 'bg-accent/40' : 'hover:bg-accent/50'
@@ -268,7 +276,7 @@ function EndpointRow({
         }
         className="grid min-w-0 flex-1 grid-cols-[52px_1fr_auto] items-center gap-2 text-left"
       >
-        <Badge variant={methodTone(endpoint.method)}>{endpoint.method}</Badge>
+        <Badge variant={methodTone(endpoint.method)} label={endpoint.method} />
         <span
           className="truncate font-mono text-sm text-muted-foreground"
           title={endpoint.latest.request.url}
@@ -290,6 +298,7 @@ function EndpointRow({
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
       )}
+      {onContextMenu && <RowMenuButton target={endpoint.exchanges} onOpen={onContextMenu} />}
     </div>
   );
 }

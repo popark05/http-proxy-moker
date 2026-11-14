@@ -1,5 +1,13 @@
+/*
+ * Astryx 도입(점진 마이그레이션): 레이어 순서는 반드시 tailwindcss import보다 위에서 한 번만 선언한다.
+ * 아래에 두면 Astryx 리셋이 모든 Tailwind 유틸리티를 덮어써 테두리·여백이 에러 없이 사라진다.
+ * 이 파일은 페이지가 가장 먼저 불러오는 스타일시트여야 한다(main.tsx의 첫 import).
+ */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
 @import 'tailwindcss';
-@plugin 'tailwindcss-animate';
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
 
 /* 다크 테마를 .dark 클래스로 토글(기본 다크). */
 @custom-variant dark (&:is(.dark *));
@@ -38,31 +46,31 @@
 
 .dark {
   /*
-   * EverMock 다크 — 차가운 슬레이트(blue-tinted) 톤 + 최소 색상.
-   * hue를 215~222(쿨 블루그레이)로 통일. 배경 명도 단계를 뚜렷이 해 위계 형성.
-   * 액센트는 primary 블루 하나만 강조하고, 상태색은 채도를 낮춰 절제.
+   * EverMock 다크 — Catppuccin Mocha 팔레트(https://catppuccin.com/palette).
+   * 표면: mantle(배경) < base(패널) < surface0(hover/선택) < surface1(입력 테두리).
+   * 액센트는 mauve 하나만 강조하고, 상태색은 green/peach/red를 쓴다. 값은 팔레트 hex의 HSL 변환.
    */
-  --background: 220 26% 8%;       /* 가장 어두운 캔버스 */
-  --foreground: 214 24% 92%;
-  --card: 219 24% 11%;            /* 패널/사이드 표면 */
-  --card-foreground: 214 24% 92%;
-  --popover: 219 26% 12%;
-  --popover-foreground: 214 24% 92%;
-  --primary: 218 90% 66%;         /* 유일한 강조색 — 쿨 블루 */
-  --primary-foreground: 220 40% 10%;
-  --secondary: 218 18% 18%;
-  --secondary-foreground: 214 20% 88%;
-  --muted: 219 20% 15%;
-  --muted-foreground: 216 14% 60%;
-  --accent: 216 22% 20%;          /* hover/선택 표면 */
-  --accent-foreground: 214 24% 94%;
-  --destructive: 6 66% 58%;       /* 절제된 레드(대비 확보) */
-  --destructive-foreground: 210 30% 96%;
-  --success: 158 42% 46%;         /* 절제된 틸그린 */
-  --warning: 38 70% 56%;          /* 절제된 앰버 */
-  --border: 218 18% 18%;          /* 표면과 미세한 대비 */
-  --input: 218 16% 22%;
-  --ring: 218 90% 66%;
+  --background: 240 21% 12%;      /* mantle #181825 — 가장 어두운 캔버스 */
+  --foreground: 226 64% 88%;      /* text #cdd6f4 */
+  --card: 240 21% 15%;            /* base #1e1e2e — 패널/사이드 표면 */
+  --card-foreground: 226 64% 88%;
+  --popover: 240 21% 15%;
+  --popover-foreground: 226 64% 88%;
+  --primary: 267 84% 81%;         /* mauve #cba6f7 — 유일한 강조색 */
+  --primary-foreground: 240 23% 9%; /* crust #11111b */
+  --secondary: 237 16% 23%;       /* surface0 #313244 */
+  --secondary-foreground: 226 64% 88%;
+  --muted: 237 16% 23%;
+  --muted-foreground: 228 17% 64%; /* overlay2 #9399b2 */
+  --accent: 237 16% 23%;          /* hover/선택 표면 */
+  --accent-foreground: 226 64% 88%;
+  --destructive: 343 81% 75%;     /* red #f38ba8 */
+  --destructive-foreground: 240 23% 9%;
+  --success: 115 54% 76%;         /* green #a6e3a1 */
+  --warning: 23 92% 75%;          /* peach #fab387 */
+  --border: 237 16% 23%;          /* surface0 */
+  --input: 234 13% 31%;           /* surface1 #45475a */
+  --ring: 267 84% 81%;
 }
 
 /* Tailwind v4: CSS 변수를 유틸 색상으로 매핑. */
@@ -241,4 +249,30 @@
     background: hsl(var(--muted-foreground) / 0.5);
     background-clip: content-box;
   }
+}
+
+/*
+ * Electron 창 크롬: 상단 내비는 창 드래그 영역이고 컨트롤만 클릭을 받는다.
+ * macOS는 왼쪽에 신호등 버튼 자리를, Windows는 오른쪽에 창 컨트롤 자리를 비운다(preload가 html에 data-platform을 설정).
+ * 레이어 밖에 두어 Astryx 레이어보다 우선한다.
+ */
+.astryx-top-nav {
+  -webkit-app-region: drag;
+}
+.astryx-top-nav :is(button, a, input, label, [role='switch'], [role='menuitem']) {
+  -webkit-app-region: no-drag;
+}
+[data-platform='darwin'] .astryx-top-nav {
+  padding-inline-start: 84px;
+}
+[data-platform='win32'] .astryx-top-nav {
+  padding-inline-end: 150px;
+}
+
+/*
+ * Astryx TextInput의 네이티브 input은 글꼴을 직접 지정한다. 값이 코드/주소인 필드는 controlClassName="font-mono"를 주고,
+ * 그 안의 input이 컨트롤의 글꼴(DM Mono)을 상속하도록 한다. 레이어 밖에 두어 Astryx 레이어보다 우선한다.
+ */
+.font-mono input {
+  font-family: inherit;
 }

@@ -2,13 +2,15 @@ import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
 import { useVirtualBlankGuard } from '@/lib/useVirtualBlankGuard';
 import type { ClientPlatform } from '@shared/clients';
 import { PlatformIcon } from '../device/ClientList';
+import { RowMenuButton } from './RowMenuButton';
 
 function shortUrl(url: string): string {
   try {
@@ -28,6 +30,8 @@ interface TrafficListProps {
   onCheckedChange?: (next: Set<string>) => void;
   /** 접속 IP → 플랫폼. 기기가 둘 이상일 때 행에 기기 아이콘을 보여준다. */
   clientPlatforms?: ReadonlyMap<string, ClientPlatform>;
+  /** 행 우클릭. 대상 요청들을 넘긴다. */
+  onRowContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
 }
 
 /** 캡처된 트래픽 목록. @tanstack/react-virtual로 대량 렌더 최적화. */
@@ -37,8 +41,9 @@ export function TrafficList({
   onSelect,
   checkedIds,
   onCheckedChange,
-  clientPlatforms
-}: TrafficListProps): JSX.Element {
+  clientPlatforms,
+  onRowContextMenu
+}: TrafficListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   /** Shift+클릭 범위 선택의 기준 행(목록 인덱스). */
   const anchorRef = useRef<number | undefined>(undefined);
@@ -75,7 +80,7 @@ export function TrafficList({
       <EmptyState
         icon={Radio}
         title="아직 캡처된 요청이 없습니다"
-        description="프록시를 시작하고 기기 인터셉션을 켠 뒤, 앱에서 트래픽을 발생시키면 여기에 표시됩니다."
+        description="기기를 연결(인터셉트)한 뒤 앱에서 트래픽을 발생시키면 여기에 표시됩니다. 프록시는 자동으로 켜집니다."
       />
     );
   }
@@ -100,23 +105,22 @@ export function TrafficList({
               }}
             >
               <div
+                onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, [exchange]) : undefined}
                 className={cn(
                   'flex items-center border-b border-border transition-colors',
                   selected ? 'bg-accent' : checked ? 'bg-accent/40' : 'hover:bg-accent/50'
                 )}
               >
                 {checkedIds && (
-                  <label className="flex shrink-0 cursor-pointer items-center self-stretch pl-3 pr-1">
-                    <input
-                      type="checkbox"
-                      aria-label="복제할 요청 선택"
-                      checked={checked}
-                      // onChange에는 shiftKey가 없어서 click 이벤트에서 처리한다.
-                      onChange={() => {}}
-                      onClick={(e) => toggleChecked(item.index, e.shiftKey)}
-                      className="size-4 cursor-pointer accent-[hsl(var(--primary))]"
+                  <span className="flex shrink-0 items-center self-stretch pl-3 pr-1">
+                    <CheckboxInput
+                      label="복제할 요청 선택"
+                      isLabelHidden
+                      value={checked}
+                      // 체크박스의 change는 click에서 나오므로 nativeEvent로 Shift 여부를 읽는다(범위 선택).
+                      onChange={(_checked, e) => toggleChecked(item.index, (e.nativeEvent as MouseEvent).shiftKey === true)}
                     />
-                  </label>
+                  </span>
                 )}
               <button
                 type="button"
@@ -126,9 +130,7 @@ export function TrafficList({
                 }
                 className="grid min-w-0 flex-1 grid-cols-[56px_1fr_52px] items-center gap-2 px-3 py-2 text-left"
               >
-                <Badge variant={methodTone(exchange.request.method)}>
-                  {exchange.request.method}
-                </Badge>
+                <Badge variant={methodTone(exchange.request.method)} label={exchange.request.method} />
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span
                     title={exchange.request.url}
@@ -156,13 +158,14 @@ export function TrafficList({
                   )}
                 </div>
                 {response === 'aborted' ? (
-                  <Badge variant="error">✕</Badge>
+                  <Badge variant="error" label="✕" />
                 ) : response ? (
-                  <Badge variant={statusTone(response.statusCode)}>{response.statusCode}</Badge>
+                  <Badge variant={statusTone(response.statusCode)} label={response.statusCode} />
                 ) : (
-                  <Badge variant="neutral">…</Badge>
+                  <Badge variant="neutral" label="대기" />
                 )}
               </button>
+              {onRowContextMenu && <RowMenuButton target={[exchange]} onOpen={onRowContextMenu} />}
               </div>
             </div>
           );

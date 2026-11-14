@@ -18,6 +18,7 @@ import type { OperationProgress } from './progress';
 import type { InterceptionLiveness } from './interception-liveness';
 import type { ApplyMocksArgs } from './mock';
 import type { CaseLibrary, ScenarioFile } from './scenario-library';
+import type { Contract, ContractRunOptions, ContractServer, SendOutcome } from './contract';
 
 export const IpcChannels = {
   /** 연결 확인용 왕복(핑퐁). Task 1 데모용. */
@@ -73,7 +74,19 @@ export const IpcChannels = {
   projectLoadAllScenarios: 'project:load-all-scenarios',
   /** 케이스 라이브러리 로드/저장. */
   projectLoadLibrary: 'project:load-library',
-  projectSaveLibrary: 'project:save-library'
+  projectSaveLibrary: 'project:save-library',
+  /** 계약 저장(arg: contract → 저장된 이름)/전체 로드/삭제(arg: name). */
+  projectSaveContract: 'project:save-contract',
+  projectLoadAllContracts: 'project:load-all-contracts',
+  projectDeleteContract: 'project:delete-contract',
+  projectLoadContractServers: 'project:load-contract-servers',
+  projectSaveContractServers: 'project:save-contract-servers',
+  /** 컬렉션 요청 하나 보내기. arg: {contract, options} → SendOutcome */
+  contractSend: 'contract:send',
+  /** Bruno 컬렉션 내보내기(폴더 선택) → {dir, files} | null. arg: {name, contracts, servers} */
+  contractExportBruno: 'contract:export-bruno',
+  /** Bruno 컬렉션 가져오기(폴더 선택) → {contracts, notes, skippedFiles} | null */
+  contractImportBruno: 'contract:import-bruno'
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -141,7 +154,8 @@ export interface MokerApi {
 
   project: {
     /** 디렉토리 선택 후 새 프로젝트 생성. 취소 시 null. */
-    create(name: string): Promise<OpenProject | null>;
+    /** 이름을 생략하면 고른 폴더 이름이 프로젝트 이름이 된다. */
+    create(name?: string): Promise<OpenProject | null>;
     /** 디렉토리 선택 후 기존 프로젝트 열기. 취소/실패 시 null. */
     open(): Promise<OpenProject | null>;
     /** 캡처 세션 저장. 저장된 세션명 반환. */
@@ -160,6 +174,23 @@ export interface MokerApi {
     saveLibrary(library: CaseLibrary): Promise<void>;
     /** 목 시나리오 삭제. */
     deleteScenario(name: string): Promise<void>;
+    /** 계약 저장. 파일 기준(살균된) 계약명 반환. */
+    saveContract(contract: Contract): Promise<string>;
+    /** 모든 계약 로드. */
+    loadAllContracts(): Promise<Contract[]>;
+    /** 계약 삭제. */
+    deleteContract(name: string): Promise<void>;
+    /** 계약 실행 대상 서버 목록 로드/저장. */
+    loadContractServers(): Promise<ContractServer[]>;
+    saveContractServers(servers: ContractServer[]): Promise<void>;
+  };
+  contract: {
+    /** 컬렉션의 요청 하나를 실제 서버로 보내고 응답을 그대로 받는다. */
+    send(contract: Contract, options: ContractRunOptions): Promise<SendOutcome>;
+    /** 계약을 Bruno 컬렉션으로 내보낸다(이미 컬렉션인 폴더를 고르면 거기에 추가). 취소하면 null. */
+    exportBruno(name: string, contracts: Contract[], servers: ContractServer[]): Promise<{ dir: string; files: number; merged: boolean; added: number; existing: number } | null>;
+    /** Bruno 컬렉션 폴더를 계약으로 가져온다(저장은 하지 않음). 취소하면 null. */
+    importBruno(): Promise<{ contracts: Contract[]; notes: string[]; skippedFiles: number } | null>;
   };
 }
 

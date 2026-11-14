@@ -57,6 +57,11 @@ export interface MockDefinition {
   /** 매칭할 HTTP 메서드. */
   method: string;
   /**
+   * 매칭할 호스트(포트가 기본값이 아니면 포함, 예: api.example.com, localhost:8080).
+   * 빈 문자열은 호스트를 가리지 않는다. 호스트가 도입되기 전에 저장된 파일에서만 나오며, 새 목은 항상 채운다.
+   */
+  host: string;
+  /**
    * 매칭할 경로(쿼리 제외, 예: /api/users).
    * FlexiblePathMatcher는 쿼리를 허용하지 않으므로 경로만.
    */
@@ -104,6 +109,11 @@ export interface SerializedMethodMatcher {
   method: number;
 }
 
+export interface SerializedHostMatcher {
+  type: 'host';
+  host: string;
+}
+
 export interface SerializedPathMatcher {
   type: 'simple-path';
   path: string;
@@ -121,7 +131,7 @@ export interface SerializedFixedResponseStep {
 export interface SerializedRequestRule {
   id: string;
   priority?: number;
-  matchers: Array<SerializedMethodMatcher | SerializedPathMatcher>;
+  matchers: Array<SerializedMethodMatcher | SerializedHostMatcher | SerializedPathMatcher>;
   steps: SerializedFixedResponseStep[];
 }
 

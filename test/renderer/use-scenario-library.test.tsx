@@ -9,6 +9,7 @@ const mock = (method: string, path: string, status = 200, body = '{"ok":1}'): Mo
   id: `m-${method}${path}${status}`,
   label: `${method} ${path}`,
   method,
+  host: '',
   path,
   enabled: true,
   response: { status, headers: [], body }
@@ -56,7 +57,7 @@ describe('useScenarioLibrary', () => {
     expect((files.get('old') as { version: number }).version).toBe(2);
   });
 
-  it('작업 공간을 시나리오로 저장하고, 활성화하면 케이스가 목으로 풀려 작업 공간을 교체한다', async () => {
+  it('현재 목을 시나리오로 저장하고, 활성화하면 케이스가 목으로 풀려 현재 목을 교체한다', async () => {
     installApi();
     const replaceMocks = vi.fn();
     const workspace = [mock('GET', '/a'), mock('POST', '/pay', 500)];
@@ -75,7 +76,7 @@ describe('useScenarioLibrary', () => {
     expect(applied.every((m) => m.caseRef)).toBe(true);
   });
 
-  it('활성 시나리오 이후 작업 공간을 고치면 diff가 dirty가 된다', async () => {
+  it('활성 시나리오 이후 현재 목을 고치면 diff가 dirty가 된다', async () => {
     installApi();
     let workspace = [mock('GET', '/a')];
     const { result, rerender } = renderHook(() => useScenarioLibrary({ projectDir: '/p', mocks: workspace, replaceMocks: () => {} }));
@@ -103,7 +104,7 @@ describe('useScenarioLibrary', () => {
     expect(api.deleteScenario).not.toHaveBeenCalled();
   });
 
-  it('작업 공간의 목을 케이스로 저장하면 라이브러리에 들어가고, 출처가 있으면 반영(created=false)', async () => {
+  it('현재 목의 목을 케이스로 저장하면 라이브러리에 들어가고, 출처가 있으면 반영(created=false)', async () => {
     installApi();
     const { result } = renderHook(() => useScenarioLibrary({ projectDir: '/p', mocks: [], replaceMocks: () => {} }));
     await waitFor(() => expect(result.current.scenarios).toEqual([]));
@@ -121,7 +122,7 @@ describe('useScenarioLibrary', () => {
     expect(result.current.library.endpoints[0].cases[0].response.body).toBe('edited');
   });
 
-  describe('활성 시나리오 편집 후 작업 공간 동기화', () => {
+  describe('활성 시나리오 편집 후 현재 목 동기화', () => {
     async function setupActive(workspaceRef: { current: MockDefinition[] }) {
       installApi();
       const replaceMocks = vi.fn((m: MockDefinition[]) => void (workspaceRef.current = m));
@@ -136,7 +137,7 @@ describe('useScenarioLibrary', () => {
       return { hook, replaceMocks };
     }
 
-    it('작업 공간을 손대지 않았다면 시나리오 편집 결과가 작업 공간에도 바로 반영된다', async () => {
+    it('현재 목을 손대지 않았다면 시나리오 편집 결과가 현재 목에도 바로 반영된다', async () => {
       const ws = { current: [mock('GET', '/join', 200, 'ok')] };
       const { hook, replaceMocks } = await setupActive(ws);
       // 타임아웃 케이스를 라이브러리에 만들고 시나리오가 그것을 고르도록 편집해 저장.
@@ -158,10 +159,10 @@ describe('useScenarioLibrary', () => {
       expect(applied[0].fault).toBe('timeout');
     });
 
-    it('작업 공간에 직접 고친 목이 있으면 덮어쓰지 않는다', async () => {
+    it('현재 목에 직접 고친 목이 있으면 덮어쓰지 않는다', async () => {
       const ws = { current: [mock('GET', '/join', 200, 'ok')] };
       const { hook, replaceMocks } = await setupActive(ws);
-      ws.current = [mock('GET', '/join', 503, 'edited')]; // 사용자가 작업 공간을 직접 수정
+      ws.current = [mock('GET', '/join', 503, 'edited')]; // 사용자가 현재 목을 직접 수정
       hook.rerender();
       await act(async () => {
         await hook.result.current.saveScenario({ ...hook.result.current.scenarios[0], description: 'x' });
@@ -169,7 +170,7 @@ describe('useScenarioLibrary', () => {
       expect(replaceMocks).not.toHaveBeenCalled();
     });
 
-    it('케이스를 고쳐도(작업 공간이 깨끗하면) 활성 시나리오의 작업 공간이 새 내용으로 갱신된다', async () => {
+    it('케이스를 고쳐도(현재 목이 깨끗하면) 활성 시나리오의 현재 목이 새 내용으로 갱신된다', async () => {
       const ws = { current: [mock('GET', '/join', 200, 'old')] };
       const { hook, replaceMocks } = await setupActive(ws);
       const e = hook.result.current.library.endpoints[0];

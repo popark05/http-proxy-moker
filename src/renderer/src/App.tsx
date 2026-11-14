@@ -1,64 +1,85 @@
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { registerProjectOpeners, toastNoProject } from './lib/no-project';
 import type { CapturedExchange } from '@shared/capture';
 import { AppModeProvider, useAppMode } from './state/app-mode';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { Toaster } from '@/components/ui/sonner';
-import { Separator } from '@/components/ui/separator';
 import { TopBar } from './components/layout/TopBar';
-import { SplitPane } from './components/primitives';
+import { AppFrame } from './components/layout/AppFrame';
+import { Sidebar } from './components/layout/Sidebar';
+import { DevicePanel } from './components/device/DevicePanel';
+import { ProxyPanel } from './components/layout/ProxyPanel';
+import { useSidebarLayout } from './state/useSidebarLayout';
+import { StatusBar } from './components/layout/StatusBar';
+import { MockingView, type MockingTab } from './components/mock/MockingView';
+import { MockPanel } from './components/mock/MockPanel';
+import { ScenarioPanel } from './components/mock/ScenarioPanel';
+import { TrafficPanel } from './components/layout/TrafficPanel';
+import { Workspace } from './components/layout/Workspace';
+import { CommandPalette } from './components/layout/CommandPalette';
+import { buildCommands } from './lib/commands';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
+import { EmptyState } from './components/common/EmptyState';
+import type { ScenarioV2 } from '@shared/scenario-library';
+import { FlaskConical, Layers, Smartphone } from 'lucide-react';
+import { useWorkbench } from './state/useWorkbench';
+import type { Tab } from './lib/workbench';
 import { useCapture } from './state/useCapture';
 import { useProject } from './state/useProject';
 import { useMocks } from './state/useMocks';
+import { useContracts } from './state/useContracts';
+import { CollectionView } from './components/collection/CollectionView';
 import { useScenarioLibrary } from './state/useScenarioLibrary';
 import { useClients } from './state/useClients';
 import { clientLabel, countWithoutClientIp } from '@shared/clients';
 import { useTrafficFilter } from './state/useTrafficFilter';
 import { useMockHits } from './state/useMockHits';
-import { ProxyControls } from './components/traffic/ProxyControls';
-import { FilterBar } from './components/traffic/FilterBar';
-import { TrafficList } from './components/traffic/TrafficList';
 import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { SplashScreen } from './components/brand/SplashScreen';
-import { withProgress } from './state/with-progress';
-import { operationId } from '@shared/progress';
-import { CloneSourceBar } from './components/mock/CloneSourceBar';
-import { TrafficGroupList } from './components/traffic/TrafficGroupList';
-import { SelectionBar } from './components/traffic/SelectionBar';
-import { DevicePanel } from './components/device/DevicePanel';
-import { ProjectBar } from './components/project/ProjectBar';
-import { MockPanel } from './components/mock/MockPanel';
-import { ScenarioPanel } from './components/mock/ScenarioPanel';
 import { ScenarioEditor } from './components/mock/ScenarioEditor';
-import { LibraryModal } from './components/mock/LibraryModal';
-import type { MockDefinition } from '@shared/mock';
-import type { ScenarioV2 } from '@shared/scenario-library';
+import { useProxyActions } from './state/useProxyActions';
+import { useProjectActions } from './state/useProjectActions';
+import { useScenarioActions } from './state/useScenarioActions';
+import { useExchangeActions } from './state/useExchangeActions';
+import { ToastBridge, toast } from '@/lib/toast';
+import { newSessionName } from './lib/session-name';
+import { errMsg } from './lib/errors';
 
-/** 에러 객체에서 사용자 표시용 메시지 추출. */
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-function AppInner(): JSX.Element {
-  const { exchanges, tlsErrors, status, startProxy, stopProxy, clear, replaceExchanges, addTag, removeTag } =
-    useCapture();
+function AppInner(): React.JSX.Element {
   const {
-    project,
-    createProject,
-    openProject,
-    saveCapture,
-    loadCapture
-  } = useProject();
-  const { mocks, cloneFromExchange, cloneMany, updateMock, removeMock, replaceMocks } = useMocks();
-  const scenarioLib = useScenarioLibrary({ projectDir: project?.dir, mocks, replaceMocks });
+    exchanges,
+    liveExchanges,
+    tlsErrors,
+    status,
+    paused,
+    setPaused,
+    view: captureView,
+    newLiveCount,
+    viewSaved,
+    backToLive,
+    startProxy,
+    stopProxy,
+    clear,
+    addTag,
+    removeTag
+  } = useCapture();
+  const [proxyPanelOpen, setProxyPanelOpen] = useState(false);
+  const projectState = useProject();
+  const { project } = projectState;
+  const mocksState = useMocks();
+  const { mocks, updateMock, removeMock, replaceMocks } = mocksState;
+  const scenarioLib = useScenarioLibrary({
+    projectDir: project?.dir,
+    mocks,
+    replaceMocks
+  });
   const { activeScenario } = scenarioLib;
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [editorTarget, setEditorTarget] = useState<{ scenario: ScenarioV2 | undefined } | undefined>(undefined);
+  const contractState = useContracts(project?.dir);
   const { mode, setMode } = useAppMode();
   const { filter, patchFilter, clearFilter, filtered, hosts, tags, active, invalidateIndex } =
     useTrafficFilter(exchanges);
   const mockHits = useMockHits();
-  const { clients, now } = useClients(exchanges, tlsErrors);
+  // 접속 기기는 실시간 트래픽 기준이다(저장된 캡처를 보는 중에도 기기 목록이 바뀌지 않게).
+  const { clients, now } = useClients(liveExchanges, tlsErrors);
   const clientPlatforms = useMemo(() => new Map(clients.map((c) => [c.ip, c.platform] as const)), [clients]);
   const clientOptions = useMemo(
     () => clients.map((c) => ({ ip: c.ip, label: clientLabel(c, [], clients) })),
@@ -74,141 +95,101 @@ function AppInner(): JSX.Element {
   const [trafficView, setTrafficView] = useState<'group' | 'flat'>('group');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [blockUnmatched, setBlockUnmatched] = useState(false);
+  const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
-  const selected = exchanges.find((e) => e.id === selectedId);
+  const workbench = useWorkbench();
+  // 목·시나리오(응답 케이스 포함)는 목킹 화면에서 다룬다(트래픽 섹션의 탭은 요청 상세뿐).
+  const [mockingTab, setMockingTab] = useState<MockingTab>('mocks');
+  /** 시나리오 탭에서 편집 중인 시나리오. undefined면 목록, null이면 새 시나리오. */
+  const [editingScenario, setEditingScenario] = useState<string | null | undefined>(undefined);
+  const openMocking = (tab: MockingTab): void => {
+    setMockingTab(tab);
+    openSection('mocking');
+  };
+  const openMocksTab = (): void => openMocking('mocks');
+  const openScenarioTab = (name: string | null): void => {
+    setEditingScenario(name);
+    openMocking('scenarios');
+  };
+  const openCollection = (): void => openSection('collection');
 
-  // 모드/목/정책 변경 시 프록시에 목킹 적용 or 해제.
+  /** 트래픽 행 선택. 모드와 무관하게 상세를 미리보기 탭으로 연다. */
+  const handleSelect = (id: string | undefined): void => {
+    setSelectedId(id);
+    if (id) workbench.open({ kind: 'exchange', id });
+  };
+
+  const handleCloseTab = (key: string): void => {
+    workbench.close(key);
+    if (selectedId && key === `exchange:${selectedId}`) setSelectedId(undefined);
+  };
+
+  const closeExchangeTabs = (): void => workbench.closeWhere((t) => t.target.kind === 'exchange');
+
+  /** 실시간 목록과 요청 탭, 목 히트 수를 비운다. */
+  const clearCapture = (): void => {
+    clear();
+    mockHits.reset();
+    setSelectedId(undefined);
+    closeExchangeTabs();
+  };
+
+  /** 실시간 목록으로 돌아간다(보던 저장본의 요청 탭은 닫는다). */
+  const returnToLive = (): void => {
+    backToLive();
+    setSelectedId(undefined);
+    closeExchangeTabs();
+  };
+
+  // 프로젝트가 바뀌면 이전 프로젝트의 저장된 캡처를 계속 보여 주지 않는다.
   useEffect(() => {
-    if (!status.running) return;
-    if (mode === 'mock') {
-      void window.mokerApi.proxy.applyMocks({
-        mocks,
-        unmatchedPolicy: blockUnmatched ? 'block' : 'passthrough'
-      });
-    } else {
-      void window.mokerApi.proxy.clearMocks();
-    }
-  }, [mode, mocks, blockUnmatched, status.running]);
+    if (captureView.kind === 'saved') returnToLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.dir]);
 
-  const [proxyBusy, setProxyBusy] = useState<'starting' | 'stopping' | undefined>();
-
-  const handleStartProxy = async (): Promise<void> => {
-    setProxyBusy('starting');
-    try {
-      const next = await withProgress(operationId.proxyStart, '프록시 시작 중', () => startProxy());
-      toast.success('프록시 시작', { description: `포트 ${next?.port ?? ''} 수신 중` });
-    } catch (e) {
-      toast.error('프록시 시작 실패', { description: errMsg(e) });
-    } finally {
-      setProxyBusy(undefined);
-    }
+  /** 저장된 캡처를 본다. 실시간 목록은 그대로 두므로 사라지는 것이 없다. */
+  const viewSavedCapture = (name: string): void => {
+    openSection('traffic');
+    void handleLoadSession(name);
   };
 
-  const handleStopProxy = async (): Promise<void> => {
-    setProxyBusy('stopping');
-    try {
-      await withProgress(operationId.proxyStop, '프록시 중지 중', () => stopProxy());
-      toast('프록시 중지됨');
-    } catch (e) {
-      toast.error('프록시 중지 실패', { description: errMsg(e) });
-    } finally {
-      setProxyBusy(undefined);
-    }
-  };
+  // 요청 탭을 활성화하면 트래픽 목록의 선택도 따라간다.
+  const activeKey = workbench.state.activeKey;
+  useEffect(() => {
+    if (activeKey?.startsWith('exchange:')) setSelectedId(activeKey.slice('exchange:'.length));
+  }, [activeKey]);
 
-  const handleLoadSession = async (name: string): Promise<void> => {
-    try {
-      const loaded = await loadCapture(name);
-      replaceExchanges(loaded);
+  const { proxyBusy, ensureProxy, handleStopProxy, restartProxy } = useProxyActions({
+    status,
+    startProxy,
+    stopProxy,
+    mode,
+    mocks,
+    blockUnmatched
+  });
+  const { handleCreateProject, handleOpenProject, handleSaveCapture, handleLoadSession } = useProjectActions({
+    projectState,
+    liveExchanges,
+    viewSaved,
+    onSessionLoaded: () => {
       setSelectedId(undefined);
-      toast.success('세션 로드됨', { description: `${name} · ${loaded.length}건` });
-    } catch (e) {
-      toast.error('세션 로드 실패', { description: errMsg(e) });
+      closeExchangeTabs();
     }
-  };
-
-  const handleSaveScenario = async (name: string): Promise<void> => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!project) {
-      toast.error('시나리오 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
-      return;
-    }
-    if (
-      scenarioLib.scenarios.some((s) => s.name === trimmed) &&
-      !window.confirm(`"${trimmed}" 시나리오를 현재 작업 공간 내용으로 덮어쓸까요?`)
-    ) {
-      return;
-    }
-    try {
-      const saved = await scenarioLib.saveFromWorkspace(trimmed);
-      toast.success('시나리오 저장됨', { description: `${saved} · 목이 케이스 라이브러리에 저장되었습니다` });
-    } catch (e) {
-      toast.error('시나리오 저장 실패', { description: errMsg(e) });
-    }
-  };
-
-  const handleActivateScenario = (name: string): void => {
-    const { missing, cycle } = scenarioLib.activate(name);
-    toast.success('시나리오 활성화', {
-      description: mode === 'mock' ? `${name} 적용됨` : `${name} 로드됨 (목킹 모드에서 적용)`
-    });
-    if (cycle) toast.warning('베이스 상속이 순환합니다', { description: '시나리오 편집에서 베이스를 확인하세요.' });
-    if (missing.length > 0) {
-      toast.warning(`라이브러리에 없는 케이스 ${missing.length}개를 건너뜀`, { description: missing.join(', ') });
-    }
-  };
-
-  const handleDeleteScenario = async (name: string): Promise<void> => {
-    if (!window.confirm(`"${name}" 시나리오를 삭제할까요? (케이스 라이브러리는 유지됩니다)`)) return;
-    try {
-      await scenarioLib.deleteScenario(name);
-      toast('시나리오 삭제됨', { description: name });
-    } catch (e) {
-      toast.error('삭제할 수 없습니다', { description: errMsg(e) });
-    }
-  };
-
-  const handleUpdateActiveScenario = async (): Promise<void> => {
-    try {
-      await scenarioLib.updateActiveFromWorkspace();
-      toast.success('시나리오 갱신됨', { description: activeScenario });
-    } catch (e) {
-      toast.error('시나리오 갱신 실패', { description: errMsg(e) });
-    }
-  };
-
-  const handleSaveMockAsCase = async (mock: MockDefinition): Promise<void> => {
-    if (!project) {
-      toast.error('케이스 저장 실패', { description: '프로젝트를 먼저 열거나 만드세요.' });
-      return;
-    }
-    try {
-      const { created, caseName } = await scenarioLib.saveMockAsCase(mock);
-      toast.success(created ? '케이스로 저장됨' : '케이스에 반영됨', {
-        description: `${mock.method} ${mock.path} · ${caseName}`
-      });
-    } catch (e) {
-      toast.error('케이스 저장 실패', { description: errMsg(e) });
-    }
-  };
-
-  const caseNameOf = (mock: MockDefinition): string | undefined => {
-    const ref = mock.caseRef;
-    if (!ref) return undefined;
-    return scenarioLib.library.endpoints
-      .find((e) => e.id === ref.endpointId)
-      ?.cases.find((c) => c.id === ref.caseId)?.name;
-  };
-
-  // 프로젝트를 열 때 v1 시나리오가 변환되었다면 한 번 알린다.
-  useEffect(() => {
-    if (scenarioLib.migratedCount > 0) {
-      toast.info(`시나리오 ${scenarioLib.migratedCount}개를 케이스 라이브러리 형식으로 변환했습니다`, {
-        description: '원본은 scenarios/*.v1.bak으로 보관됩니다.'
-      });
-    }
-  }, [scenarioLib.migratedCount]);
+  });
+  const scenarioActions = useScenarioActions({
+    scenarioLib,
+    hasProject: !!project,
+    mode
+  });
+  const exchangeActions = useExchangeActions({
+    mode,
+    setMode,
+    mocksState,
+    contractState,
+    project,
+    openCollection,
+    openMocking: openMocksTab
+  });
 
   const handleAddTag = (id: string, tag: string): void => {
     addTag(id, tag);
@@ -220,288 +201,392 @@ function AppInner(): JSX.Element {
     invalidateIndex(id);
   };
 
-  const handleCreateProject = async (name: string): Promise<void> => {
-    try {
-      await createProject(name);
-    } catch (e) {
-      toast.error('프로젝트 생성 실패', { description: errMsg(e) });
-    }
-  };
-
-  const handleOpenProject = async (): Promise<void> => {
-    try {
-      await openProject();
-    } catch (e) {
-      toast.error('프로젝트 열기 실패', { description: errMsg(e) });
-    }
-  };
-
-  const handleSaveCapture = async (name: string): Promise<void> => {
-    try {
-      await saveCapture(name, exchanges);
-      toast.success('캡처 세션 저장됨', { description: `${name} · ${exchanges.length}건` });
-    } catch (e) {
-      toast.error('세션 저장 실패', { description: errMsg(e) });
-    }
-  };
-
-  /** 체크된 요청들을 한 번에 목으로 복제. */
-  const handleCloneChecked = (): void => {
-    const targets = exchanges.filter((e) => checkedIds.has(e.id));
-    const { added, skipped } = cloneMany(targets);
-    setCheckedIds(new Set());
-    const detail = skipped > 0 ? ` (같은 method+path ${skipped}개는 건너뜀)` : '';
-    if (added === 0) {
-      toast.info('새로 복제할 목이 없습니다', {
-        description: `이미 목이 있는 요청이거나 중복입니다${detail}`
-      });
-      return;
-    }
-    if (mode === 'mock') {
-      toast.success(`${added}개 목으로 복제됨`, { description: `목 정의에 추가됨${detail}` });
-    } else {
-      toast.success(`${added}개 목으로 복제됨`, {
-        description: `목킹 모드로 전환하면 반영됩니다${detail}`,
-        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
-      });
-    }
-  };
-
-  const handleCloneToMock = (exchange: CapturedExchange): void => {
-    cloneFromExchange(exchange);
-    const desc = `${exchange.request.method} ${exchange.request.path}`;
-    if (mode === 'mock') {
-      toast.success('목으로 복제됨', { description: `${desc} · 아래 목 정의에 추가됨` });
-    } else {
-      // 캡처 모드면 목킹 모드 전환을 한 번의 클릭으로 유도(제품 핵심 흐름).
-      toast.success('목으로 복제됨', {
-        description: `${desc} · 목킹 모드로 전환하면 이 응답이 반영됩니다`,
-        action: { label: '목킹 모드로', onClick: () => setMode('mock') }
-      });
-    }
-  };
-
-  // 삭제(전체 비우기 등)로 사라진 id는 세지 않는다.
-  const checkedTotal = exchanges.filter((e) => checkedIds.has(e.id)).length;
-  const checkedShown = filtered.filter((e) => checkedIds.has(e.id)).length;
-
-  // 좌측 트래픽 패널(필터 + 리스트). 캡처/목킹 모드 공용.
   const trafficPanel = (
-    <div className="flex h-full flex-col">
-      <FilterBar
-        filter={filter}
-        patchFilter={patchFilter}
-        clearFilter={clearFilter}
-        active={active}
-        hosts={hosts}
-        tags={tags}
-        clients={clientOptions}
-        total={exchanges.length}
-        shown={filtered.length}
-      />
-      <SelectionBar
-        shownCount={filtered.length}
-        checkedShownCount={checkedShown}
-        checkedCount={checkedTotal}
-        onToggleAllShown={() =>
-          setCheckedIds((prev) => {
-            const next = new Set(prev);
-            for (const e of filtered) {
-              if (checkedShown === filtered.length) next.delete(e.id);
-              else next.add(e.id);
-            }
-            return next;
-          })
+    <TrafficPanel
+      filterProps={{
+        filter,
+        patchFilter,
+        clearFilter,
+        active,
+        hosts,
+        tags,
+        clients: clientOptions
+      }}
+      exchanges={exchanges}
+      filtered={filtered}
+      selectedId={selectedId}
+      onSelect={handleSelect}
+      checkedIds={checkedIds}
+      setCheckedIds={setCheckedIds}
+      view={trafficView}
+      onViewChange={setTrafficView}
+      clientPlatforms={clientPlatforms}
+      rowActions={{
+        cloneToMock: (targets) => exchangeActions.cloneExchanges(targets),
+        saveContracts: (targets) => void exchangeActions.saveContracts(targets),
+        copy: (text, what) => {
+          void navigator.clipboard.writeText(text).then(
+            () => toast.success(`${what} 복사됨`),
+            () => toast.error(`${what} 복사 실패`)
+          );
         }
-        onClear={() => setCheckedIds(new Set())}
-        onCloneChecked={handleCloneChecked}
-        view={trafficView}
-        onViewChange={setTrafficView}
+      }}
+      source={captureView}
+      liveCount={liveExchanges.length}
+      newLiveCount={newLiveCount}
+      savedNames={project?.captureSessions ?? []}
+      sourceActions={{
+        save: () => {
+          if (!project) {
+            toastNoProject('캡처 저장 실패');
+            return;
+          }
+          void handleSaveCapture(newSessionName());
+        },
+        load: viewSavedCapture,
+        backToLive: returnToLive,
+        clear: clearCapture
+      }}
+    />
+  );
+
+  // 저장 실패 토스트의 "프로젝트 만들기 / 열기" 버튼이 쓴다.
+  useEffect(() => {
+    registerProjectOpeners({ create: () => void handleCreateProject(), open: () => void handleOpenProject() });
+    return () => registerProjectOpeners(undefined);
+  });
+
+  const captureProps = {
+    paused,
+    onTogglePaused: () => setPaused(!paused),
+    count: exchanges.length,
+    onClear: clearCapture,
+    clearDisabled: captureView.kind === 'saved'
+  };
+
+  const sidebar = <Sidebar section={section} captureProps={captureProps} traffic={trafficPanel} />;
+
+  const connectView = (
+    <div className="mx-auto flex max-w-[1600px] flex-col gap-4 p-8">
+      <DevicePanel
+        ensureProxy={async () => !!(await ensureProxy())?.running}
+        clients={clients}
+        now={now}
+        proxyRunning={status.running}
+        activeClientFilter={filter.client}
+        untrackedCount={countWithoutClientIp(exchanges)}
+        onFilterClient={(ip) => {
+          patchFilter({ client: ip });
+          // 기기를 골랐으면 그 기기의 트래픽을 바로 볼 수 있게 트래픽 섹션으로 돌아간다.
+          openSection('traffic');
+        }}
       />
-      <div className="min-h-0 flex-1">
-        {trafficView === 'group' ? (
-          <TrafficGroupList
-            exchanges={filtered}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            checkedIds={checkedIds}
-            onCheckedChange={setCheckedIds}
-          />
-        ) : (
-          <TrafficList
-            exchanges={filtered}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            checkedIds={checkedIds}
-            onCheckedChange={setCheckedIds}
-            clientPlatforms={clientPlatforms}
-          />
-        )}
-      </div>
     </div>
   );
 
-  // 좌측 컬럼(프록시 컨트롤 + 기기 + 트래픽). 캡처/목킹 모드 공용: 목킹에서도 프록시 시작과 기기 연결이 필요하다.
-  const leftColumn = (
-      <div className="flex h-full flex-col">
-        <ProxyControls
-          status={status}
-          busy={proxyBusy}
-          count={exchanges.length}
-          onStart={() => void handleStartProxy()}
-          onStop={() => void handleStopProxy()}
-          onClear={() => {
-            clear();
-            mockHits.reset();
-            setSelectedId(undefined);
-          }}
-        />
-        {/* 기기 패널은 줄어들지 않는다(shrink-0). 낮은 창에서는 트래픽 리스트가 남는 높이만큼만 쓴다. */}
-        <div className="max-h-[50%] shrink-0 overflow-auto border-b border-border px-4 py-2">
-          <DevicePanel
-            clients={clients}
-            now={now}
-            proxyRunning={status.running}
-            activeClientFilter={filter.client}
-            untrackedCount={countWithoutClientIp(exchanges)}
-            onFilterClient={(ip) => patchFilter({ client: ip })}
-          />
+  const collectionView = (
+    <CollectionView
+      projectOpen={!!project}
+      projectName={project?.meta.name}
+      contracts={contractState.contracts}
+      servers={contractState.servers}
+      onCreate={contractState.createContract}
+      onSave={contractState.updateContract}
+      onRemove={(name) => {
+        if (window.confirm(`"${name}" 요청을 컬렉션에서 삭제할까요?`)) void contractState.removeContract(name);
+      }}
+      onImport={contractState.saveDrafts}
+      onUpsertServer={contractState.upsertServer}
+      onRemoveServer={(name) => void contractState.removeServer(name)}
+    />
+  );
+
+  const describeTab = (tab: Tab): { label: string; method?: string } => {
+    const exchange = exchanges.find((e) => e.id === tab.target.id);
+    return exchange
+      ? { method: exchange.request.method, label: exchange.request.path }
+      : { label: '(지워진 요청)' };
+  };
+
+  const handleSaveScenario = (scenario: ScenarioV2): void => {
+    const workspaceEdited = scenario.name === activeScenario && !!scenarioLib.diff?.dirty;
+    void scenarioLib
+      .saveScenario(scenario)
+      .then((saved) => {
+        toast.success('시나리오 저장됨', { description: saved });
+        if (workspaceEdited) {
+          toast.info('현재 목에는 아직 반영되지 않았습니다', {
+            description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
+          });
+        }
+      })
+      .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
+  };
+
+  const renderTabContent = (tab: Tab): React.JSX.Element => {
+    const exchange = exchanges.find((e) => e.id === tab.target.id);
+    return (
+      <ExchangeDetail
+        exchange={exchange}
+        clientDescription={clientDescriptionOf(exchange)}
+        onCloneToMock={exchangeActions.cloneToMock}
+        onAddTag={handleAddTag}
+        onRemoveTag={handleRemoveTag}
+      />
+    );
+  };
+
+  const editingScenarioValue =
+    editingScenario === null || editingScenario === undefined
+      ? undefined
+      : scenarioLib.scenarios.find((s) => s.name === editingScenario);
+
+  const mockingView = (
+    <MockingView
+      tab={mockingTab}
+      onTabChange={setMockingTab}
+      counts={{
+        mocks: mocks.length,
+        scenarios: scenarioLib.scenarios.length
+      }}
+      activeScenario={activeScenario}
+      scenarioDirty={!!scenarioLib.diff?.dirty}
+      mocks={
+        <div className="flex h-full flex-col overflow-auto">
+          <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+            <MockPanel
+              mocks={mocks}
+              mode={mode}
+              blockUnmatched={blockUnmatched}
+              onBlockUnmatchedChange={setBlockUnmatched}
+              onUpdate={updateMock}
+              onRemove={removeMock}
+              onSaveScenario={(name) => void scenarioActions.saveScenario(name)}
+              onSaveCase={(mock) => void scenarioActions.saveMockAsCase(mock)}
+              caseNameOf={scenarioActions.caseNameOf}
+              hitCounts={mockHits.counts}
+              lastHitAt={mockHits.lastHitAt}
+              onResetHits={mockHits.reset}
+            />
+          </div>
         </div>
-        <div className="min-h-0 flex-1">{trafficPanel}</div>
-      </div>
+      }
+      scenarios={
+        editingScenario === undefined ? (
+          <div className="px-4 py-3">
+            <ScenarioPanel
+              scenarios={scenarioLib.scenarios}
+              activeScenario={activeScenario}
+              diff={scenarioLib.diff}
+              hasLibrary={scenarioLib.library.endpoints.length > 0}
+              onActivate={scenarioActions.activateScenario}
+              onEdit={(scenario) => setEditingScenario(scenario.name)}
+              onDelete={(name) => void scenarioActions.deleteScenario(name)}
+              onUpdateActive={() => void scenarioActions.updateActiveScenario()}
+              onNew={() => setEditingScenario(null)}
+            />
+          </div>
+        ) : editingScenario !== null && !editingScenarioValue ? (
+          <EmptyState
+            icon={Layers}
+            title="시나리오를 찾을 수 없습니다"
+            description="삭제되었거나 다른 프로젝트의 시나리오입니다."
+            action={
+              <Button
+                label="목록으로"
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditingScenario(undefined)}
+              />
+            }
+          />
+        ) : (
+          <ScenarioEditor
+            variant="tab"
+            open
+            onOpenChange={(o) => {
+              if (!o) setEditingScenario(undefined);
+            }}
+            scenario={editingScenarioValue}
+            scenarios={scenarioLib.scenarios}
+            library={scenarioLib.library}
+            onSave={handleSaveScenario}
+            activeScenario={activeScenario}
+            onSwitch={(name) => setEditingScenario(name)}
+            onActivate={scenarioActions.activateScenario}
+            onCommitLibrary={(next) => void scenarioLib.commit(next)}
+          />
+        )
+      }
+    />
+  );
+
+  // Cmd/Ctrl+K: 커맨드 팔레트.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyK') {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // 항목은 팔레트가 열려 있을 때만 만든다(캡처가 쌓이는 동안 매번 만들 필요가 없다).
+  const paletteCommands = paletteOpen
+    ? buildCommands({
+        tabs: workbench.state.tabs,
+        describeTab,
+        exchanges,
+        mocks,
+        scenarios: scenarioLib.scenarios,
+        activeScenario,
+        library: scenarioLib.library,
+        contracts: contractState.contracts,
+        captureSessions: project?.captureSessions ?? [],
+        hasProject: !!project,
+        mode,
+        proxyRunning: status.running,
+        activeTabKey: workbench.state.activeKey,
+        actions: {
+          activateTab: workbench.activate,
+          openSection,
+          openExchange: handleSelect,
+          openMocks: openMocksTab,
+          openScenario: openScenarioTab,
+          activateScenario: (name) => {
+            scenarioActions.activateScenario(name);
+            openMocksTab();
+          },
+          openCollection,
+          loadSession: viewSavedCapture,
+          startProxy: () => void ensureProxy(),
+          stopProxy: () => void handleStopProxy(),
+          setMode,
+          closeActiveTab: () => {
+            if (workbench.state.activeKey) handleCloseTab(workbench.state.activeKey);
+          },
+          clearCapture
+        }
+      })
+    : [];
+
+  // 열린 탭이 없을 때, 지금 상황에서 가장 자연스러운 다음 행동을 안내한다.
+  const modifierKey = document.documentElement.dataset.platform === 'darwin' ? '⌘' : 'Ctrl+';
+  const openMocksButton = (
+    <Button
+      label="목킹 열기"
+      icon={<Icon icon={FlaskConical} />}
+      variant="secondary"
+      size="sm"
+      onClick={openMocksTab}
+    />
+  );
+  const emptyState: { description: string; action: React.JSX.Element } = !status.running
+    ? {
+        description: '기기를 연결하면 프록시가 자동으로 켜지고, 앱의 요청이 왼쪽 목록에 쌓입니다. 선택하면 여기에 상세가 열립니다.',
+        action: (
+          <Button
+            label="기기 연결 보기"
+            icon={<Icon icon={Smartphone} />}
+            variant="primary"
+            size="sm"
+            onClick={() => openSection('connect')}
+          />
+        )
+      }
+    : exchanges.length > 0
+      ? { description: '왼쪽 트래픽 목록에서 요청을 선택하면 상세가 열립니다.', action: openMocksButton }
+      : clients.length === 0
+        ? {
+            description: '아직 접속한 기기가 없습니다. 기기를 연결한 뒤 앱을 사용하면 요청이 쌓입니다.',
+            action: (
+              <Button
+                label="기기 연결 보기"
+                icon={<Icon icon={Smartphone} />}
+                variant="secondary"
+                size="sm"
+                onClick={() => openSection('connect')}
+              />
+            )
+          }
+        : { description: '기기가 접속했습니다. 앱에서 요청을 보내면 왼쪽 목록에 나타납니다.', action: openMocksButton };
+
+  const workspace = (
+    <Workspace
+      tabs={workbench.state.tabs}
+      activeKey={workbench.state.activeKey}
+      tabBarProps={{
+        describe: describeTab,
+        onActivate: workbench.activate,
+        onClose: handleCloseTab,
+        onPin: workbench.pin,
+        onMove: workbench.move
+      }}
+      emptyDescription={emptyState.description}
+      emptyAction={emptyState.action}
+      emptyHint={`${modifierKey}K 로 탭 · 목 · 시나리오 · 요청을 검색하고 명령을 실행할 수 있습니다`}
+      renderContent={renderTabContent}
+    />
   );
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TopBar
-        activeMockCount={mocks.filter((m) => m.enabled).length}
-        activeScenario={activeScenario}
-        lastHitAt={mockHits.lastHitOverall}
-      />
-      <ProjectBar
-        project={project}
-        exchanges={exchanges}
-        onCreate={(name) => void handleCreateProject(name)}
-        onOpen={() => void handleOpenProject()}
-        onSave={(name) => void handleSaveCapture(name)}
-        onLoadSession={(name) => void handleLoadSession(name)}
+      <AppFrame
+        topNav={
+          <TopBar
+            project={project}
+            onCreateProject={() => void handleCreateProject()}
+            onOpenProject={() => void handleOpenProject()}
+          />
+        }
+        statusBar={
+          <StatusBar
+            proxy={status}
+            proxyBusy={proxyBusy}
+            onOpenProxy={() => setProxyPanelOpen(true)}
+            mode={mode}
+            clientCount={clients.length}
+            activeMockCount={mocks.filter((m) => m.enabled).length}
+            activeScenario={activeScenario}
+            scenarioDirty={scenarioLib.diff?.dirty}
+            lastHitAt={mockHits.lastHitOverall}
+            onOpenConnect={() => openSection('connect')}
+            onOpenMocking={openMocksTab}
+          />
+        }
+        section={section}
+        collapsed={collapsed}
+        onToggleSection={toggleSection}
+        sidebar={sidebar}
+        workspace={workspace}
+        connectView={connectView}
+        mockingView={mockingView}
+        collectionView={collectionView}
       />
 
-      {mode === 'capture' ? (
-        /* 캡처 모드: 좌(프록시+기기+트래픽) | 우(상세 풀높이) */
-        <div className="min-h-0 flex-1">
-          <SplitPane
-            left={
-              leftColumn
-            }
-            right={
-              <div className="h-full overflow-auto">
-                <ExchangeDetail
-                  exchange={selected}
-                  clientDescription={clientDescriptionOf(selected)}
-                  onCloneToMock={handleCloneToMock}
-                  onAddTag={handleAddTag}
-                  onRemoveTag={handleRemoveTag}
-                />
-              </div>
-            }
-          />
-        </div>
-      ) : (
-        /* 목킹 모드: 좌(트래픽 - 복제 소스) | 우(목 정의+편집 + 시나리오) */
-        <div className="min-h-0 flex-1">
-          <SplitPane
-            initialLeftWidth={360}
-            left={leftColumn}
-            right={
-              <div className="flex h-full flex-col overflow-auto">
-                {/* 선택한 트래픽은 한 줄 요약 + 복제 버튼으로만 두고, 상세는 펼쳤을 때만 보여준다 */}
-                {selected && (
-                  <CloneSourceBar
-                    exchange={selected}
-                    clientDescription={clientDescriptionOf(selected)}
-                    onCloneToMock={handleCloneToMock}
-                    onAddTag={handleAddTag}
-                    onRemoveTag={handleRemoveTag}
-                  />
-                )}
-                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-                  <MockPanel
-                    mocks={mocks}
-                    mode={mode}
-                    blockUnmatched={blockUnmatched}
-                    onBlockUnmatchedChange={setBlockUnmatched}
-                    onUpdate={updateMock}
-                    onRemove={removeMock}
-                    onSaveScenario={(name) => void handleSaveScenario(name)}
-                    onSaveCase={(mock) => void handleSaveMockAsCase(mock)}
-                    caseNameOf={caseNameOf}
-                    hitCounts={mockHits.counts}
-                    lastHitAt={mockHits.lastHitAt}
-                    onResetHits={mockHits.reset}
-                  />
-                  <Separator className="my-3" />
-                  <ScenarioPanel
-                    scenarios={scenarioLib.scenarios}
-                    activeScenario={activeScenario}
-                    diff={scenarioLib.diff}
-                    hasLibrary={scenarioLib.library.endpoints.length > 0}
-                    onActivate={handleActivateScenario}
-                    onEdit={(scenario) => setEditorTarget({ scenario })}
-                    onDelete={(name) => void handleDeleteScenario(name)}
-                    onUpdateActive={() => void handleUpdateActiveScenario()}
-                    onNew={() => setEditorTarget({ scenario: undefined })}
-                    onOpenLibrary={() => setLibraryOpen(true)}
-                  />
-                </div>
-              </div>
-            }
-          />
-        </div>
-      )}
-
-      <LibraryModal
-        open={libraryOpen}
-        onOpenChange={setLibraryOpen}
-        library={scenarioLib.library}
-        scenarios={scenarioLib.scenarios}
-        onCommit={(next) => void scenarioLib.commit(next)}
+      <ProxyPanel
+        open={proxyPanelOpen}
+        onOpenChange={setProxyPanelOpen}
+        status={status}
+        busy={proxyBusy}
+        onStart={(port) => void ensureProxy(port)}
+        onStop={() => void handleStopProxy()}
+        onRestart={(port) => void restartProxy(port)}
       />
-      <ScenarioEditor
-        open={!!editorTarget}
-        onOpenChange={(o) => {
-          if (!o) setEditorTarget(undefined);
-        }}
-        scenario={editorTarget?.scenario}
-        scenarios={scenarioLib.scenarios}
-        library={scenarioLib.library}
-        onSave={(scenario) => {
-          const workspaceEdited = scenario.name === activeScenario && !!scenarioLib.diff?.dirty;
-          void scenarioLib
-            .saveScenario(scenario)
-            .then((saved) => {
-              toast.success('시나리오 저장됨', { description: saved });
-              if (workspaceEdited) {
-                toast.info('작업 공간에는 아직 반영되지 않았습니다', {
-                  description: '직접 고친 목이 있어 그대로 두었습니다. "되돌리기"를 누르면 저장한 내용으로 바뀝니다.'
-                });
-              }
-            })
-            .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
-        }}
-      />
-      <Toaster />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
+      <ToastBridge />
       <SplashScreen />
     </div>
   );
 }
 
-export function App(): JSX.Element {
+export function App(): React.JSX.Element {
   return (
-    <TooltipProvider delayDuration={300}>
-      <AppModeProvider>
-        <AppInner />
-      </AppModeProvider>
-    </TooltipProvider>
+    <AppModeProvider>
+      <AppInner />
+    </AppModeProvider>
   );
 }

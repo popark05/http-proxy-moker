@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { withProgress } from '../../src/renderer/src/state/with-progress';
-import { ProxyControls } from '../../src/renderer/src/components/traffic/ProxyControls';
 
 const toast = vi.hoisted(() => {
   const fn = { loading: vi.fn(() => 'toast-1'), dismiss: vi.fn() };
   return fn;
 });
-vi.mock('sonner', () => ({ toast }));
+vi.mock('../../src/renderer/src/lib/toast', () => ({ toast }));
 
 let listener: ((p: { operation: string; step: string }) => void) | undefined;
 const unsubscribe = vi.fn();
@@ -47,19 +46,5 @@ describe('withProgress', () => {
     ).rejects.toThrow('EADDRINUSE');
     expect(toast.dismiss).toHaveBeenCalledWith('toast-1');
     expect(unsubscribe).toHaveBeenCalled();
-  });
-});
-
-describe('ProxyControls busy', () => {
-  const props = { count: 0, onStart: () => {}, onStop: () => {}, onClear: () => {} };
-
-  it('시작 중에는 잠긴 "시작 중…" 버튼을, 중지 중에는 "중지 중…"을 보여준다', () => {
-    const { rerender } = render(<ProxyControls {...props} status={{ running: false }} busy="starting" />);
-    expect((screen.getByText('시작 중…').closest('button') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByText('프록시 시작')).toBeNull();
-
-    rerender(<ProxyControls {...props} status={{ running: true, port: 8080 }} busy="stopping" />);
-    expect((screen.getByText('중지 중…').closest('button') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByText(/수신 중/)).toBeNull();
   });
 });

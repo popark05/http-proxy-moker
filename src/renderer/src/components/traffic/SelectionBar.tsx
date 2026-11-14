@@ -1,5 +1,6 @@
-import { Copy, Layers, List } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Layers, List } from 'lucide-react';
+import { Button } from '@astryxdesign/core/Button';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 
 interface SelectionBarProps {
   /** 현재 필터로 보이는 요청 수. */
@@ -10,49 +11,36 @@ interface SelectionBarProps {
   checkedCount: number;
   onToggleAllShown: () => void;
   onClear: () => void;
-  onCloneChecked: () => void;
   /** 목록 보기 방식: 호스트 그룹 / 시간순 평면. */
   view: 'group' | 'flat';
   onViewChange: (view: 'group' | 'flat') => void;
 }
 
-/** 트래픽 목록 위의 다중 선택 바: 보이는 항목 전체 선택 + 선택 항목 일괄 복제. */
+/** 트래픽 목록 위의 다중 선택 바: 보이는 항목 전체 선택과 해제. 선택한 항목에 대한 동작은 행 우클릭 메뉴에서 한다. */
 export function SelectionBar({
   shownCount,
   checkedShownCount,
   checkedCount,
   onToggleAllShown,
   onClear,
-  onCloneChecked,
   view,
   onViewChange
-}: SelectionBarProps): JSX.Element | null {
+}: SelectionBarProps): React.JSX.Element | null {
   if (shownCount === 0) return null;
   const allShown = checkedShownCount === shownCount;
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-      <label className="flex cursor-pointer items-center gap-2">
-        <input
-          type="checkbox"
-          aria-label="보이는 요청 전체 선택"
-          checked={allShown}
-          ref={(el) => {
-            if (el) el.indeterminate = checkedShownCount > 0 && !allShown;
-          }}
-          onChange={onToggleAllShown}
-          className="size-4 cursor-pointer accent-[hsl(var(--primary))]"
-        />
-        {checkedCount > 0 ? `${checkedCount}개 선택됨` : '전체 선택'}
-      </label>
+      <CheckboxInput
+        label="보이는 요청 전체 선택"
+        isLabelHidden
+        value={allShown ? true : checkedShownCount > 0 ? 'indeterminate' : false}
+        onChange={onToggleAllShown}
+      />
+      <span>{checkedCount > 0 ? `${checkedCount}개 선택됨` : '전체 선택'}</span>
       {checkedCount > 0 && (
         <>
-          <Button variant="ghost" size="sm" onClick={onClear}>
-            해제
-          </Button>
+          <Button label="해제" variant="ghost" size="sm" onClick={onClear} />
           <div className="flex-1" />
-          <Button size="sm" onClick={onCloneChecked}>
-            <Copy /> {checkedCount}개 목으로 복제
-          </Button>
         </>
       )}
       <div className={checkedCount > 0 ? '' : 'ml-auto'}>
@@ -69,8 +57,8 @@ function ViewToggle({
 }: {
   view: 'group' | 'flat';
   onChange: (view: 'group' | 'flat') => void;
-}): JSX.Element {
-  const item = (value: 'group' | 'flat', label: string, Icon: typeof List): JSX.Element => (
+}): React.JSX.Element {
+  const item = (value: 'group' | 'flat', label: string, Icon: typeof List): React.JSX.Element => (
     <button
       type="button"
       aria-label={label}

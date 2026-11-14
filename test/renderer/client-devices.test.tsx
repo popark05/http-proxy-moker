@@ -6,6 +6,7 @@ import { ClientList, formatAgo } from '../../src/renderer/src/components/device/
 import { FilterBar } from '../../src/renderer/src/components/traffic/FilterBar';
 import { TrafficList } from '../../src/renderer/src/components/traffic/TrafficList';
 import { useCapture } from '../../src/renderer/src/state/useCapture';
+import { chooseOption, openSelector, selectorOf } from './selector-helper';
 
 const client = (over: Partial<ClientInfo> = {}): ClientInfo => ({
   ip: '192.168.45.12',
@@ -101,14 +102,14 @@ describe('ClientList', () => {
   it('접속 IP가 없는 요청이 있으면 프록시 재시작 안내를 보여준다', () => {
     render(<ClientList {...baseProps} clients={[]} now={0} untrackedCount={175} />);
     expect(screen.getByText(/접속 기기를 알 수 없는 요청 175건/)).toBeTruthy();
-    expect(screen.getByText('중지 후 다시 시작')).toBeTruthy();
+    expect(screen.getByText('다시 시작')).toBeTruthy();
   });
 
   it('접속 기기가 없으면 안내(프록시 실행 여부에 따라 문구가 다름)', () => {
     const { rerender } = render(<ClientList {...baseProps} clients={[]} now={0} />);
     expect(screen.getByText(/Wi-Fi 프록시를 이 PC 주소로/)).toBeTruthy();
     rerender(<ClientList {...baseProps} proxyRunning={false} clients={[]} now={0} />);
-    expect(screen.getByText(/프록시를 시작하면/)).toBeTruthy();
+    expect(screen.getByText(/기기를 인터셉트하면/)).toBeTruthy();
   });
 
   it('"이 기기만"으로 필터를 걸고, 걸린 기기는 "전체 보기"로 해제한다', () => {
@@ -157,7 +158,7 @@ describe('FilterBar 기기 필터', () => {
     fireEvent.click(screen.getByLabelText('필터 펼치기'));
     expect(screen.queryByLabelText('기기 필터')).toBeNull();
     rerender(<FilterBar {...props} patchFilter={patch} clients={clients} />);
-    fireEvent.change(screen.getByLabelText('기기 필터'), { target: { value: '2.2.2.2' } });
+    chooseOption('기기 필터', '2.2.2.2');
     expect(patch).toHaveBeenCalledWith({ client: '2.2.2.2' });
   });
 });

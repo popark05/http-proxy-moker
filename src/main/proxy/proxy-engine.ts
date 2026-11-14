@@ -120,6 +120,8 @@ export class ProxyEngine {
     for (const mock of mocks) {
       if (!mock.enabled) continue;
       let builder = this.builderForMethod(server, mock.method, mock.path).always();
+      // 호스트 도입 전 파일에서 온 목은 host가 비어 있고, 그 경우 모든 호스트에 매칭한다.
+      if (mock.host) builder = builder.forHost(mock.host);
       if (mock.delayMs && mock.delayMs > 0) {
         builder = builder.delay(mock.delayMs);
       }

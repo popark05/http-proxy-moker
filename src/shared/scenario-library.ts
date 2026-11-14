@@ -2,7 +2,7 @@
  * 케이스 라이브러리와 시나리오(v2).
  *
  * - 목(MockDefinition)은 작업 공간의 즉석 응답 규칙이고, 시나리오는 재사용하는 "케이스 선택의 묶음"이다.
- * - 엔드포인트(method+path)마다 이름 붙은 응답 케이스(정상/500/빈 목록/타임아웃...)를 라이브러리에 두고,
+ * - 엔드포인트(method+host+path)마다 이름 붙은 응답 케이스(정상/500/빈 목록/타임아웃...)를 라이브러리에 두고,
  *   시나리오는 케이스를 복사하지 않고 참조한다 → 케이스를 한 곳에서 고치면 모든 시나리오에 반영된다.
  * - 시나리오는 베이스를 상속해 일부 엔드포인트만 덮어쓸 수 있다(변형 시나리오).
  * - v1 시나리오(목 정의 복사본)는 결정적 ID로 라이브러리에 변환되므로, 저장하기 전에는 파일을 건드리지 않는다.
@@ -22,9 +22,11 @@ export interface MockCase {
 }
 
 export interface LibraryEndpoint {
-  /** `METHOD /path` */
+  /** `METHOD host/path`. 호스트가 비어 있으면(호스트 도입 전 파일) `METHOD /path`. */
   id: string;
   method: string;
+  /** 호스트가 도입되기 전에 저장된 엔드포인트는 빈 문자열(모든 호스트). */
+  host: string;
   path: string;
   cases: MockCase[];
 }
@@ -58,8 +60,8 @@ export type ScenarioFile = MockScenario | ScenarioV2;
 
 // ---------- 식별자/이름 ----------
 
-export function endpointIdOf(method: string, path: string): string {
-  return `${method.toUpperCase()} ${path}`;
+export function endpointIdOf(method: string, host: string, path: string): string {
+  return `${method.toUpperCase()} ${host.toLowerCase()}${path}`;
 }
 
 /** FNV-1a 32비트 해시(hex). 결정적 ID용이며 보안 용도가 아니다. */
@@ -137,6 +139,8 @@ function withEndpoint(library: CaseLibrary, endpoint: LibraryEndpoint): CaseLibr
 
 export interface UpsertInput {
   method: string;
+  /** 호스트 도입 전 v1 시나리오의 목은 비어 있을 수 있다. */
+  host?: string;
   path: string;
   response: MockResponse;
   delayMs?: number;
@@ -152,10 +156,12 @@ export function upsertCase(
   input: UpsertInput,
   name?: string
 ): { library: CaseLibrary; endpointId: string; caseId: string; created: boolean } {
-  const endpointId = endpointIdOf(input.method, input.path);
+  const host = (input.host ?? '').toLowerCase();
+  const endpointId = endpointIdOf(input.method, host, input.path);
   const endpoint: LibraryEndpoint = findEndpoint(library, endpointId) ?? {
     id: endpointId,
     method: input.method.toUpperCase(),
+    host,
     path: input.path,
     cases: []
   };
@@ -295,8 +301,9 @@ export interface ResolvedScenario {
 export function caseToMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
   return {
     id: `${endpoint.id}#${c.id}`,
-    label: `${endpoint.method} ${endpoint.path} · ${c.name}`,
+    label: `${endpoint.method} ${endpoint.host}${endpoint.path} · ${c.name}`,
     method: endpoint.method,
+    host: endpoint.host,
     path: endpoint.path,
     response: { ...c.response, headers: c.response.headers.map(([k, v]) => [k, v] as [string, string]) },
     enabled: true,
@@ -346,7 +353,7 @@ export interface WorkspaceDiff {
 
 /** 해석된 시나리오와 지금 작업 공간의 차이(활성 시나리오의 "수정됨" 판정). 꺼진 목은 없는 것으로 본다. */
 export function diffWorkspace(resolved: readonly MockDefinition[], workspace: readonly MockDefinition[]): WorkspaceDiff {
-  const key = (m: MockDefinition): string => endpointIdOf(m.method, m.path);
+  const key = (m: MockDefinition): string => endpointIdOf(m.method, m.host, m.path);
   const want = new Map(resolved.map((m) => [key(m), m]));
   const have = new Map(workspace.filter((m) => m.enabled).map((m) => [key(m), m]));
   const added = [...have.keys()].filter((k) => !want.has(k));
@@ -456,10 +463,13 @@ export function normalizeScenarios(
 export function parseLibrary(raw: unknown): CaseLibrary {
   const lib = raw as Partial<CaseLibrary> | null;
   if (!lib || lib.version !== 2 || !Array.isArray(lib.endpoints)) return EMPTY_LIBRARY;
-  const endpoints = lib.endpoints.filter(
-    (e): e is LibraryEndpoint =>
-      !!e && typeof e.id === 'string' && typeof e.method === 'string' && typeof e.path === 'string' && Array.isArray(e.cases)
-  );
+  const endpoints = lib.endpoints
+    .filter(
+      (e): e is LibraryEndpoint =>
+        !!e && typeof e.id === 'string' && typeof e.method === 'string' && typeof e.path === 'string' && Array.isArray(e.cases)
+    )
+    // 호스트 도입 전 파일: host가 없으면 빈 문자열(id는 그대로 `METHOD /path`라 시나리오 참조가 유지된다).
+    .map((e) => (typeof e.host === 'string' ? e : { ...e, host: '' }));
   return { version: 2, endpoints };
 }
 
@@ -517,7 +527,7 @@ export function addPresetCase(
   const content = preset.build(endpoint.cases[0]?.response);
   const result = upsertCase(
     library,
-    { method: endpoint.method, path: endpoint.path, ...content },
+    { method: endpoint.method, host: endpoint.host, path: endpoint.path, ...content },
     preset.label
   );
   return { library: result.library, caseId: result.caseId };

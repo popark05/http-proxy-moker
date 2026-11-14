@@ -43,6 +43,14 @@ describe('ProjectStore', () => {
 
     expect(project.meta.name).toBe('My QA');
     expect(project.meta.version).toBe(1);
+    // 이름을 생략하면 폴더 이름.
+    const sub = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-named-'));
+    expect((await store.create(sub)).meta.name).toBe(path.basename(sub));
+    // 예전 버전이 고정으로 넣은 이름은 폴더 이름으로 보여 준다. 직접 지은 이름은 그대로.
+    await fs.writeFile(path.join(sub, 'project.json'), JSON.stringify({ version: 1, name: 'QA Project', proxyPort: 8080, targetHosts: [], createdAt: 1 }));
+    expect((await store.open(sub)).meta.name).toBe(path.basename(sub));
+    expect((await store.open(dir)).meta.name).toBe('My QA');
+    await fs.rm(sub, { recursive: true, force: true });
     await fs.access(path.join(dir, 'project.json'));
     await fs.access(path.join(dir, 'captures'));
     await fs.access(path.join(dir, 'scenarios'));
@@ -124,6 +132,7 @@ describe('ProjectStore', () => {
           id: 'm1',
           label: 'GET /users',
           method: 'GET',
+          host: '',
           path: '/users',
           response: { status: 500, headers: [] as Array<[string, string]>, body: '{"error":1}' },
           enabled: true
@@ -158,6 +167,7 @@ describe('ProjectStore', () => {
           id: 'm1',
           label: 'slow',
           method: 'GET',
+          host: '',
           path: '/slow',
           response: { status: 200, headers: [] as Array<[string, string]>, body: 'ok' },
           enabled: true,
@@ -168,6 +178,7 @@ describe('ProjectStore', () => {
           id: 'm2',
           label: 'reset',
           method: 'POST',
+          host: '',
           path: '/boom',
           response: { status: 200, headers: [] as Array<[string, string]>, body: '' },
           enabled: true,
@@ -205,7 +216,7 @@ describe('ProjectStore: 케이스 라이브러리/시나리오 v2', () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-lib-'));
     await store.create(dir, 'p');
     expect((await store.loadLibrary(dir)).endpoints).toEqual([]);
-    const lib = { version: 2 as const, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }] };
+    const lib = { version: 2 as const, endpoints: [{ id: 'GET /a', method: 'GET', host: '', path: '/a', cases: [] }] };
     await store.saveLibrary(dir, lib);
     expect(await store.loadLibrary(dir)).toEqual(lib);
   });
@@ -241,5 +252,52 @@ describe('ProjectStore: 케이스 라이브러리/시나리오 v2', () => {
     // 같은 v2를 다시 저장해도 백업은 덮어쓰이지 않는다(v2가 v1 백업을 망가뜨리지 않음).
     await store.saveScenario(dir, { version: 2, id: 'a', name: 'old', picks: [] });
     expect(JSON.parse(await fs.readFile(path.join(dir, 'scenarios', 'old.v1.bak'), 'utf-8')).version).toBe(1);
+  });
+});
+
+describe('ProjectStore 계약 저장', () => {
+  const contract = (name: string, version: 1 = 1) =>
+    ({
+      version,
+      id: name,
+      endpointId: 'GET /a',
+      name,
+      request: { method: 'GET', urlTemplate: '{{baseUrl}}/a', query: [], headers: [] },
+      expect: { status: 200, headers: [] },
+      verifiable: true,
+      safeToRun: true
+    }) as import('../../src/shared/contract').Contract;
+
+  it('저장·로드·삭제하고 이름을 살균한다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-contract-'));
+    const store = new ProjectStore();
+    expect(await store.saveContract(dir, contract('GET /a'))).toBe('GET__a');
+    await store.saveContract(dir, contract('두번째'));
+    const all = await store.loadAllContracts(dir);
+    expect(all.map((c) => c.name).sort()).toEqual(['GET__a', '두번째'].sort());
+    await store.deleteContract(dir, 'GET /a');
+    expect((await store.loadAllContracts(dir)).map((c) => c.name)).toEqual(['두번째']);
+  });
+
+  it('깨진 파일과 알 수 없는 버전은 건너뛴다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-contract-'));
+    const store = new ProjectStore();
+    await store.saveContract(dir, contract('ok'));
+    await fs.writeFile(path.join(dir, 'contracts', 'broken.json'), '{nope', 'utf-8');
+    await fs.writeFile(path.join(dir, 'contracts', 'v9.json'), JSON.stringify({ version: 9 }), 'utf-8');
+    expect((await store.loadAllContracts(dir)).map((c) => c.name)).toEqual(['ok']);
+  });
+});
+
+describe('ProjectStore 계약 서버', () => {
+  it('저장·로드하고 잘못된 항목은 버린다', async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'moker-servers-'));
+    const store = new ProjectStore();
+    expect(await store.loadContractServers(dir)).toEqual([]);
+    await store.saveContractServers(dir, [
+      { name: 'dev', baseUrl: 'https://dev.example.com' },
+      { name: 'bad', baseUrl: 'nope' }
+    ]);
+    expect(await store.loadContractServers(dir)).toEqual([{ name: 'dev', baseUrl: 'https://dev.example.com' }]);
   });
 });

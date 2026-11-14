@@ -20,9 +20,9 @@ function randomId(): string {
 interface UseScenarioLibraryArgs {
   /** 열린 프로젝트 경로(없으면 라이브러리/시나리오를 쓰지 않는다). */
   projectDir: string | undefined;
-  /** 작업 공간(현재 목 목록). 활성 시나리오와의 차이 계산에 쓴다. */
+  /** 현재 목(현재 목 목록). 활성 시나리오와의 차이 계산에 쓴다. */
   mocks: MockDefinition[];
-  /** 작업 공간을 통째로 교체(시나리오 활성화). */
+  /** 현재 목을 통째로 교체(시나리오 활성화). */
   replaceMocks: (mocks: MockDefinition[]) => void;
 }
 
@@ -36,19 +36,19 @@ export interface UseScenarioLibraryResult {
   library: CaseLibrary;
   scenarios: ScenarioV2[];
   activeScenario: string | undefined;
-  /** 활성 시나리오와 작업 공간의 차이(활성 시나리오가 없으면 undefined). */
+  /** 활성 시나리오와 현재 목의 차이(활성 시나리오가 없으면 undefined). */
   diff: WorkspaceDiff | undefined;
-  /** 시나리오를 작업 공간에 적용. 해석 경고(없는 케이스, 순환 상속)를 반환. */
+  /** 시나리오를 현재 목에 적용. 해석 경고(없는 케이스, 순환 상속)를 반환. */
   activate: (name: string) => { missing: string[]; cycle: boolean };
-  /** 작업 공간의 목들을 케이스 참조 시나리오로 저장(같은 이름이면 덮어씀). 저장된 이름 반환. */
+  /** 현재 목의 목들을 케이스 참조 시나리오로 저장(같은 이름이면 덮어씀). 저장된 이름 반환. */
   saveFromWorkspace: (name: string, meta?: ScenarioMeta) => Promise<string>;
-  /** 활성 시나리오를 현재 작업 공간 내용으로 갱신. */
+  /** 활성 시나리오를 현재 목 내용으로 갱신. */
   updateActiveFromWorkspace: () => Promise<void>;
   /** 편집 화면에서 만든/고친 시나리오 저장. 저장된 이름 반환. */
   saveScenario: (scenario: ScenarioV2) => Promise<string>;
   /** 삭제. 다른 시나리오가 베이스로 쓰면 거절(사용 중인 시나리오 이름 목록을 던진다). */
   deleteScenario: (name: string) => Promise<void>;
-  /** 작업 공간의 목을 케이스로 저장하거나(출처가 없으면) 출처 케이스에 반영. created=새 케이스 여부. */
+  /** 현재 목의 목을 케이스로 저장하거나(출처가 없으면) 출처 케이스에 반영. created=새 케이스 여부. */
   saveMockAsCase: (mock: MockDefinition) => Promise<{ created: boolean; caseName: string }>;
   /** 라이브러리/시나리오를 통째로 갱신(케이스 편집·삭제·프리셋 추가). 바뀐 시나리오만 저장. */
   commit: (next: { library: CaseLibrary; scenarios?: ScenarioV2[] }) => Promise<void>;
@@ -57,8 +57,8 @@ export interface UseScenarioLibraryResult {
 }
 
 /**
- * 케이스 라이브러리와 시나리오(v2) 상태. 프로젝트를 열면 디스크에서 읽고(v1은 v2로 변환해 저장),
- * 모든 변경은 즉시 디스크에 반영한다. 시나리오를 활성화하면 케이스를 목 정의로 풀어 작업 공간에 넣는다.
+ * 응답 케이스와 시나리오(v2) 상태. 프로젝트를 열면 디스크에서 읽고(v1은 v2로 변환해 저장),
+ * 모든 변경은 즉시 디스크에 반영한다. 시나리오를 활성화하면 케이스를 목 정의로 풀어 현재 목에 넣는다.
  */
 export function useScenarioLibrary({
   projectDir,
@@ -120,7 +120,7 @@ export function useScenarioLibrary({
   /** 상태 반영 + 디스크 저장. 바뀐 시나리오만 저장한다. 저장된 이름(살균 후)으로 상태를 맞춘다. */
   const persist = useCallback(
     async (nextLibrary: CaseLibrary, nextScenarios: ScenarioV2[], changed: ScenarioV2[]): Promise<Map<string, string>> => {
-      // 활성 시나리오의 작업 공간이 아직 손대지 않은 상태였는지(저장 전 기준) 기억해 둔다.
+      // 활성 시나리오의 현재 목이 아직 손대지 않은 상태였는지(저장 전 기준) 기억해 둔다.
       const active = activeRef.current;
       const workspaceWasClean =
         !!active &&
@@ -138,7 +138,7 @@ export function useScenarioLibrary({
       setScenarios(finalScenarios);
       libraryRef.current = nextLibrary;
       scenariosRef.current = finalScenarios;
-      // 작업 공간에 직접 고친 내용이 없었다면, 시나리오/케이스 편집 결과를 작업 공간에도 바로 반영한다
+      // 현재 목에 직접 고친 내용이 없었다면, 시나리오/케이스 편집 결과를 현재 목에도 바로 반영한다
       // (그렇지 않으면 "수정됨"으로 보여 "현재 작업 반영"을 눌렀을 때 편집한 내용이 옛 목으로 되돌려진다).
       // 직접 고친 내용이 있으면 덮어쓰지 않고 그대로 둔다("되돌리기"로 사용자가 선택).
       if (active && workspaceWasClean) {

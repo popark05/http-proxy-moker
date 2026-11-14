@@ -5,6 +5,7 @@ import {
   EMPTY_LIBRARY,
   addPresetCase,
   applyMockToCase,
+  caseToMock,
   caseUsers,
   diffWorkspace,
   effectivePicks,
@@ -24,6 +25,7 @@ const mock = (method: string, path: string, status = 200, body = '{"ok":true}', 
   id: `m-${method}-${path}-${status}`,
   label: `${method} ${path}`,
   method,
+  host: '',
   path,
   enabled: true,
   response: { status, headers: [['content-type', 'application/json']], body },
@@ -145,7 +147,7 @@ describe('케이스 수정/삭제', () => {
   });
 });
 
-describe('작업 공간 ↔ 시나리오', () => {
+describe('현재 목 ↔ 시나리오', () => {
   it('scenarioFromWorkspace: 케이스를 라이브러리에 저장하고 참조로 만든다(꺼진 목 제외, 같은 내용은 합침)', () => {
     const ws = [mock('GET', '/a'), mock('GET', '/b'), mock('GET', '/c', 200, 'x', { enabled: false })];
     const first = scenarioFromWorkspace(ws, EMPTY_LIBRARY, { id: 's1', name: '첫째' });
@@ -185,7 +187,7 @@ describe('작업 공간 ↔ 시나리오', () => {
 });
 
 describe('scenarioFromWorkspace with base', () => {
-  it('베이스와 다른 선택만 덮어쓰기로 저장하고, 작업 공간에 없는 상속 엔드포인트는 null로 끈다', () => {
+  it('베이스와 다른 선택만 덮어쓰기로 저장하고, 현재 목에 없는 상속 엔드포인트는 null로 끈다', () => {
     const baseWs = [mock('GET', '/feed'), mock('POST', '/pay'), mock('POST', '/login')];
     const b = scenarioFromWorkspace(baseWs, EMPTY_LIBRARY, { id: 'b', name: '정상' });
     const ws = [mock('GET', '/feed'), mock('POST', '/pay', 500, '{"e":1}')]; // /login 없음
@@ -253,10 +255,26 @@ describe('프리셋/파싱', () => {
     expect(lib.endpoints[0].cases).toHaveLength(1 + CASE_PRESETS.length);
   });
 
+  it('같은 method+path라도 호스트가 다르면 별도 엔드포인트가 된다', () => {
+    let lib = EMPTY_LIBRARY;
+    lib = upsertCase(lib, { method: 'GET', host: 'a.example.com', path: '/user', response: { status: 200, headers: [], body: 'a' } }).library;
+    const b = upsertCase(lib, { method: 'GET', host: 'b.example.com', path: '/user', response: { status: 200, headers: [], body: 'b' } });
+    expect(b.library.endpoints.map((e) => e.id)).toEqual(['GET a.example.com/user', 'GET b.example.com/user']);
+    expect(b.library.endpoints.map((e) => e.host)).toEqual(['a.example.com', 'b.example.com']);
+    // 목으로 풀면 호스트가 따라간다.
+    expect(caseToMock(b.library.endpoints[1], b.library.endpoints[1].cases[0]).host).toBe('b.example.com');
+  });
+
+  it('호스트 도입 전 라이브러리는 host를 빈 문자열로 읽고 엔드포인트 id(시나리오 참조)는 그대로다', () => {
+    const lib = parseLibrary({ version: 2, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }] });
+    expect(lib.endpoints[0]).toMatchObject({ id: 'GET /a', host: '' });
+  });
+
   it('parseLibrary: 손상/없음은 빈 라이브러리', () => {
     expect(parseLibrary(null)).toEqual(EMPTY_LIBRARY);
     expect(parseLibrary({ version: 1 })).toEqual(EMPTY_LIBRARY);
     expect(parseLibrary({ version: 2, endpoints: [{ id: 'GET /a', method: 'GET', path: '/a', cases: [] }, 3] }).endpoints).toHaveLength(1);
-    expect(endpointIdOf('post', '/x')).toBe('POST /x');
+    expect(endpointIdOf('post', '', '/x')).toBe('POST /x');
+    expect(endpointIdOf('post', 'API.example.com', '/x')).toBe('POST api.example.com/x');
   });
 });

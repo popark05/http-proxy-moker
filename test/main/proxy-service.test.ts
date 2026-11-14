@@ -246,3 +246,47 @@ describe('ProxyService 목킹 모드 (통합)', () => {
     expect(result.body).toBe('BACKEND');
   }, 15_000);
 });
+
+// ---- 포트 자동 대체(ProxyService.start) ----
+import { ProxyService, isPortInUse } from '../../src/main/proxy/proxy-service';
+
+describe('ProxyService 포트 대체', () => {
+  const fakeService = (busyBelow: number) => {
+    const service = new ProxyService(() => {});
+    const ports: number[] = [];
+    Object.assign(service, {
+      ensureWorker: async () => ({}),
+      command: async (_w: unknown, build: (id: number) => { port: number }) => {
+        const { port } = build(1);
+        ports.push(port);
+        if (port < busyBelow) throw new Error(`listen EADDRINUSE: address already in use :::${port}`);
+        return { running: true, port };
+      }
+    });
+    return { service, ports };
+  };
+
+  it('isPortInUse는 포트 충돌 오류만 알아본다', () => {
+    expect(isPortInUse(new Error('listen EADDRINUSE: address already in use :::8080'))).toBe(true);
+    expect(isPortInUse(new Error('permission denied'))).toBe(false);
+  });
+
+  it('포트를 지정하지 않으면 사용 중인 기본 포트 대신 다음 포트를 쓴다', async () => {
+    const { service, ports } = fakeService(8082);
+    const status = await service.start();
+    expect(status).toEqual({ running: true, port: 8082 });
+    expect(ports).toEqual([8080, 8081, 8082]);
+  });
+
+  it('포트를 직접 지정하면 대체하지 않고 오류로 알린다', async () => {
+    const { service, ports } = fakeService(9999);
+    await expect(service.start(9000)).rejects.toThrow(/EADDRINUSE/);
+    expect(ports).toEqual([9000]);
+  });
+
+  it('충돌이 아닌 오류는 바로 던진다', async () => {
+    const { service } = fakeService(0);
+    Object.assign(service, { command: async () => { throw new Error('boom'); } });
+    await expect(service.start()).rejects.toThrow('boom');
+  });
+});

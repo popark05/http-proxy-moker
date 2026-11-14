@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
 
 interface ImagePreviewProps {
   src: string;
@@ -15,7 +16,7 @@ function formatBytes(n: number): string {
 }
 
 /** 투명 영역이 보이도록 체크무늬 배경을 깐 이미지 미리보기. 맞춤/원본 크기 전환 + 해상도 표시. */
-export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): JSX.Element {
+export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): React.JSX.Element {
   const [fit, setFit] = useState(true);
   const [size, setSize] = useState<{ w: number; h: number } | undefined>(undefined);
   const [failed, setFailed] = useState(false);
@@ -30,20 +31,23 @@ export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): JSX.
         </span>
         <div className="flex-1" />
         {!failed && (
-          <Button variant="ghost" size="sm" onClick={() => setFit((v) => !v)}>
-            {fit ? <Maximize2 /> : <Minimize2 />}
-            {fit ? '원본 크기' : '창에 맞춤'}
-          </Button>
+          <Button
+            label={fit ? '원본 크기' : '창에 맞춤'}
+            icon={<Icon icon={fit ? Maximize2 : Minimize2} />}
+            variant="ghost"
+            size="sm"
+            onClick={() => setFit((v) => !v)}
+          />
         )}
       </div>
       <div
         className="min-h-0 flex-1 overflow-auto p-3"
         // 체크무늬(투명 PNG/SVG 확인용). 색은 테마와 무관한 중립 회색.
         style={{
-          backgroundColor: '#2a2d35',
+          backgroundColor: '#313244',
           backgroundImage:
-            'linear-gradient(45deg,#343843 25%,transparent 25%,transparent 75%,#343843 75%),' +
-            'linear-gradient(45deg,#343843 25%,transparent 25%,transparent 75%,#343843 75%)',
+            'linear-gradient(45deg,#45475a 25%,transparent 25%,transparent 75%,#45475a 75%),' +
+            'linear-gradient(45deg,#45475a 25%,transparent 25%,transparent 75%,#45475a 75%)',
           backgroundSize: '16px 16px',
           backgroundPosition: '0 0, 8px 8px'
         }}

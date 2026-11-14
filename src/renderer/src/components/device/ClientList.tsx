@@ -1,8 +1,8 @@
 import { Apple, Smartphone, HelpCircle, ShieldAlert } from 'lucide-react';
 import { clientLabel, clientState, type ClientInfo } from '@shared/clients';
 import type { DeviceInfo } from '@shared/device';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Button } from '@astryxdesign/core/Button';
 
 /** "방금", "12초 전", "3분 전", "2시간 전". */
 export function formatAgo(ms: number): string {
@@ -14,7 +14,7 @@ export function formatAgo(ms: number): string {
   return `${Math.floor(min / 60)}시간 전`;
 }
 
-export function PlatformIcon({ platform, className }: { platform: ClientInfo['platform']; className?: string }): JSX.Element {
+export function PlatformIcon({ platform, className }: { platform: ClientInfo['platform']; className?: string }): React.JSX.Element {
   if (platform === 'ios') return <Apple className={className} />;
   if (platform === 'android') return <Smartphone className={className} />;
   return <HelpCircle className={className} />;
@@ -40,7 +40,7 @@ interface ClientListProps {
  */
 const STATE_ORDER = { untrusted: 0, active: 1, idle: 2 } as const;
 
-export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup, untrackedCount = 0 }: ClientListProps): JSX.Element {
+export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup, untrackedCount = 0 }: ClientListProps): React.JSX.Element {
   // 조치가 필요한 기기(인증서 미신뢰)를 맨 위에, 그다음 수신 중, 대기 순(같은 상태는 최근 접속순).
   const sorted = [...clients].sort(
     (a, b) => STATE_ORDER[clientState(a, now)] - STATE_ORDER[clientState(b, now)] || b.lastSeenAt - a.lastSeenAt
@@ -53,14 +53,14 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
       {untrackedCount > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           접속 기기를 알 수 없는 요청 {untrackedCount}건이 있습니다(앱 업데이트 전에 시작한 프록시나 불러온 세션).
-          프록시를 <strong className="font-medium">중지 후 다시 시작</strong>하면 이후 요청부터 기기가 표시됩니다.
+          하단 상태바의 프록시에서 <strong className="font-medium">다시 시작</strong>하면 이후 요청부터 기기가 표시됩니다.
         </p>
       )}
       {clients.length === 0 ? (
         <p className="text-xs leading-relaxed text-muted-foreground">
           {proxyRunning
             ? '아직 프록시에 접속한 기기가 없습니다. 기기의 Wi-Fi 프록시를 이 PC 주소로 설정하면 여기에 나타납니다.'
-            : '프록시를 시작하면 접속하는 기기가 여기에 나타납니다.'}
+            : '기기를 인터셉트하면(프록시는 자동으로 켜집니다) 접속하는 기기가 여기에 나타납니다.'}
         </p>
       ) : (
         sorted.map((c) => {
@@ -79,15 +79,19 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                   </div>
                 </div>
                 {state === 'untrusted' ? (
-                  <Badge variant="warning">인증서 미신뢰</Badge>
+                  <Badge variant="warning" label="인증서 미신뢰" />
                 ) : state === 'active' ? (
-                  <Badge variant="success">수신 중</Badge>
+                  <Badge variant="success" label="수신 중" />
                 ) : (
-                  <Badge variant="neutral">대기</Badge>
+                  <Badge variant="neutral" label="대기" />
                 )}
-                <Button variant={filtered ? 'secondary' : 'ghost'} size="sm" onClick={() => onFilter(c.ip)} title="이 기기의 요청만 보기">
-                  {filtered ? '전체 보기' : '이 기기만'}
-                </Button>
+                <Button
+                  label={filtered ? '전체 보기' : '이 기기만'}
+                  variant={filtered ? 'secondary' : 'ghost'}
+                  size="sm"
+                  tooltip="이 기기의 요청만 보기"
+                  onClick={() => onFilter(c.ip)}
+                />
               </div>
               {state === 'untrusted' && (
                 <div className="flex items-start gap-1.5 text-xs leading-relaxed text-[hsl(var(--warning))]">
@@ -102,9 +106,13 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                     </p>
                     {/* 요청이 없어 플랫폼을 모르는 기기도 대부분 iOS(수동 설정)라 가이드를 함께 안내한다. */}
                     {c.platform !== 'android' && (
-                      <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={onIosSetup}>
-                        iOS 셋업 가이드 열기
-                      </Button>
+                      <Button
+                        label="iOS 셋업 가이드 열기"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={onIosSetup}
+                      />
                     )}
                   </div>
                 </div>

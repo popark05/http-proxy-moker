@@ -25,15 +25,15 @@ function createMainWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 600,
     show: false,
-    backgroundColor: '#16181e',
-    // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이는 TopBar와 동일).
+    backgroundColor: '#181825',
+    // macOS: 신호등 버튼만 남기는 hiddenInset. Windows: 프레임리스 + 오버레이 캡션 버튼(높이 46은 Astryx TopNav의 실측 높이, 색은 배경 #181825와 동일; TopNav를 바꾸면 함께 맞출 것).
     // 그 외(Linux)는 기본 프레임을 쓴다.
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }
       : process.platform === 'win32'
         ? {
             titleBarStyle: 'hidden' as const,
-            titleBarOverlay: { color: '#16181e', symbolColor: '#e5e7eb', height: 52 }
+            titleBarOverlay: { color: '#181825', symbolColor: '#e5e7eb', height: 46 }
           }
         : {}),
     ...(iconPath ? { icon: iconPath } : {}),
@@ -89,12 +89,23 @@ app.whenReady().then(() => {
 
   // 배포본에서는 Cmd/Ctrl+R 새로고침·DevTools 단축키가 든 기본 메뉴를 쓰지 않는다(새로고침하면 캡처 상태가 날아간다).
   // macOS는 복사/붙여넣기 등 편집 단축키가 메뉴 role에 의존하므로 최소 메뉴를 둔다.
-  if (app.isPackaged) {
+  // Window 메뉴는 role: 'windowMenu'를 쓰지 않는다: 그 안의 "닫기"가 Cmd+W를 가져가 탭 닫기 단축키 대신 창이 닫힌다.
+  const windowMenu: Electron.MenuItemConstructorOptions = {
+    label: 'Window',
+    submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
+  };
+  if (process.platform === 'darwin') {
     Menu.setApplicationMenu(
-      process.platform === 'darwin'
-        ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
-        : null
+      Menu.buildFromTemplate([
+        { role: 'appMenu' },
+        { role: 'editMenu' },
+        // 개발 중에는 새로고침·DevTools 단축키를 남긴다.
+        ...(app.isPackaged ? [] : [{ role: 'viewMenu' } as Electron.MenuItemConstructorOptions]),
+        windowMenu
+      ])
     );
+  } else if (app.isPackaged) {
+    Menu.setApplicationMenu(null);
   }
 
   registerIpcHandlers(() => mainWindow);

@@ -3,14 +3,17 @@ import { Pencil, Trash2, Save, FileJson, RotateCcw, BookmarkPlus, Upload } from 
 import type { MockDefinition, MockFault } from '@shared/mock';
 import type { AppMode } from '../../state/app-mode';
 import { restartAnimation } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Button } from '@astryxdesign/core/Button';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { Switch } from '@astryxdesign/core/Switch';
 import { EmptyState } from '../common/EmptyState';
 import { isBodyModified } from '@shared/mock';
 import { methodTone, statusTone } from '../primitives';
 import { MockEditor } from './MockEditor';
+import { TextInput } from '@astryxdesign/core/TextInput';
 
 /** fault 종류를 짧은 라벨로. */
 function faultLabel(fault: MockFault): string {
@@ -59,7 +62,7 @@ export function MockPanel({
   hitCounts = {},
   lastHitAt = {},
   onResetHits
-}: MockPanelProps): JSX.Element {
+}: MockPanelProps): React.JSX.Element {
   const [editing, setEditing] = useState<MockDefinition | undefined>(undefined);
   const [editorOpen, setEditorOpen] = useState(false);
   const [scenarioName, setScenarioName] = useState('scenario-1');
@@ -76,37 +79,42 @@ export function MockPanel({
           목 정의 ({mocks.length})
         </h3>
         {onResetHits && Object.keys(hitCounts).length > 0 && (
-          <Button variant="ghost" size="sm" className="mr-auto" onClick={onResetHits}>
-            <RotateCcw /> 응답 횟수 초기화
-          </Button>
+          <Button
+            label="응답 횟수 초기화"
+            icon={<Icon icon={RotateCcw} />}
+            variant="ghost"
+            size="sm"
+            className="mr-auto"
+            onClick={onResetHits}
+          />
         )}
         <div className="flex items-center gap-1">
-          <Input
-            aria-label="시나리오 이름"
+          <TextInput
+            label="시나리오 이름"
+            isLabelHidden
+            size="sm"
+            width={112}
             value={scenarioName}
-            onChange={(e) => setScenarioName(e.target.value)}
-            className="h-8 w-28"
+            onChange={setScenarioName}
           />
           <Button
-            variant="outline"
+            label="시나리오 저장"
+            icon={<Icon icon={Save} />}
+            variant="secondary"
             size="sm"
-            disabled={mocks.length === 0}
+            isDisabled={mocks.length === 0}
             onClick={() => onSaveScenario(scenarioName)}
-          >
-            <Save /> 시나리오 저장
-          </Button>
+          />
         </div>
       </div>
 
       {mode === 'mock' && (
-        <label className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
-          <Switch
-            checked={blockUnmatched}
-            onCheckedChange={onBlockUnmatchedChange}
-            aria-label="매칭 안 된 요청 차단"
-          />
-          매칭 안 된 요청 차단 (완전 목킹 전용, 백엔드 통과 안 함)
-        </label>
+        <Switch
+          label="매칭 안 된 요청 차단 (완전 목킹 전용, 백엔드 통과 안 함)"
+          size="sm"
+          value={blockUnmatched}
+          onChange={onBlockUnmatchedChange}
+        />
       )}
 
       {mocks.length === 0 ? (
@@ -114,7 +122,7 @@ export function MockPanel({
           compact
           icon={FileJson}
           title="목 정의가 없습니다"
-          description='왼쪽 트래픽에서 응답을 고른 뒤 "목으로 복제"를 누르면 여기에 추가됩니다.'
+          description='왼쪽 트래픽에서 요청을 우클릭해 "목으로 복제"를 고르면 여기에 추가됩니다.'
         />
       ) : (
         mocks.map((mock) => (
@@ -147,7 +155,7 @@ interface MockRowProps {
 }
 
 /** 목 정의 한 행. mock-hit 발생 시 배경 플래시 + 히트 카운트 표시. */
-function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSaveCase }: MockRowProps): JSX.Element {
+function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSaveCase }: MockRowProps): React.JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const hitBadgeRef = useRef<HTMLSpanElement>(null);
   const prevHit = useRef(lastHitAt);
@@ -165,53 +173,44 @@ function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSave
       ref={rowRef}
       className="flex items-center gap-2 rounded-md border border-border p-2"
     >
-      <Badge variant={methodTone(mock.method)}>{mock.method}</Badge>
-      <span className="min-w-0 flex-1 truncate font-mono text-sm" title={mock.path}>
+      <Badge variant={methodTone(mock.method)} label={mock.method} />
+      <span className="min-w-0 flex-1 truncate font-mono text-sm" title={`${mock.host}${mock.path}`}>
+        {mock.host && <span className="text-muted-foreground">{mock.host}</span>}
         {mock.path}
       </span>
       {caseName && (
-        <Badge variant="neutral" title="케이스 라이브러리에서 가져온 목">
-          {caseName}
-        </Badge>
+        <Tooltip content="응답 케이스에서 가져온 목" hasHoverIndication={false}><Badge variant="neutral" label={caseName} /></Tooltip>
       )}
       {hitCount > 0 && (
-        <Badge ref={hitBadgeRef} variant="success" title="이 목이 응답한 횟수">
-          {hitCount}회 응답
-        </Badge>
+        <span ref={hitBadgeRef} className="inline-flex rounded-md">
+          <Tooltip content="이 목이 응답한 횟수" hasHoverIndication={false}>
+            <Badge variant="success" label={`${hitCount}회 응답`} />
+          </Tooltip>
+        </span>
       )}
       {mock.response.bodyEncoding === 'base64' && (
-        <Badge variant="neutral" title="이진 본문(이미지 등)">
-          이진
-        </Badge>
+        <Tooltip content="이진 본문(이미지 등)" hasHoverIndication={false}><Badge variant="neutral" label="이진" /></Tooltip>
       )}
       {isBodyModified(mock) && (
-        <Badge variant="info" title="원본 응답에서 본문이 수정됨">
-          수정됨
-        </Badge>
+        <Tooltip content="원본 응답에서 본문이 수정됨" hasHoverIndication={false}><Badge variant="info" label="수정됨" /></Tooltip>
       )}
-      {mock.delayMs ? <Badge variant="warning">{mock.delayMs}ms</Badge> : null}
+      {mock.delayMs ? <Badge variant="warning" label={`${mock.delayMs}ms`} /> : null}
       {mock.fault && mock.fault !== 'none' ? (
-        <Badge variant="error">{faultLabel(mock.fault)}</Badge>
+        <Badge variant="error" label={faultLabel(mock.fault)} />
       ) : (
-        <Badge variant={statusTone(mock.response.status)}>{mock.response.status}</Badge>
+        <Badge variant={statusTone(mock.response.status)} label={mock.response.status} />
       )}
       {onSaveCase && (
-        <Button
+        <IconButton
+          label={caseName ? '케이스에 반영' : '케이스로 저장'}
+          icon={<Icon icon={caseName ? Upload : BookmarkPlus} />}
           variant="ghost"
-          size="icon"
-          aria-label={caseName ? '케이스에 반영' : '케이스로 저장'}
-          title={caseName ? '수정한 내용을 라이브러리 케이스에 반영(이 케이스를 쓰는 모든 시나리오에 적용)' : '라이브러리에 케이스로 저장'}
+          tooltip={caseName ? '수정한 내용을 라이브러리 케이스에 반영(이 케이스를 쓰는 모든 시나리오에 적용)' : '라이브러리에 케이스로 저장'}
           onClick={onSaveCase}
-        >
-          {caseName ? <Upload /> : <BookmarkPlus />}
-        </Button>
+        />
       )}
-      <Button variant="ghost" size="icon" aria-label="편집" onClick={onEdit}>
-        <Pencil />
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="삭제" onClick={onRemove}>
-        <Trash2 />
-      </Button>
+      <IconButton label="편집" icon={<Icon icon={Pencil} />} variant="ghost" onClick={onEdit} />
+      <IconButton label="삭제" icon={<Icon icon={Trash2} />} variant="ghost" onClick={onRemove} />
     </div>
   );
 }

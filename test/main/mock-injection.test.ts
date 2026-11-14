@@ -89,8 +89,10 @@ describe('목 주입 (통합)', () => {
     const rule = mockToSerializedRule(exchangeToMock(capturedExchange, 'm1'));
     // method matcher는 숫자 enum(GET=0).
     expect(rule.matchers[0]).toEqual({ type: 'method', method: 0 });
+    // host matcher는 캡처한 URL의 호스트.
+    expect(rule.matchers[1]).toEqual({ type: 'host', host: 'api.example.com' });
     // path matcher는 쿼리 없는 경로.
-    expect(rule.matchers[1]).toEqual({ type: 'simple-path', path: '/users' });
+    expect(rule.matchers[2]).toEqual({ type: 'simple-path', path: '/users' });
     // 완전 목킹: simple step 하나(업스트림 없음).
     expect(rule.steps).toHaveLength(1);
     expect(rule.steps[0].type).toBe('simple');

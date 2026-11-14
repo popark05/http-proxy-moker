@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 /**
  * 오래 걸리는 작업(프록시 시작/중지, 기기 인터셉션 시작/해제) 동안 로딩 토스트를 보여 준다.

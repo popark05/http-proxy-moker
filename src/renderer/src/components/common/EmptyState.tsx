@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { EmptyState as AstryxEmptyState } from '@astryxdesign/core/EmptyState';
+import { Icon } from '@astryxdesign/core/Icon';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -12,38 +13,16 @@ interface EmptyStateProps {
   compact?: boolean;
 }
 
-/** 일관된 빈 상태 표시: 아이콘 + 제목 + 설명 + (선택) CTA. */
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-  className,
-  compact = false
-}: EmptyStateProps): JSX.Element {
+/** 일관된 빈 상태 표시: 아이콘 + 제목 + 설명 + (선택) CTA. Astryx EmptyState 위의 얇은 어댑터. */
+export function EmptyState({ icon, title, description, action, className, compact = false }: EmptyStateProps): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center text-center',
-        compact ? 'gap-1.5 px-4 py-6' : 'gap-2 px-6 py-12',
-        className
-      )}
-    >
-      <div
-        className={cn(
-          'flex items-center justify-center rounded-full bg-muted/60 text-muted-foreground',
-          compact ? 'size-9' : 'size-12'
-        )}
-      >
-        <Icon className={compact ? 'size-4' : 'size-5'} />
-      </div>
-      <div className={cn('font-medium text-foreground', compact ? 'text-sm' : 'text-base')}>
-        {title}
-      </div>
-      {description && (
-        <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">{description}</p>
-      )}
-      {action && <div className="mt-1">{action}</div>}
-    </div>
+    <AstryxEmptyState
+      icon={<Icon icon={icon} />}
+      title={title}
+      description={description}
+      actions={action}
+      isCompact={compact}
+      className={className}
+    />
   );
 }
