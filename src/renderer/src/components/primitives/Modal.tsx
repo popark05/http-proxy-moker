@@ -29,7 +29,7 @@ export function Modal({
   trigger,
   className,
   variant = 'modal'
-}: ModalProps): JSX.Element {
+}: ModalProps): React.JSX.Element {
   if (variant === 'tab') {
     return (
       <div className="mx-auto max-w-4xl p-5">

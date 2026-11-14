@@ -15,7 +15,7 @@ function formatBytes(n: number): string {
 }
 
 /** 투명 영역이 보이도록 체크무늬 배경을 깐 이미지 미리보기. 맞춤/원본 크기 전환 + 해상도 표시. */
-export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): JSX.Element {
+export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): React.JSX.Element {
   const [fit, setFit] = useState(true);
   const [size, setSize] = useState<{ w: number; h: number } | undefined>(undefined);
   const [failed, setFailed] = useState(false);

@@ -36,7 +36,7 @@ function TriCheckbox({
   state: CheckState;
   label: string;
   onToggle: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <input
       type="checkbox"
@@ -55,7 +55,7 @@ function TriCheckbox({
   );
 }
 
-function StatusBadge({ exchange }: { exchange: CapturedExchange }): JSX.Element {
+function StatusBadge({ exchange }: { exchange: CapturedExchange }): React.JSX.Element {
   const r = exchange.response;
   if (r === 'aborted') return <Badge variant="error">✕</Badge>;
   if (r) return <Badge variant={statusTone(r.statusCode)}>{r.statusCode}</Badge>;
@@ -76,7 +76,7 @@ export function TrafficGroupList({
   checkedIds,
   onCheckedChange,
   onRowContextMenu
-}: TrafficGroupListProps): JSX.Element {
+}: TrafficGroupListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   const [collapsedHosts, setCollapsedHosts] = useState<Set<string>>(new Set());
   const [expandedEndpoints, setExpandedEndpoints] = useState<Set<string>>(new Set());
@@ -259,7 +259,7 @@ function EndpointRow({
   onContextMenu?: (event: React.MouseEvent, row: CapturedExchange[]) => void;
   onToggleChecked: () => void;
   onToggleExpanded: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const { endpoint, expanded } = row;
   const count = endpoint.exchanges.length;
   const ids = endpoint.exchanges.map((e) => e.id);

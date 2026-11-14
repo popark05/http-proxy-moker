@@ -24,7 +24,7 @@ export function SelectionBar({
   onClear,
   view,
   onViewChange
-}: SelectionBarProps): JSX.Element | null {
+}: SelectionBarProps): React.JSX.Element | null {
   if (shownCount === 0) return null;
   const allShown = checkedShownCount === shownCount;
   return (
@@ -64,8 +64,8 @@ function ViewToggle({
 }: {
   view: 'group' | 'flat';
   onChange: (view: 'group' | 'flat') => void;
-}): JSX.Element {
-  const item = (value: 'group' | 'flat', label: string, Icon: typeof List): JSX.Element => (
+}): React.JSX.Element {
+  const item = (value: 'group' | 'flat', label: string, Icon: typeof List): React.JSX.Element => (
     <button
       type="button"
       aria-label={label}

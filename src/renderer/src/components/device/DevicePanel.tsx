@@ -55,7 +55,7 @@ function DeviceItem({
   onStart: (mode: AndroidInterceptionMode, trafficPath: AndroidTrafficPath) => void;
   onStop: () => void;
   onIosSetup: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const active = !!interception;
   const isIos = device.platform === 'ios';
   const [mode, setMode] = useState<AndroidInterceptionMode>('auto');
@@ -157,7 +157,7 @@ export function DevicePanel({
   onFilterClient,
   activeClientFilter,
   untrackedCount
-}: DevicePanelProps): JSX.Element {
+}: DevicePanelProps): React.JSX.Element {
   const { devices, refreshing, refresh, interceptions, start, stop } = useDevices({
     onInterceptionLost: (device) =>
       toast.warning('기기에서 인터셉션이 해제되었습니다', {

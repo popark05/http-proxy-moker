@@ -83,7 +83,7 @@ export function CollectionView({
   onImport,
   onUpsertServer,
   onRemoveServer
-}: CollectionViewProps): JSX.Element {
+}: CollectionViewProps): React.JSX.Element {
   const menu = useContextMenu();
   const [selected, setSelected] = useState<string | undefined>();
   const [draft, setDraft] = useState<Contract | undefined>();

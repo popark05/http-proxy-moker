@@ -35,7 +35,7 @@ export function MockingView({
   scenarioDirty,
   mocks,
   scenarios
-}: MockingViewProps): JSX.Element {
+}: MockingViewProps): React.JSX.Element {
   const panels: Record<MockingTab, ReactNode> = { mocks, scenarios };
   return (
     <div className="flex h-full min-h-0 flex-col">

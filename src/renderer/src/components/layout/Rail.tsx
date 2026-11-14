@@ -11,7 +11,7 @@ interface RailProps {
 }
 
 /** 맨 왼쪽 아이콘 줄. 이미 열린 섹션을 다시 누르면 사이드바가 접힌다. */
-export function Rail({ section, collapsed, onSelect }: RailProps): JSX.Element {
+export function Rail({ section, collapsed, onSelect }: RailProps): React.JSX.Element {
   return (
     <nav aria-label="섹션" className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-border bg-card/60 py-2">
       {SIDEBAR_SECTIONS.map(({ id, label, icon: Icon }) => {

@@ -59,7 +59,7 @@ export function MockPanel({
   hitCounts = {},
   lastHitAt = {},
   onResetHits
-}: MockPanelProps): JSX.Element {
+}: MockPanelProps): React.JSX.Element {
   const [editing, setEditing] = useState<MockDefinition | undefined>(undefined);
   const [editorOpen, setEditorOpen] = useState(false);
   const [scenarioName, setScenarioName] = useState('scenario-1');
@@ -147,7 +147,7 @@ interface MockRowProps {
 }
 
 /** 목 정의 한 행. mock-hit 발생 시 배경 플래시 + 히트 카운트 표시. */
-function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSaveCase }: MockRowProps): JSX.Element {
+function MockRow({ mock, hitCount, lastHitAt, onEdit, onRemove, caseName, onSaveCase }: MockRowProps): React.JSX.Element {
   const rowRef = useRef<HTMLDivElement>(null);
   const hitBadgeRef = useRef<HTMLSpanElement>(null);
   const prevHit = useRef(lastHitAt);

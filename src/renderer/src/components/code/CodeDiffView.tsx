@@ -15,7 +15,7 @@ export function CodeDiffView({
   original,
   modified,
   language = 'json'
-}: CodeDiffViewProps): JSX.Element {
+}: CodeDiffViewProps): React.JSX.Element {
   return (
     <DiffEditor
       height="100%"

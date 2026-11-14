@@ -83,7 +83,7 @@ function descendantsOf(self: string, scenarios: readonly ScenarioV2[]): Set<stri
 }
 
 /** 시나리오 편집: 이름/설명/태그/베이스 + 엔드포인트별 케이스 선택(상속과 덮어쓰기를 구분해 표시). */
-export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant, activeScenario, onSwitch, onActivate, onCommitLibrary }: ScenarioEditorProps): JSX.Element {
+export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant, activeScenario, onSwitch, onActivate, onCommitLibrary }: ScenarioEditorProps): React.JSX.Element {
   const editing = !!scenario;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

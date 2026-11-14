@@ -10,7 +10,7 @@ interface ConnectionSceneProps {
 /** 신뢰/인증서 단계에서는 가운데 도형을 자물쇠로 바꾼다. */
 const TRUST_STEPS = new Set(['ca', 'profile', 'trust', 'https']);
 
-function Figure({ children, label, narrow }: { children: JSX.Element; label: string; narrow?: boolean }): JSX.Element {
+function Figure({ children, label, narrow }: { children: React.JSX.Element; label: string; narrow?: boolean }): React.JSX.Element {
   return (
     <div className={cn('flex min-w-0 shrink-0 flex-col items-center gap-1', narrow ? 'w-[24%]' : 'w-[28%]')}>
       <div className="w-full">{children}</div>
@@ -30,7 +30,7 @@ function Connector({
   flowing: boolean;
   active: boolean;
   dashed?: boolean;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center self-stretch pb-8">
       <div className="relative w-full">
@@ -62,7 +62,7 @@ function Connector({
  * 기기 ─ (공유기) ─ PC 장면. 어느 단계가 현재인지에 따라 연결선 강조/패킷/가운데 도형이 바뀐다.
  * hairline 도형은 포인터에만 반응하므로 연결선과 패킷은 직접 그린다.
  */
-export function ConnectionScene({ tab, steps }: ConnectionSceneProps): JSX.Element {
+export function ConnectionScene({ tab, steps }: ConnectionSceneProps): React.JSX.Element {
   const byId = (id: string): WizardStep | undefined => steps.find((s) => s.id === id);
   const current = steps.find((s) => s.status === 'current' || s.status === 'blocked');
   const flowing = byId('traffic')?.status === 'done';

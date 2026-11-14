@@ -33,7 +33,7 @@ interface TabBarProps {
 }
 
 /** 워크스페이스 탭 줄. 미리보기 탭은 이탤릭이고, 더블클릭하면 고정된다. 가운데 버튼/× 로 닫고, 드래그로 순서를 바꾼다. */
-export function TabBar({ tabs, activeKey, describe, onActivate, onClose, onPin, onMove }: TabBarProps): JSX.Element {
+export function TabBar({ tabs, activeKey, describe, onActivate, onClose, onPin, onMove }: TabBarProps): React.JSX.Element {
   const dragKey = useRef<string | undefined>(undefined);
 
   /** 방향키로 옮기면 그 탭을 활성화하고 포커스도 따라간다(자동 활성화). */

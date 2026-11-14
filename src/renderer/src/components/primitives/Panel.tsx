@@ -16,7 +16,7 @@ Panel.displayName = 'Panel';
 export function PanelHeader({
   className,
   ...props
-}: React.HTMLAttributes<HTMLElement>): JSX.Element {
+}: React.HTMLAttributes<HTMLElement>): React.JSX.Element {
   return (
     <header
       className={cn(
@@ -28,6 +28,6 @@ export function PanelHeader({
   );
 }
 
-export function PanelBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): JSX.Element {
+export function PanelBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.JSX.Element {
   return <div className={cn('p-4', className)} {...props} />;
 }

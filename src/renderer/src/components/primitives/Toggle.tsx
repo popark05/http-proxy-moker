@@ -8,7 +8,7 @@ interface ToggleProps {
 }
 
 /** 기존 Toggle API를 shadcn Switch로 매핑하는 어댑터. */
-export function Toggle({ checked, onCheckedChange, id, ...rest }: ToggleProps): JSX.Element {
+export function Toggle({ checked, onCheckedChange, id, ...rest }: ToggleProps): React.JSX.Element {
   return (
     <Switch
       id={id}

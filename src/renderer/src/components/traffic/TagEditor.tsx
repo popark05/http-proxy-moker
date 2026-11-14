@@ -8,7 +8,7 @@ interface TagEditorProps {
 }
 
 /** exchange 태그 편집: 칩 목록 + 추가 입력(Enter로 추가). */
-export function TagEditor({ tags, onAdd, onRemove }: TagEditorProps): JSX.Element {
+export function TagEditor({ tags, onAdd, onRemove }: TagEditorProps): React.JSX.Element {
   const [draft, setDraft] = useState('');
 
   const commit = (): void => {

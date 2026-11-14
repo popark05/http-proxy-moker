@@ -12,7 +12,7 @@ import { useAppMode } from '../../state/app-mode';
  * "목 적용" 스위치와 상단 선 색으로 목 적용 여부를 강하게 구분해 QA가 착각하지 않도록 한다.
  * 내부 값은 모드(capture|mock)이고, "프록시가 목을 적용하는가"만 바꾸는 전역 설정이다. 목 상태(활성 개수, 시나리오)는 하단 상태바가 보여 준다.
  */
-export function TopBar(): JSX.Element {
+export function TopBar(): React.JSX.Element {
   const { mode, setMode } = useAppMode();
   const [caOpen, setCaOpen] = useState(false);
   const isMock = mode === 'mock';

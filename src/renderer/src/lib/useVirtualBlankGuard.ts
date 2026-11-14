@@ -16,7 +16,7 @@ const OFFSET_TOLERANCE = 2;
  */
 export function useVirtualBlankGuard(
   virtualizer: Virtualizer<HTMLDivElement, Element>,
-  parentRef: RefObject<HTMLDivElement>,
+  parentRef: RefObject<HTMLDivElement | null>,
   rowCount: number
 ): void {
   const [, forceRender] = useReducer((n: number) => n + 1, 0);

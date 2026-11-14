@@ -42,7 +42,7 @@ export function TrafficList({
   onCheckedChange,
   clientPlatforms,
   onRowContextMenu
-}: TrafficListProps): JSX.Element {
+}: TrafficListProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null);
   /** Shift+클릭 범위 선택의 기준 행(목록 인덱스). */
   const anchorRef = useRef<number | undefined>(undefined);

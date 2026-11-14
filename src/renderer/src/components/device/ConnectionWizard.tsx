@@ -23,7 +23,7 @@ function toWizardTab(tab: WizardPlatformTab, variant: AndroidWifiVariant): Wizar
   return tab;
 }
 
-function StatusDot({ status, index }: { status: StepStatus; index: number }): JSX.Element {
+function StatusDot({ status, index }: { status: StepStatus; index: number }): React.JSX.Element {
   const base = 'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold';
   if (status === 'done') {
     return (
@@ -64,7 +64,7 @@ export interface ConnectionGuideProps {
 }
 
 /** 탭별 단계를 앱의 실제 상태로 자동 체크하며 보여 주는 안내와 연결 그림. 모달과 전체 화면에서 같이 쓴다. */
-export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionGuideProps): JSX.Element {
+export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionGuideProps): React.JSX.Element {
   const [variant, setVariant] = useState<AndroidWifiVariant>('adb');
   const [proxyAddress, setProxyAddress] = useState<string | undefined>();
 
@@ -164,7 +164,7 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
 }
 
 /** 기기 연결 마법사(모달). 전체 화면 안내는 ConnectionGuide를 직접 쓴다. */
-export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb', input }: ConnectionWizardProps): JSX.Element {
+export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb', input }: ConnectionWizardProps): React.JSX.Element {
   const [tab, setTab] = useState<WizardPlatformTab>(initialTab);
 
   // 열 때마다 요청된 탭으로 맞춘다.

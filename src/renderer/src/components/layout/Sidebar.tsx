@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 /** 사이드바(트래픽). 기록 컨트롤은 섹션과 무관하게 항상 맨 위에 둔다. */
-export function Sidebar({ section, captureProps, traffic }: SidebarProps): JSX.Element {
+export function Sidebar({ section, captureProps, traffic }: SidebarProps): React.JSX.Element {
   return (
     <aside aria-label="사이드바" className="flex h-full flex-col">
       <CaptureControls {...captureProps} />

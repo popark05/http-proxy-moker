@@ -60,7 +60,7 @@ export function TrafficPanel({
   newLiveCount,
   savedNames,
   sourceActions
-}: TrafficPanelProps): JSX.Element {
+}: TrafficPanelProps): React.JSX.Element {
   const menu = useContextMenu();
   const actions: TrafficMenuActions = {
     ...rowActions,

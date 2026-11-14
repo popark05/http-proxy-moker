@@ -16,7 +16,7 @@ interface CaptureControlsProps {
  * 트래픽 기록 컨트롤. 프록시를 켜고 끄는 대신(프록시는 자동으로 켜진다) "지금 들어오는 요청을 목록에 쌓을지"만 다룬다.
  * 일시중지해도 기기의 통신은 그대로 통과한다.
  */
-export function CaptureControls({ paused, onTogglePaused, count, onClear, clearDisabled }: CaptureControlsProps): JSX.Element {
+export function CaptureControls({ paused, onTogglePaused, count, onClear, clearDisabled }: CaptureControlsProps): React.JSX.Element {
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
       <Button

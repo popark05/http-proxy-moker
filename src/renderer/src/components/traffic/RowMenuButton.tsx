@@ -8,7 +8,7 @@ interface RowMenuButtonProps {
 }
 
 /** 트래픽 행 끝의 "⋯" 버튼. 우클릭과 같은 메뉴를 연다(마우스 우클릭이 어려운 환경과 발견성을 위해). */
-export function RowMenuButton({ target, onOpen }: RowMenuButtonProps): JSX.Element {
+export function RowMenuButton({ target, onOpen }: RowMenuButtonProps): React.JSX.Element {
   return (
     <button
       type="button"

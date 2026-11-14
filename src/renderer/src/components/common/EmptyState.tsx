@@ -20,7 +20,7 @@ export function EmptyState({
   action,
   className,
   compact = false
-}: EmptyStateProps): JSX.Element {
+}: EmptyStateProps): React.JSX.Element {
   return (
     <div
       className={cn(

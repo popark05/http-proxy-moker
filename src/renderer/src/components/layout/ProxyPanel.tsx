@@ -23,7 +23,7 @@ interface ProxyPanelProps {
  * 프록시 상태/고급 설정. 프록시는 기기 연결이나 목킹을 시작할 때 자동으로 켜지므로 평소에는 열 일이 없고,
  * 포트를 바꾸거나 문제를 확인할 때만 쓴다.
  */
-export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, onRestart }: ProxyPanelProps): JSX.Element {
+export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, onRestart }: ProxyPanelProps): React.JSX.Element {
   const [port, setPort] = useState(String(status.port ?? DEFAULT_PROXY_PORT));
   const [address, setAddress] = useState<string | undefined>();
 

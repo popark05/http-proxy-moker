@@ -8,7 +8,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   $tone?: BadgeTone;
 }
 
-export function Badge({ $tone = 'neutral', ...props }: BadgeProps): JSX.Element {
+export function Badge({ $tone = 'neutral', ...props }: BadgeProps): React.JSX.Element {
   return <UiBadge variant={$tone} {...props} />;
 }
 

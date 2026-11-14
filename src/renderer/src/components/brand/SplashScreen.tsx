@@ -26,7 +26,7 @@ function shouldShow(): boolean {
  * 앱 시작 브랜드 애니메이션: hairline `Slow`(크레이트가 게이트를 지나는 컨베이어)가 "요청이 프록시를
  * 통과한다"를 보여주고, 이어서 워드마크가 나타난다. 클릭/키 입력으로 건너뛸 수 있다.
  */
-export function SplashScreen(): JSX.Element | null {
+export function SplashScreen(): React.JSX.Element | null {
   const [phase, setPhase] = useState<Phase>(() => (shouldShow() ? 'show' : 'gone'));
 
   useEffect(() => {

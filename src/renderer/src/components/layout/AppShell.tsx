@@ -38,7 +38,7 @@ export function AppShell({
   connectView,
   mockingView,
   collectionView
-}: AppShellProps): JSX.Element {
+}: AppShellProps): React.JSX.Element {
   const fullView = FULL_VIEW_SECTIONS.has(section) && !collapsed;
   const views: Array<[SidebarSection, ReactNode]> = [
     ['connect', connectView],

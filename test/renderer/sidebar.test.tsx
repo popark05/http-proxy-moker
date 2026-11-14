@@ -7,7 +7,7 @@ import { SIDEBAR_SECTIONS } from '../../src/renderer/src/components/layout/sideb
 import type { SidebarSection } from '../../src/renderer/src/components/layout/sidebar-sections';
 
 // 기기 연결 화면은 인터셉트 상태(useDevices)를 들고 있다. 상태가 남는지만 보면 되므로 상태를 가진 대역을 쓴다.
-function Connect(): JSX.Element {
+function Connect(): React.JSX.Element {
   const [on, setOn] = useState(false);
   return (
     <button type="button" onClick={() => setOn(true)}>
@@ -16,7 +16,7 @@ function Connect(): JSX.Element {
   );
 }
 
-function Harness({ section, collapsed = false }: { section: SidebarSection; collapsed?: boolean }): JSX.Element {
+function Harness({ section, collapsed = false }: { section: SidebarSection; collapsed?: boolean }): React.JSX.Element {
   return (
     <TooltipProvider>
       <AppShell

@@ -37,7 +37,7 @@ export function FilterBar({
   clients,
   total,
   shown
-}: FilterBarProps): JSX.Element {
+}: FilterBarProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false);
 
   return (

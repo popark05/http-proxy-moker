@@ -20,7 +20,7 @@ export function CodeView({
   readOnly = true,
   onChange,
   height = '100%'
-}: CodeViewProps): JSX.Element {
+}: CodeViewProps): React.JSX.Element {
   // 앱은 다크 테마 고정.
   return (
     <Editor

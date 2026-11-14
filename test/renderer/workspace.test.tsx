@@ -6,12 +6,12 @@ import type { Tab } from '../../src/renderer/src/lib/workbench';
 
 const tab = (target: Tab['target'], key: string): Tab => ({ key, target, pinned: true });
 
-function Draft({ label }: { label: string }): JSX.Element {
+function Draft({ label }: { label: string }): React.JSX.Element {
   const [value, setValue] = useState('');
   return <input aria-label={label} value={value} onChange={(e) => setValue(e.target.value)} />;
 }
 
-function Harness({ tabs, activeKey }: { tabs: Tab[]; activeKey: string }): JSX.Element {
+function Harness({ tabs, activeKey }: { tabs: Tab[]; activeKey: string }): React.JSX.Element {
   return (
     <Workspace
       tabs={tabs}

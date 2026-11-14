@@ -23,7 +23,7 @@ interface WorkspaceProps {
 }
 
 /** 탭 줄 + 활성 탭 내용. 탭이 없으면 빈 상태를 보여 준다. */
-export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyDescription, emptyAction, emptyHint }: WorkspaceProps): JSX.Element {
+export function Workspace({ tabs, activeKey, tabBarProps, renderContent, emptyDescription, emptyAction, emptyHint }: WorkspaceProps): React.JSX.Element {
   if (tabs.length === 0) {
     return (
       <div className="relative flex h-full items-center justify-center">

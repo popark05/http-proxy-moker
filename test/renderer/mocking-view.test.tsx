@@ -3,12 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { MockingView, type MockingTab } from '../../src/renderer/src/components/mock/MockingView';
 
-function Draft({ label }: { label: string }): JSX.Element {
+function Draft({ label }: { label: string }): React.JSX.Element {
   const [value, setValue] = useState('');
   return <input aria-label={label} value={value} onChange={(e) => setValue(e.target.value)} />;
 }
 
-function Harness({ initial = 'mocks', active, dirty = false }: { initial?: MockingTab; active?: string; dirty?: boolean }): JSX.Element {
+function Harness({ initial = 'mocks', active, dirty = false }: { initial?: MockingTab; active?: string; dirty?: boolean }): React.JSX.Element {
   const [tab, setTab] = useState<MockingTab>(initial);
   return (
     <MockingView

@@ -18,7 +18,7 @@ interface ExchangeDetailProps {
   clientDescription?: string;
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element {
+function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <h4 className="px-3 py-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
       {children}
@@ -32,7 +32,7 @@ export function ExchangeDetail({
   onAddTag,
   onRemoveTag,
   clientDescription
-}: ExchangeDetailProps): JSX.Element {
+}: ExchangeDetailProps): React.JSX.Element {
   if (!exchange) {
     return (
       <div className="flex h-full items-center justify-center">

@@ -8,7 +8,7 @@ interface CaExportModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function CaExportModal({ open, onOpenChange }: CaExportModalProps): JSX.Element {
+export function CaExportModal({ open, onOpenChange }: CaExportModalProps): React.JSX.Element {
   const [info, setInfo] = useState<CaInfo | undefined>(undefined);
   const [saved, setSaved] = useState<string | undefined>(undefined);
 

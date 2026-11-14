@@ -37,7 +37,7 @@ interface OpenMenu {
  */
 export function useContextMenu(): {
   open: (event: MenuAnchor, items: MenuItem[]) => void;
-  element: JSX.Element | null;
+  element: React.JSX.Element | null;
 } {
   const [menu, setMenu] = useState<OpenMenu | undefined>(undefined);
   const ref = useRef<HTMLDivElement>(null);

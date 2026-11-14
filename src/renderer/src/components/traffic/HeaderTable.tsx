@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 
-export function HeaderTable({ headers }: { headers: Array<[string, string]> }): JSX.Element {
+export function HeaderTable({ headers }: { headers: Array<[string, string]> }): React.JSX.Element {
   if (headers.length === 0) {
     return <div className="px-2 py-1 font-mono text-xs text-muted-foreground">헤더 없음</div>;
   }

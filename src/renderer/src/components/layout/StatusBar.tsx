@@ -38,7 +38,7 @@ export function StatusBar({
   lastHitAt,
   onOpenConnect,
   onOpenMocking
-}: StatusBarProps): JSX.Element {
+}: StatusBarProps): React.JSX.Element {
   const isMock = mode === 'mock';
 
   // mock-hit이 발생하면 활성 목 배지를 잠깐 pulse한다.

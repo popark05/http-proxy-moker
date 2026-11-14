@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 
 /** shadcn sonner 래퍼. 앱은 다크 고정이라 theme dark. */
-function Toaster(props: ToasterProps): JSX.Element {
+function Toaster(props: ToasterProps): React.JSX.Element {
   return (
     <Sonner
       theme="dark"

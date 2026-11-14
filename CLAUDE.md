@@ -99,3 +99,37 @@ A TypeScript port of dadb (Apache-2.0, see `src/main/adb/NOTICE`) that replaces 
 ### UI
 
 The UI uses Tailwind v4 + shadcn/ui (`components/ui/`, config in `components.json`, the `@/` alias → `src/renderer/src`), in-house primitives in `components/primitives/`, Monaco for the code and diff views, and a dark theme by default. The README's mention of styled-components is outdated. Path aliases are `@shared`, `@renderer` and `@`, defined in both `electron.vite.config.ts` and `vitest.config.ts`.
+
+**Astryx (incremental migration in progress):** `@astryxdesign/core` + `theme-neutral` (needs React 19, so the app is on React 19; use `React.JSX.Element`, there is no global `JSX`). Foundation only so far; screens and shared primitives still use shadcn/Radix. Rules that must hold: (1) `styles/globals.css` declares `@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;` **above** `@import 'tailwindcss'` and is the first import in `main.tsx`; putting it below makes the Astryx reset silently override every Tailwind utility. (2) The app is wrapped in `<Theme theme={evermockTheme} mode="dark">` from `renderer/src/theme/astryx-theme.ts`, which re-exports the **built** theme (`evermock.js/.css/.d.ts`, generated from `evermock.source.ts`: `neutral` extended with the bundled DM Sans / DM Mono, and the Astryx background/border/text/accent tokens pointed at our `hsl(var(--…))` palette variables so Astryx chrome matches the shadcn UI). After editing `evermock.source.ts` or upgrading Astryx run `npm run theme:build` and commit the outputs (`npm run theme:check` verifies; a runtime-injected theme logs a warning and breaks under jsdom). Do **not** import `@astryxdesign/theme-neutral/fonts.css` or run `astryx theme add` to generate `src/astryx-themes.ts`: it loads Figtree from Google Fonts, and this is an offline desktop app. (3) Our `@theme` block stays `inline`: `--color-accent/border/success/warning` collide with Astryx tokens, and `inline` keeps our Tailwind utilities (`bg-accent` = muted surface) on our values. (4) Astryx components ship precompiled, so no StyleX build plugin is needed (only for `astryx swizzle`). Migration order and mappings: `npx astryx docs migration`.
+
+<!-- ASTRYX:START -->
+Astryx v0.7.15 · 174 components
+CLI: run every command as `npx astryx <cmd>` (shown below as `astryx ...`).
+
+SETUP (once, in app entry e.g. main.tsx) — without these, components render unstyled:
+  import "@astryxdesign/core/reset.css";
+  import "@astryxdesign/core/astryx.css";
+
+WORKFLOW — start every page from a template, never from scratch:
+1. `astryx build "<idea>"` — names the template to scaffold from and the parts it lacks.
+2. `astryx template <name> <path>` — scaffold it; keep its frame, gap and padding; replace the content.
+3. `astryx template <Block>` for parts it lacks; `astryx component <Name>` to read props before using one.
+Changing an existing page? Keep it: skip step 2 and add blocks/components inside its sections.
+Before you deliver a build, run `astryx doctor --built <dir>`; don't deliver it if it fails.
+
+RULES:
+- No <div> — components handle all layout and spacing.
+- Read `astryx docs layout` before changing a template's frame.
+- Dense data = rows (Table, List/Item), not Card-wrapped lists. Badge = counts only.
+- Style with component props first, then Tailwind utilities backed by tokens. No raw hex/px.
+- Palettes and custom colors go through the theme, never :root overrides. Run `astryx theme add <slug>` to import; `theme eject <slug>` only forks source. See `astryx docs theme`.
+- SELF-CHECK: re-read the file; replace any style={{…}}, raw <div>/<span>, imported .css/@apply, or hardcoded/arbitrary value (bg-[#fff], p-[13px]) with the component or a token-backed utility.
+
+`astryx help` lists every command. Key ones beyond the workflow:
+  search "<query>"   find any component / hook / doc / template
+  discover <words>   integrations you could add
+  docs <topic>       getting-started, principles, tokens, theme … (`astryx docs` lists all)
+  docs cli           commands and API reference
+  docs authoring     build an integration package, and every field it holds
+  upgrade --from <old version> --apply   run after a dependency bump
+<!-- ASTRYX:END -->

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /** EverMock 로고 마크 (E2 수렴 노드). currentColor 기반이라 어디서든 색 상속. */
-export function LogoMark({ className }: { className?: string }): JSX.Element {
+export function LogoMark({ className }: { className?: string }): React.JSX.Element {
   return (
     <svg
       viewBox="0 0 200 200"
@@ -28,7 +28,7 @@ export function LogoMark({ className }: { className?: string }): JSX.Element {
 }
 
 /** 로고 마크 + 워드마크(EverMock). */
-export function LogoWordmark({ className }: { className?: string }): JSX.Element {
+export function LogoWordmark({ className }: { className?: string }): React.JSX.Element {
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <LogoMark className="size-6 text-foreground" />

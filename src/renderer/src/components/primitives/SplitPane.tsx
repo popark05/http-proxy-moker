@@ -41,7 +41,7 @@ export function SplitPane({
   maxLeftWidth = 900,
   widthStorageKey,
   collapsed = false
-}: SplitPaneProps): JSX.Element {
+}: SplitPaneProps): React.JSX.Element {
   const [leftWidth, setLeftWidth] = useState(
     () => readStoredWidth(widthStorageKey, minLeftWidth, maxLeftWidth) ?? initialLeftWidth
   );

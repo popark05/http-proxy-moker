@@ -14,7 +14,7 @@ export function formatAgo(ms: number): string {
   return `${Math.floor(min / 60)}시간 전`;
 }
 
-export function PlatformIcon({ platform, className }: { platform: ClientInfo['platform']; className?: string }): JSX.Element {
+export function PlatformIcon({ platform, className }: { platform: ClientInfo['platform']; className?: string }): React.JSX.Element {
   if (platform === 'ios') return <Apple className={className} />;
   if (platform === 'android') return <Smartphone className={className} />;
   return <HelpCircle className={className} />;
@@ -40,7 +40,7 @@ interface ClientListProps {
  */
 const STATE_ORDER = { untrusted: 0, active: 1, idle: 2 } as const;
 
-export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup, untrackedCount = 0 }: ClientListProps): JSX.Element {
+export function ClientList({ clients, devices, now, proxyRunning, onFilter, activeFilter, onIosSetup, untrackedCount = 0 }: ClientListProps): React.JSX.Element {
   // 조치가 필요한 기기(인증서 미신뢰)를 맨 위에, 그다음 수신 중, 대기 순(같은 상태는 최근 접속순).
   const sorted = [...clients].sort(
     (a, b) => STATE_ORDER[clientState(a, now)] - STATE_ORDER[clientState(b, now)] || b.lastSeenAt - a.lastSeenAt

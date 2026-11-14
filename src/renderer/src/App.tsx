@@ -46,7 +46,7 @@ import { toast } from 'sonner';
 import { newSessionName } from './lib/session-name';
 import { errMsg } from './lib/errors';
 
-function AppInner(): JSX.Element {
+function AppInner(): React.JSX.Element {
   const {
     exchanges,
     liveExchanges,
@@ -325,7 +325,7 @@ function AppInner(): JSX.Element {
       .catch((e) => toast.error('시나리오 저장 실패', { description: errMsg(e) }));
   };
 
-  const renderTabContent = (tab: Tab): JSX.Element => {
+  const renderTabContent = (tab: Tab): React.JSX.Element => {
     const exchange = exchanges.find((e) => e.id === tab.target.id);
     return (
       <ExchangeDetail
@@ -479,7 +479,7 @@ function AppInner(): JSX.Element {
       <FlaskConical /> 목킹 열기
     </Button>
   );
-  const emptyState: { description: string; action: JSX.Element } = !status.running
+  const emptyState: { description: string; action: React.JSX.Element } = !status.running
     ? {
         description: '기기를 연결하면 프록시가 자동으로 켜지고, 앱의 요청이 왼쪽 목록에 쌓입니다. 선택하면 여기에 상세가 열립니다.',
         action: (
@@ -568,7 +568,7 @@ function AppInner(): JSX.Element {
   );
 }
 
-export function App(): JSX.Element {
+export function App(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={300}>
       <AppModeProvider>

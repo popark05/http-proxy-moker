@@ -13,7 +13,7 @@ interface CommandPaletteProps {
 }
 
 /** Cmd/Ctrl+K 커맨드 팔레트. 입력으로 탭·목·시나리오·컬렉션·요청·동작을 찾아 Enter로 실행한다. */
-export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteProps): JSX.Element {
+export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteProps): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);

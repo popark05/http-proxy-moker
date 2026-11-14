@@ -58,7 +58,7 @@ export function MockEditor({
   lockEndpoint = false,
   nameLabel = '라벨',
   title = '목 편집'
-}: MockEditorProps): JSX.Element {
+}: MockEditorProps): React.JSX.Element {
   const [draft, setDraft] = useState<MockDefinition | undefined>(mock);
   const [showDiff, setShowDiff] = useState(false);
   const [replaceError, setReplaceError] = useState<string | undefined>(undefined);
@@ -341,7 +341,7 @@ export function MockEditor({
 }
 
 /** 이진 본문 미리보기: 이미지면 그림으로, 아니면 크기만 안내한다. */
-function BinaryBody({ body, contentType }: { body: string; contentType?: string }): JSX.Element {
+function BinaryBody({ body, contentType }: { body: string; contentType?: string }): React.JSX.Element {
   const byteLength = Math.floor((body.length * 3) / 4) - (body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0);
   const mime = displayableImageMime({ encoding: 'base64', content: body, byteLength, contentType });
   if (mime) return <ImagePreview src={toDataUrl(mime, body, 'base64')} mime={mime} byteLength={byteLength} />;
