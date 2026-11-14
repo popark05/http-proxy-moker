@@ -15,6 +15,7 @@ import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
 import { useVirtualBlankGuard } from '@/lib/useVirtualBlankGuard';
+import { RowMenuButton } from './RowMenuButton';
 
 interface TrafficGroupListProps {
   exchanges: CapturedExchange[];
@@ -58,7 +59,7 @@ function StatusBadge({ exchange }: { exchange: CapturedExchange }): JSX.Element 
   const r = exchange.response;
   if (r === 'aborted') return <Badge variant="error">✕</Badge>;
   if (r) return <Badge variant={statusTone(r.statusCode)}>{r.statusCode}</Badge>;
-  return <Badge variant="neutral">…</Badge>;
+  return <Badge variant="neutral">대기</Badge>;
 }
 
 const ROW_HEIGHT: Record<TrafficRow['kind'], number> = { host: 36, endpoint: 44, call: 36 };
@@ -171,6 +172,7 @@ export function TrafficGroupList({
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {row.group.exchanges.length}건
                   </span>
+                  {onRowContextMenu && <RowMenuButton target={row.group.exchanges} onOpen={onRowContextMenu} />}
                 </div>
               ) : row.kind === 'endpoint' ? (
                 <EndpointRow
@@ -214,6 +216,7 @@ export function TrafficGroupList({
                     </span>
                     <StatusBadge exchange={row.exchange} />
                   </button>
+                  {onRowContextMenu && <RowMenuButton target={[row.exchange]} onOpen={onRowContextMenu} />}
                 </div>
               )}
             </div>
@@ -301,6 +304,7 @@ function EndpointRow({
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
       )}
+      {onContextMenu && <RowMenuButton target={endpoint.exchanges} onOpen={onContextMenu} />}
     </div>
   );
 }

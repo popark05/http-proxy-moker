@@ -38,7 +38,6 @@ import { ExchangeDetail } from './components/traffic/ExchangeDetail';
 import { SplashScreen } from './components/brand/SplashScreen';
 import { ProjectBar } from './components/project/ProjectBar';
 import { ScenarioEditor } from './components/mock/ScenarioEditor';
-import { LibraryModal } from './components/mock/LibraryModal';
 import { useProxyActions } from './state/useProxyActions';
 import { useProjectActions } from './state/useProjectActions';
 import { useScenarioActions } from './state/useScenarioActions';
@@ -101,7 +100,7 @@ function AppInner(): JSX.Element {
   const { section, collapsed, openSection, toggleSection } = useSidebarLayout();
 
   const workbench = useWorkbench();
-  // 목·시나리오·응답 케이스는 목킹 화면에서 다룬다(트래픽 섹션의 탭은 요청 상세뿐).
+  // 목·시나리오(응답 케이스 포함)는 목킹 화면에서 다룬다(트래픽 섹션의 탭은 요청 상세뿐).
   const [mockingTab, setMockingTab] = useState<MockingTab>('mocks');
   /** 시나리오 탭에서 편집 중인 시나리오. undefined면 목록, null이면 새 시나리오. */
   const [editingScenario, setEditingScenario] = useState<string | null | undefined>(undefined);
@@ -114,7 +113,6 @@ function AppInner(): JSX.Element {
     setEditingScenario(name);
     openMocking('scenarios');
   };
-  const openLibraryTab = (): void => openMocking('library');
   const openCollection = (): void => openSection('collection');
 
   /** 트래픽 행 선택. 모드와 무관하게 상세를 미리보기 탭으로 연다. */
@@ -351,8 +349,7 @@ function AppInner(): JSX.Element {
       onTabChange={setMockingTab}
       counts={{
         mocks: mocks.length,
-        scenarios: scenarioLib.scenarios.length,
-        cases: scenarioLib.library.endpoints.length
+        scenarios: scenarioLib.scenarios.length
       }}
       activeScenario={activeScenario}
       scenarioDirty={!!scenarioLib.diff?.dirty}
@@ -389,7 +386,6 @@ function AppInner(): JSX.Element {
               onDelete={(name) => void scenarioActions.deleteScenario(name)}
               onUpdateActive={() => void scenarioActions.updateActiveScenario()}
               onNew={() => setEditingScenario(null)}
-              onOpenLibrary={openLibraryTab}
             />
           </div>
         ) : editingScenario !== null && !editingScenarioValue ? (
@@ -417,18 +413,9 @@ function AppInner(): JSX.Element {
             activeScenario={activeScenario}
             onSwitch={(name) => setEditingScenario(name)}
             onActivate={scenarioActions.activateScenario}
+            onCommitLibrary={(next) => void scenarioLib.commit(next)}
           />
         )
-      }
-      library={
-        <LibraryModal
-          variant="tab"
-          open
-          onOpenChange={() => {}}
-          library={scenarioLib.library}
-          scenarios={scenarioLib.scenarios}
-          onCommit={(next) => void scenarioLib.commit(next)}
-        />
       }
     />
   );
@@ -472,7 +459,6 @@ function AppInner(): JSX.Element {
             scenarioActions.activateScenario(name);
             openMocksTab();
           },
-          openLibrary: openLibraryTab,
           openCollection,
           loadSession: viewSavedCapture,
           startProxy: () => void ensureProxy(),

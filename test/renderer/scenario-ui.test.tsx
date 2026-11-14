@@ -15,7 +15,6 @@ vi.mock('../../src/renderer/src/components/code/CodeDiffView', () => ({ CodeDiff
 
 import { ScenarioPanel } from '../../src/renderer/src/components/mock/ScenarioPanel';
 import { ScenarioEditor } from '../../src/renderer/src/components/mock/ScenarioEditor';
-import { LibraryModal } from '../../src/renderer/src/components/mock/LibraryModal';
 
 const mock = (method: string, path: string, status = 200, body = '{}'): MockDefinition => ({
   id: `m${method}${path}${status}`,
@@ -35,7 +34,7 @@ function fixture() {
 
 describe('ScenarioPanel', () => {
   const noop = () => {};
-  const props = { hasLibrary: true, onEdit: noop, onDelete: noop, onUpdateActive: noop, onNew: noop, onOpenLibrary: noop };
+  const props = { hasLibrary: true, onEdit: noop, onDelete: noop, onUpdateActive: noop, onNew: noop };
 
   it('활성 시나리오가 수정되면 "수정됨"과 되돌리기/현재 작업 반영 버튼을 보여준다', () => {
     const { base } = fixture();
@@ -71,6 +70,15 @@ describe('ScenarioPanel', () => {
   });
 });
 
+/** 행의 "⋯" 메뉴를 열고 항목 이름으로 고른다. */
+const openCaseMenu = (endpointId: string): void => {
+  fireEvent.click(screen.getByLabelText(`${endpointId} 케이스 메뉴`));
+};
+const pickMenu = (endpointId: string, name: string | RegExp): void => {
+  openCaseMenu(endpointId);
+  fireEvent.click(screen.getByRole('menuitem', { name }));
+};
+
 describe('ScenarioEditor', () => {
   it('베이스를 상속하고 일부만 덮어쓴 변형 시나리오를 저장한다', () => {
     const { library, base, failCaseId } = fixture();
@@ -79,11 +87,11 @@ describe('ScenarioEditor', () => {
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '결제 실패' } });
     fireEvent.change(screen.getByLabelText('베이스'), { target: { value: '정상' } });
     // 상속된 선택이 기본 옵션으로 보인다.
-    const pay = screen.getByLabelText('POST /pay 케이스') as HTMLSelectElement;
-    expect(within(pay).getByText(/상속: 200/)).toBeTruthy();
-    fireEvent.change(pay, { target: { value: failCaseId } });
+    expect(screen.getAllByText(/상속: 200/).length).toBeGreaterThan(0);
+    const failName = library.endpoints.find((e) => e.id === 'POST /pay')!.cases.find((c) => c.id === failCaseId)!.name;
+    pickMenu('POST /pay', failName);
     // /feed는 상속 끄기
-    fireEvent.change(screen.getByLabelText('GET /feed 케이스'), { target: { value: '__none__' } });
+    pickMenu('GET /feed', '사용 안 함 (상속 끄기)');
     fireEvent.click(screen.getByText('저장'));
     const saved = onSave.mock.calls[0][0] as ScenarioV2;
     expect(saved.name).toBe('결제 실패');
@@ -173,43 +181,95 @@ describe('ScenarioEditor 편집 대상 전환', () => {
   });
 });
 
-describe('LibraryModal', () => {
+describe('ScenarioEditor 응답 케이스 통합', () => {
   beforeEach(() => {
     window.confirm = vi.fn(() => true);
   });
 
-  it('케이스 사용처를 보여주고, 삭제하면 영향받는 시나리오 선택도 정리해 커밋한다', () => {
+  const renderEditor = (onCommitLibrary = vi.fn(), scenarios?: ScenarioV2[]) => {
     const { library, base } = fixture();
-    const onCommit = vi.fn();
-    render(<LibraryModal open onOpenChange={() => {}} library={library} scenarios={[base]} onCommit={onCommit} />);
-    expect(screen.getAllByText(/사용: 정상/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByLabelText(/삭제/)[0]);
+    render(
+      <ScenarioEditor
+        open
+        onOpenChange={() => {}}
+        scenario={base}
+        scenarios={scenarios ?? [base]}
+        library={library}
+        onSave={() => {}}
+        onCommitLibrary={onCommitLibrary}
+      />
+    );
+    return { onCommitLibrary, base };
+  };
+
+  it('엣지케이스 프리셋을 추가하면 라이브러리를 커밋하고 그 케이스를 이 행의 선택으로 지정한다', () => {
+    const { library, base } = fixture();
+    const onCommitLibrary = vi.fn();
+    const ui = (lib: typeof library) => (
+      <ScenarioEditor open onOpenChange={() => {}} scenario={base} scenarios={[base]} library={lib} onSave={() => {}} onCommitLibrary={onCommitLibrary} />
+    );
+    const { rerender } = render(ui(library));
+    pickMenu('GET /feed', '추가: 500 서버 오류');
+    const committed = onCommitLibrary.mock.calls[0][0].library;
+    const endpoint = committed.endpoints.find((e: { id: string }) => e.id === 'GET /feed');
+    expect(endpoint.cases.map((c: { name: string }) => c.name)).toContain('500 서버 오류');
+    // 앱에서는 커밋 뒤 라이브러리가 갱신되어 내려온다.
+    rerender(ui(committed));
+    const picked = endpoint.cases.find((c: { name: string }) => c.name === '500 서버 오류').id;
+    expect(picked).toBeTruthy();
+    // 새 케이스가 이 행의 선택으로 표시된다(이름 + 상태 배지).
+    expect(screen.getByText('500 서버 오류')).toBeTruthy();
+  });
+
+  it('선택된 케이스를 삭제하면 사용처를 확인하고, 영향받은 시나리오와 함께 커밋하며 선택을 비운다', () => {
+    const { onCommitLibrary, base } = renderEditor();
+    pickMenu('GET /feed', '선택한 케이스 삭제');
     expect((window.confirm as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain('정상');
-    const next = onCommit.mock.calls[0][0];
+    const next = onCommitLibrary.mock.calls[0][0];
     expect(next.scenarios[0].picks.length).toBeLessThan(base.picks.length);
+    expect(screen.getByText('선택 안 함')).toBeTruthy();
   });
 
-  it('엣지케이스 프리셋을 추가한다', () => {
+  it('선택된 케이스가 없으면 편집·삭제가 비활성이다', () => {
     const { library } = fixture();
-    const onCommit = vi.fn();
-    render(<LibraryModal open onOpenChange={() => {}} library={library} scenarios={[]} onCommit={onCommit} />);
-    fireEvent.change(screen.getByLabelText('GET /feed 프리셋 추가'), { target: { value: 'server-error' } });
-    const committed = onCommit.mock.calls[0][0].library;
-    const names = committed.endpoints.find((e: { id: string }) => e.id === 'GET /feed').cases.map((c: { name: string }) => c.name);
-    expect(names).toContain('500 서버 오류');
+    const empty: ScenarioV2 = { version: 2, id: 'e', name: '빈것', picks: [] };
+    render(<ScenarioEditor open onOpenChange={() => {}} scenario={empty} scenarios={[empty]} library={library} onSave={() => {}} onCommitLibrary={() => {}} />);
+    openCaseMenu('GET /feed');
+    expect((screen.getByRole('menuitem', { name: '선택한 케이스 편집' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('menuitem', { name: '선택한 케이스 삭제' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('케이스를 편집하면 이름/응답이 갱신된 라이브러리를 커밋한다', () => {
-    const { library } = fixture();
-    const onCommit = vi.fn();
-    render(<LibraryModal open onOpenChange={() => {}} library={library} scenarios={[]} onCommit={onCommit} />);
-    fireEvent.click(screen.getAllByLabelText(/편집/)[0]);
+  it('선택된 케이스를 편집하면 이름/응답이 갱신된 라이브러리를 커밋한다', () => {
+    const { onCommitLibrary } = renderEditor();
+    pickMenu('GET /feed', '선택한 케이스 편집');
     fireEvent.change(screen.getByLabelText('케이스 이름'), { target: { value: '정상 응답' } });
-    // 엔드포인트는 고정(method/path 입력이 비활성)
+    // 엔드포인트는 고정(경로 입력이 비활성)
     expect((screen.getByLabelText('경로') as HTMLInputElement).disabled).toBe(true);
-    fireEvent.click(screen.getByText('저장'));
-    const names = onCommit.mock.calls[0][0].library.endpoints.flatMap((e: { cases: Array<{ name: string }> }) => e.cases.map((c) => c.name));
+    fireEvent.click(screen.getAllByText('저장').at(-1)!);
+    const names = onCommitLibrary.mock.calls[0][0].library.endpoints.flatMap((e: { cases: Array<{ name: string }> }) => e.cases.map((c) => c.name));
     expect(names).toContain('정상 응답');
+  });
+
+  it('케이스를 고치는 동안 입력 중인 설명은 유지된다', () => {
+    const { library, base } = fixture();
+    const onCommitLibrary = vi.fn();
+    const { rerender } = render(
+      <ScenarioEditor open onOpenChange={() => {}} scenario={base} scenarios={[base]} library={library} onSave={() => {}} onCommitLibrary={onCommitLibrary} />
+    );
+    fireEvent.change(screen.getByLabelText('설명'), { target: { value: '작성 중' } });
+    // 케이스 삭제 등으로 시나리오 객체만 새로 만들어져도(대상은 같음) 입력은 초기화되지 않는다.
+    rerender(
+      <ScenarioEditor open onOpenChange={() => {}} scenario={{ ...base }} scenarios={[{ ...base }]} library={library} onSave={() => {}} onCommitLibrary={onCommitLibrary} />
+    );
+    expect((screen.getByLabelText('설명') as HTMLInputElement).value).toBe('작성 중');
+  });
+
+  it('onCommitLibrary가 없으면 케이스 편집 컨트롤을 그리지 않는다', () => {
+    const { library, base } = fixture();
+    render(<ScenarioEditor open onOpenChange={() => {}} scenario={base} scenarios={[base]} library={library} onSave={() => {}} />);
+    openCaseMenu('GET /feed');
+    expect(screen.queryByRole('menuitem', { name: /추가:/ })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: '선택한 케이스 편집' })).toBeNull();
   });
 });
 
@@ -224,16 +284,6 @@ describe('탭 표시(variant="tab")', () => {
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '신규' } });
     fireEvent.click(screen.getByText('저장'));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: '신규' }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('LibraryModal은 대화상자 없이 본문을 그리고, 닫기 버튼이 탭 닫기를 요청한다', () => {
-    const { library, base } = fixture();
-    const onOpenChange = vi.fn();
-    render(<LibraryModal variant="tab" open onOpenChange={onOpenChange} library={library} scenarios={[base]} onCommit={() => {}} />);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByRole('heading', { name: '응답 케이스' })).toBeTruthy();
-    fireEvent.click(screen.getByText('닫기'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

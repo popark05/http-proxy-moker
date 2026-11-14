@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CaseLibrary, ScenarioV2 } from '@shared/scenario-library';
-import { effectivePicks } from '@shared/scenario-library';
-import { Modal, methodTone } from '../primitives';
+import { Check, Circle, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { MockDefinition } from '@shared/mock';
+import {
+  CASE_PRESETS,
+  addPresetCase,
+  caseUsers,
+  effectivePicks,
+  removeCase,
+  updateCase,
+  type CaseLibrary,
+  type LibraryEndpoint,
+  type MockCase,
+  type ScenarioV2
+} from '@shared/scenario-library';
+import { Modal, methodTone, statusTone } from '../primitives';
+import { useContextMenu, type MenuItem } from '../primitives/ContextMenu';
+import { MockEditor } from './MockEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,15 +38,31 @@ interface ScenarioEditorProps {
   onSwitch?: (name: string | null) => void;
   /** 주어지면 편집 중인 시나리오를 활성화하는 버튼을 보여 준다. */
   onActivate?: (name: string) => void;
+  /** 주어지면 각 엔드포인트 행에서 응답 케이스를 추가·편집·삭제할 수 있다(라이브러리와 영향받은 시나리오를 저장). */
+  onCommitLibrary?: (next: { library: CaseLibrary; scenarios?: ScenarioV2[] }) => void;
+}
+
+/** 케이스 편집기(MockEditor)에 넘기기 위한 케이스 → 목 정의 변환. 이름은 label에 담는다. */
+function caseAsMock(endpoint: LibraryEndpoint, c: MockCase): MockDefinition {
+  return {
+    id: c.id,
+    label: c.name,
+    method: endpoint.method,
+    host: endpoint.host,
+    path: endpoint.path,
+    enabled: true,
+    response: c.response,
+    delayMs: c.delayMs,
+    fault: c.fault,
+    originalBody: c.response.body
+  };
 }
 
 const NEW_VALUE = '__new__';
 
-const selectClass =
-  'h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
 /** 선택 값 인코딩: '' = 이 시나리오에서는 정하지 않음(상속/미사용), NONE = 끔(상속 끄기), 그 외 = 케이스 ID. */
 const NONE = '__none__';
+
 
 /** self를 (직간접으로) 베이스로 삼는 시나리오 이름들 — 베이스 후보에서 빼서 순환 상속을 막는다. */
 function descendantsOf(self: string, scenarios: readonly ScenarioV2[]): Set<string> {
@@ -53,7 +83,7 @@ function descendantsOf(self: string, scenarios: readonly ScenarioV2[]): Set<stri
 }
 
 /** 시나리오 편집: 이름/설명/태그/베이스 + 엔드포인트별 케이스 선택(상속과 덮어쓰기를 구분해 표시). */
-export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant, activeScenario, onSwitch, onActivate }: ScenarioEditorProps): JSX.Element {
+export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, library, onSave, variant, activeScenario, onSwitch, onActivate, onCommitLibrary }: ScenarioEditorProps): JSX.Element {
   const editing = !!scenario;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -63,6 +93,8 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
   const [filter, setFilter] = useState('');
   const [onlyPicked, setOnlyPicked] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const menu = useContextMenu();
+  const [editingCase, setEditingCase] = useState<{ endpoint: LibraryEndpoint; mockCase: MockCase } | undefined>(undefined);
 
   /** 편집을 시작한 시점의 입력값(저장 전 변경 여부 판단용). */
   const initialRef = useRef('');
@@ -85,7 +117,9 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
     setFilter('');
     setOnlyPicked(false);
     setError(undefined);
-  }, [open, scenario]);
+    // 케이스를 고치거나 지울 때 scenario 객체가 바뀌어도 입력 중인 내용은 유지한다(대상이 바뀔 때만 다시 불러온다).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, scenario?.id, scenario?.name]);
 
   const baseCandidates = useMemo(() => {
     const blocked = scenario ? descendantsOf(scenario.name, scenarios) : new Set<string>();
@@ -103,6 +137,59 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
     if (caseId === null) return '사용 안 함';
     const c = library.endpoints.find((e) => e.id === endpointId)?.cases.find((x) => x.id === caseId);
     return c?.name ?? '(삭제된 케이스)';
+  };
+
+  const addPreset = (endpoint: LibraryEndpoint, presetKey: string): void => {
+    if (!onCommitLibrary || !presetKey) return;
+    const out = addPresetCase(library, endpoint.id, presetKey);
+    onCommitLibrary({ library: out.library });
+    // 방금 만든 엣지케이스를 이 시나리오의 선택으로 바로 지정한다.
+    if (out.caseId) setSelection((prev) => ({ ...prev, [endpoint.id]: out.caseId! }));
+  };
+
+  const deleteCase = (endpoint: LibraryEndpoint, c: MockCase): void => {
+    if (!onCommitLibrary) return;
+    const users = caseUsers(scenarios, endpoint.id, c.id);
+    const message = users.length
+      ? `"${c.name}" 케이스를 삭제하면 시나리오 ${users.join(', ')}에서도 이 선택이 빠집니다. 삭제할까요?`
+      : `"${c.name}" 케이스를 삭제할까요?`;
+    if (!window.confirm(message)) return;
+    const out = removeCase(library, scenarios, endpoint.id, c.id);
+    onCommitLibrary({ library: out.library, scenarios: out.scenarios });
+    setSelection((prev) => (prev[endpoint.id] === c.id ? { ...prev, [endpoint.id]: '' } : prev));
+  };
+
+  /** 행의 "⋯" 메뉴: 케이스 고르기 + (라이브러리 편집이 열려 있으면) 엣지케이스 추가·편집·삭제. */
+  const caseMenu = (endpoint: LibraryEndpoint, own: string, inh: { caseId: string | null } | undefined): MenuItem[] => {
+    const choose = (value: string) => () => setSelection((prev) => ({ ...prev, [endpoint.id]: value }));
+    const selectedCase = endpoint.cases.find((c) => c.id === own);
+    const items: MenuItem[] = [
+      { label: inh ? `상속: ${caseName(endpoint.id, inh.caseId)}` : '선택 안 함', icon: own === '' ? Check : Circle, onSelect: choose('') }
+    ];
+    if (base) items.push({ label: '사용 안 함 (상속 끄기)', icon: own === NONE ? Check : Circle, onSelect: choose(NONE) });
+    for (const c of endpoint.cases) items.push({ label: c.name, icon: c.id === own ? Check : Circle, onSelect: choose(c.id) });
+    if (onCommitLibrary) {
+      CASE_PRESETS.forEach((p, i) =>
+        items.push({ label: `추가: ${p.label}`, icon: Plus, onSelect: () => addPreset(endpoint, p.key), separatorBefore: i === 0 })
+      );
+      items.push(
+        {
+          label: '선택한 케이스 편집',
+          icon: Pencil,
+          disabled: !selectedCase,
+          separatorBefore: true,
+          onSelect: () => selectedCase && setEditingCase({ endpoint, mockCase: selectedCase })
+        },
+        {
+          label: '선택한 케이스 삭제',
+          icon: Trash2,
+          destructive: true,
+          disabled: !selectedCase,
+          onSelect: () => selectedCase && deleteCase(endpoint, selectedCase)
+        }
+      );
+    }
+    return items;
   };
 
   const save = (): void => {
@@ -208,8 +295,12 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
           rows.map((e) => {
             const own = selection[e.id] ?? '';
             const inh = inherited.get(e.id);
+            const selectedCase = e.cases.find((c) => c.id === own);
             return (
-              <div key={e.id} className="grid grid-cols-[1fr_190px] items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0">
+              <div
+                key={e.id}
+                className="grid grid-cols-[1fr_200px_auto] items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0"
+              >
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge variant={methodTone(e.method)}>{e.method}</Badge>
                   <span className="truncate font-mono text-xs" title={`${e.host}${e.path}`}>
@@ -217,24 +308,77 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
                     {e.path}
                   </span>
                 </div>
-                <select aria-label={`${e.id} 케이스`} className={selectClass} value={own} onChange={(ev) => setSelection({ ...selection, [e.id]: ev.target.value })}>
-                  <option value="">{inh ? `상속: ${caseName(e.id, inh.caseId)}` : '— 선택 안 함'}</option>
-                  {base && <option value={NONE}>사용 안 함 (상속 끄기)</option>}
-                  {e.cases.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="flex min-w-0 items-center gap-1.5 text-xs">
+                  {selectedCase ? (
+                    <>
+                      <span className="min-w-0 truncate" title={selectedCase.name}>{selectedCase.name}</span>
+                      {selectedCase.fault ? (
+                        <Badge variant="error">{selectedCase.fault}</Badge>
+                      ) : (
+                        <Badge variant={statusTone(selectedCase.response.status)}>{selectedCase.response.status}</Badge>
+                      )}
+                    </>
+                  ) : (
+                    <span className="truncate text-muted-foreground">
+                      {own === NONE ? '사용 안 함' : inh ? `상속: ${caseName(e.id, inh.caseId)}` : '선택 안 함'}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`${e.id} 케이스 메뉴`}
+                  aria-haspopup="menu"
+                  onClick={(ev) => {
+                    const r = ev.currentTarget.getBoundingClientRect();
+                    menu.open(
+                      { clientX: r.right - 200, clientY: r.bottom + 4, preventDefault: () => {}, stopPropagation: () => {} },
+                      caseMenu(e, own, inh)
+                    );
+                  }}
+                >
+                  <MoreHorizontal />
+                </Button>
               </div>
             );
           })
         )}
       </div>
 
+      {onCommitLibrary && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          케이스를 고치거나 지우면 그 케이스를 쓰는 다른 시나리오에도 반영됩니다. 케이스 변경은 바로 저장되고, 어떤 케이스를 쓸지는 아래 &quot;저장&quot;을 눌러야 반영됩니다.
+        </p>
+      )}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>취소</Button>
         <Button size="sm" onClick={save}>저장</Button>
       </div>
+      {menu.element}
+      {onCommitLibrary && (
+        <MockEditor
+          mock={editingCase ? caseAsMock(editingCase.endpoint, editingCase.mockCase) : undefined}
+          open={!!editingCase}
+          onOpenChange={(o) => {
+            if (!o) setEditingCase(undefined);
+          }}
+          lockEndpoint
+          nameLabel="케이스 이름"
+          title="케이스 편집"
+          onSave={(mock) => {
+            if (!editingCase) return;
+            onCommitLibrary({
+              library: updateCase(library, editingCase.endpoint.id, editingCase.mockCase.id, {
+                name: mock.label,
+                response: mock.response,
+                delayMs: mock.delayMs,
+                fault: mock.fault
+              })
+            });
+          }}
+        />
+      )}
     </Modal>
   );
 }

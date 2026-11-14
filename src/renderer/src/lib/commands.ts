@@ -43,7 +43,6 @@ export interface CommandInput {
     openMocks: () => void;
     openScenario: (name: string | null) => void;
     activateScenario: (name: string) => void;
-    openLibrary: () => void;
     openCollection: () => void;
     loadSession: (name: string) => void;
     startProxy: () => void;
@@ -79,7 +78,6 @@ export function buildCommands(input: CommandInput): Command[] {
       run: () => a.openSection('connect')
     },
     { id: 'go:mocks', group: '이동', label: '목킹(현재 목) 열기', keywords: 'mock scenario 목킹', run: a.openMocks },
-    { id: 'go:library', group: '이동', label: '응답 케이스 열기', keywords: 'case library', run: a.openLibrary },
     { id: 'go:collection', group: '이동', label: '컬렉션 열기', keywords: 'collection bruno request', run: a.openCollection }
   );
   if (input.library.endpoints.length > 0) {

@@ -2,33 +2,30 @@ import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-export type MockingTab = 'mocks' | 'scenarios' | 'library';
+export type MockingTab = 'mocks' | 'scenarios';
 
 interface MockingViewProps {
   tab: MockingTab;
   onTabChange: (tab: MockingTab) => void;
   /** 탭 옆에 보여 주는 개수. */
-  counts: { mocks: number; scenarios: number; cases: number };
+  counts: { mocks: number; scenarios: number };
   /** 활성 시나리오 이름과 현재 목 수정 여부. */
   activeScenario: string | undefined;
   scenarioDirty: boolean;
   /** 현재 목(복제 소스 + 목 목록). */
   mocks: ReactNode;
-  /** 시나리오(목록 또는 편집기). */
+  /** 시나리오(목록 또는 편집기). 응답 케이스는 편집기 안에서 다룬다. */
   scenarios: ReactNode;
-  /** 응답 케이스(엔드포인트별 케이스 관리). */
-  library: ReactNode;
 }
 
 const TABS: ReadonlyArray<{ id: MockingTab; label: string; count: keyof MockingViewProps['counts'] }> = [
   { id: 'mocks', label: '현재 목', count: 'mocks' },
-  { id: 'scenarios', label: '시나리오', count: 'scenarios' },
-  { id: 'library', label: '응답 케이스', count: 'cases' }
+  { id: 'scenarios', label: '시나리오', count: 'scenarios' }
 ];
 
 /**
- * 목킹 화면: 지금 프록시에 적용되는 "현재 목"과, 저장해 두고 꺼내 쓰는 "시나리오", 시나리오가 참조하는 "응답 케이스"를 한 곳에서 다룬다.
- * 세 패널 모두 언마운트하지 않고 숨기기만 해서, 편집 중인 입력이 탭을 오가도 유지된다.
+ * 목킹 화면: 지금 프록시에 적용되는 "현재 목"과, 저장해 두고 꺼내 쓰는 "시나리오"를 한 곳에서 다룬다(응답 케이스는 시나리오 편집기 안에서 고른다).
+ * 두 패널 모두 언마운트하지 않고 숨기기만 해서, 편집 중인 입력이 탭을 오가도 유지된다.
  */
 export function MockingView({
   tab,
@@ -37,10 +34,9 @@ export function MockingView({
   activeScenario,
   scenarioDirty,
   mocks,
-  scenarios,
-  library
+  scenarios
 }: MockingViewProps): JSX.Element {
-  const panels: Record<MockingTab, ReactNode> = { mocks, scenarios, library };
+  const panels: Record<MockingTab, ReactNode> = { mocks, scenarios };
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-3">

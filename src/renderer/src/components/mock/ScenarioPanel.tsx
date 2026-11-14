@@ -1,4 +1,4 @@
-import { CheckCircle2, GitBranch, Layers, Library, Pencil, Play, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
+import { CheckCircle2, GitBranch, Layers, Pencil, Play, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import type { ScenarioV2, WorkspaceDiff } from '@shared/scenario-library';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,6 @@ interface ScenarioPanelProps {
   /** 활성 시나리오를 현재 목 내용으로 갱신. */
   onUpdateActive: () => void;
   onNew: () => void;
-  onOpenLibrary: () => void;
 }
 
 /** 변경 요약 툴팁(수정/추가/제외된 엔드포인트). */
@@ -43,8 +42,7 @@ export function ScenarioPanel({
   onEdit,
   onDelete,
   onUpdateActive,
-  onNew,
-  onOpenLibrary
+  onNew
 }: ScenarioPanelProps): JSX.Element {
   return (
     <div className="flex flex-col gap-2">
@@ -52,9 +50,6 @@ export function ScenarioPanel({
         <h3 className="mr-auto text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           시나리오 ({scenarios.length})
         </h3>
-        <Button variant="ghost" size="sm" onClick={onOpenLibrary}>
-          <Library /> 응답 케이스
-        </Button>
         <Button variant="outline" size="sm" disabled={!hasLibrary} onClick={onNew} title={hasLibrary ? undefined : '먼저 목을 "케이스로 저장"하세요'}>
           <Plus /> 새 시나리오
         </Button>

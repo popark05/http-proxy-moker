@@ -24,7 +24,7 @@ function input(over: Partial<CommandInput> = {}): CommandInput {
     activeTabKey: 'mocks',
     actions: {
       activateTab: fn(), openSection: fn(), openExchange: fn(), openMocks: fn(), openScenario: fn(), activateScenario: fn(),
-      openLibrary: fn(), openContracts: fn(), loadSession: fn(), startProxy: fn(), stopProxy: fn(), setMode: fn(),
+      openContracts: fn(), loadSession: fn(), startProxy: fn(), stopProxy: fn(), setMode: fn(),
       closeActiveTab: fn(), clearCapture: fn()
     },
     ...over
