@@ -1,6 +1,8 @@
 import { Circle, Pause, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Button } from '@astryxdesign/core/Button';
+import { Badge } from '@astryxdesign/core/Badge';
 
 interface CaptureControlsProps {
   /** true면 새 요청을 목록에 쌓지 않는다. */
@@ -20,36 +22,32 @@ export function CaptureControls({ paused, onTogglePaused, count, onClear, clearD
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
       <Button
-        variant={paused ? 'outline' : 'ghost'}
+        label={paused ? '일시중지됨 · 재개' : '기록 중 · 일시중지'}
+        icon={
+          paused ? (
+            <Icon icon={Circle} className="fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" />
+          ) : (
+            <Icon icon={Pause} />
+          )
+        }
+        variant={paused ? 'secondary' : 'ghost'}
         size="sm"
         aria-pressed={paused}
-        title={paused ? '기록을 다시 시작합니다' : '새 요청을 목록에 쌓지 않습니다(기기 통신은 그대로 통과)'}
+        tooltip={paused ? '기록을 다시 시작합니다' : '새 요청을 목록에 쌓지 않습니다(기기 통신은 그대로 통과)'}
         onClick={onTogglePaused}
-      >
-        {paused ? (
-          <>
-            <Circle className="fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" /> 일시중지됨 · 재개
-          </>
-        ) : (
-          <>
-            <Pause /> 기록 중 · 일시중지
-          </>
-        )}
-      </Button>
+      />
 
       <div className="flex-1" />
 
-      <Badge variant="neutral">{count} 건</Badge>
-      <Button
+      <Badge variant="neutral" label={`${count} 건`} />
+      <IconButton
+        label="캡처 지우기"
+        icon={<Icon icon={Trash2} />}
         variant="ghost"
-        size="icon"
+        tooltip={clearDisabled ? '저장된 캡처를 보는 중에는 지울 수 없습니다' : undefined}
         onClick={onClear}
-        disabled={clearDisabled}
-        aria-label="캡처 지우기"
-        title={clearDisabled ? '저장된 캡처를 보는 중에는 지울 수 없습니다' : undefined}
-      >
-        <Trash2 />
-      </Button>
+        isDisabled={clearDisabled}
+      />
     </div>
   );
 }

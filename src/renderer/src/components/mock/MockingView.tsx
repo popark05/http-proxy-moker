@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { cn } from '@/lib/utils';
 
 export type MockingTab = 'mocks' | 'scenarios';
@@ -63,10 +64,9 @@ export function MockingView({
         </div>
         <div className="ml-auto">
           {activeScenario ? (
-            <Badge variant="warning" title="지금 활성화된 시나리오">
-              활성: {activeScenario}
-              {scenarioDirty ? ' · 수정됨' : ''}
-            </Badge>
+            <Tooltip content="지금 활성화된 시나리오" hasHoverIndication={false}>
+              <Badge variant="warning" label={`활성: ${activeScenario}${scenarioDirty ? ' · 수정됨' : ''}`} />
+            </Tooltip>
           ) : (
             <span className="text-xs text-muted-foreground">활성 시나리오 없음</span>
           )}

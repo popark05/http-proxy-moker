@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
 
 interface ImagePreviewProps {
   src: string;
@@ -30,10 +31,13 @@ export function ImagePreview({ src, mime, byteLength }: ImagePreviewProps): Reac
         </span>
         <div className="flex-1" />
         {!failed && (
-          <Button variant="ghost" size="sm" onClick={() => setFit((v) => !v)}>
-            {fit ? <Maximize2 /> : <Minimize2 />}
-            {fit ? '원본 크기' : '창에 맞춤'}
-          </Button>
+          <Button
+            label={fit ? '원본 크기' : '창에 맞춤'}
+            icon={<Icon icon={fit ? Maximize2 : Minimize2} />}
+            variant="ghost"
+            size="sm"
+            onClick={() => setFit((v) => !v)}
+          />
         )}
       </div>
       <div

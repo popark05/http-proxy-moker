@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Radio } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
@@ -131,9 +131,7 @@ export function TrafficList({
                 }
                 className="grid min-w-0 flex-1 grid-cols-[56px_1fr_52px] items-center gap-2 px-3 py-2 text-left"
               >
-                <Badge variant={methodTone(exchange.request.method)}>
-                  {exchange.request.method}
-                </Badge>
+                <Badge variant={methodTone(exchange.request.method)} label={exchange.request.method} />
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span
                     title={exchange.request.url}
@@ -161,11 +159,11 @@ export function TrafficList({
                   )}
                 </div>
                 {response === 'aborted' ? (
-                  <Badge variant="error">✕</Badge>
+                  <Badge variant="error" label="✕" />
                 ) : response ? (
-                  <Badge variant={statusTone(response.statusCode)}>{response.statusCode}</Badge>
+                  <Badge variant={statusTone(response.statusCode)} label={response.statusCode} />
                 ) : (
-                  <Badge variant="neutral">대기</Badge>
+                  <Badge variant="neutral" label="대기" />
                 )}
               </button>
               {onRowContextMenu && <RowMenuButton target={[exchange]} onOpen={onRowContextMenu} />}

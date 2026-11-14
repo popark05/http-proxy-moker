@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Download, Hand, Zap } from 'lucide-react';
 import { connectionProgress, type StepStatus, type WizardInput, type WizardTab } from '@shared/connection-progress';
 import { Modal } from '../primitives';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
 import { cn } from '@/lib/utils';
 import { ConnectionScene } from './ConnectionScene';
 
@@ -102,12 +103,18 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
 
       {tab === 'android-wifi' && (
         <div className="flex gap-1.5 text-xs" role="group" aria-label="Android Wi-Fi 방식">
-          <Button size="sm" variant={variant === 'adb' ? 'secondary' : 'ghost'} onClick={() => setVariant('adb')}>
-            USB 제어 + Wi-Fi 트래픽
-          </Button>
-          <Button size="sm" variant={variant === 'manual' ? 'secondary' : 'ghost'} onClick={() => setVariant('manual')}>
-            수동 프록시 (adb 없이)
-          </Button>
+          <Button
+            label="USB 제어 + Wi-Fi 트래픽"
+            variant={variant === 'adb' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setVariant('adb')}
+          />
+          <Button
+            label="수동 프록시 (adb 없이)"
+            variant={variant === 'manual' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setVariant('manual')}
+          />
         </div>
       )}
 
@@ -144,14 +151,24 @@ export function ConnectionGuide({ active, tab, onTabChange, input }: ConnectionG
                     <p className="mt-1 text-xs leading-relaxed text-[hsl(var(--warning))]">{step.reason}</p>
                   )}
                   {step.id === 'profile' && step.status !== 'pending' && (
-                    <Button size="sm" variant="outline" className="mt-2" onClick={() => void window.mokerApi.ca.export('mobileconfig')}>
-                      <Download /> CA 프로파일 내보내기 (.mobileconfig)
-                    </Button>
+                    <Button
+                      label="CA 프로파일 내보내기 (.mobileconfig)"
+                      icon={<Icon icon={Download} />}
+                      variant="secondary"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => void window.mokerApi.ca.export('mobileconfig')}
+                    />
                   )}
                   {step.id === 'ca' && step.status !== 'pending' && (
-                    <Button size="sm" variant="outline" className="mt-2" onClick={() => void window.mokerApi.ca.export('pem')}>
-                      <Download /> CA 내보내기 (.pem)
-                    </Button>
+                    <Button
+                      label="CA 내보내기 (.pem)"
+                      icon={<Icon icon={Download} />}
+                      variant="secondary"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => void window.mokerApi.ca.export('pem')}
+                    />
                   )}
                 </div>
               </li>
@@ -176,9 +193,7 @@ export function ConnectionWizard({ open, onOpenChange, initialTab = 'android-usb
     <Modal open={open} onOpenChange={onOpenChange} title="기기 연결 가이드" className="max-w-4xl">
       <ConnectionGuide active={open} tab={tab} onTabChange={setTab} input={input} />
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-          닫기
-        </Button>
+        <Button label="닫기" variant="secondary" size="sm" onClick={() => onOpenChange(false)} />
       </div>
     </Modal>
   );

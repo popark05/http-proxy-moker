@@ -1,7 +1,10 @@
 import { CheckCircle2, GitBranch, Layers, Pencil, Play, Plus, RotateCcw, Trash2, Upload } from 'lucide-react';
 import type { ScenarioV2, WorkspaceDiff } from '@shared/scenario-library';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { EmptyState } from '../common/EmptyState';
 import { cn } from '@/lib/utils';
 
@@ -50,9 +53,15 @@ export function ScenarioPanel({
         <h3 className="mr-auto text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           시나리오 ({scenarios.length})
         </h3>
-        <Button variant="outline" size="sm" disabled={!hasLibrary} onClick={onNew} title={hasLibrary ? undefined : '먼저 목을 "케이스로 저장"하세요'}>
-          <Plus /> 새 시나리오
-        </Button>
+        <Button
+          label="새 시나리오"
+          icon={<Icon icon={Plus} />}
+          variant="secondary"
+          size="sm"
+          tooltip={hasLibrary ? undefined : '먼저 목을 "케이스로 저장"하세요'}
+          isDisabled={!hasLibrary}
+          onClick={onNew}
+        />
       </div>
 
       {scenarios.length === 0 ? (
@@ -76,11 +85,11 @@ export function ScenarioPanel({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium" title={s.name}>
                   {s.name}
                 </span>
-                {active && <Badge variant="success">활성</Badge>}
+                {active && <Badge variant="success" label="활성" />}
                 {dirty && diff && (
-                  <Badge variant="warning" title={diffTitle(diff)}>
-                    수정됨 {diff.changed.length + diff.added.length + diff.removed.length}
-                  </Badge>
+                  <Tooltip content={diffTitle(diff)} hasHoverIndication={false}>
+                    <Badge variant="warning" label={`수정됨 ${diff.changed.length + diff.added.length + diff.removed.length}`} />
+                  </Tooltip>
                 )}
               </div>
               {(s.description || s.base || (s.tags && s.tags.length > 0)) && (
@@ -106,24 +115,45 @@ export function ScenarioPanel({
                 </span>
                 {dirty ? (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => onActivate(s.name)} title="저장된 시나리오 내용으로 현재 목을 되돌립니다">
-                      <RotateCcw /> 되돌리기
-                    </Button>
-                    <Button size="sm" onClick={onUpdateActive} title="현재 목 내용을 이 시나리오에 저장합니다">
-                      <Upload /> 현재 작업 반영
-                    </Button>
+                    <Button
+                      label="되돌리기"
+                      icon={<Icon icon={RotateCcw} />}
+                      variant="secondary"
+                      size="sm"
+                      tooltip="저장된 시나리오 내용으로 현재 목을 되돌립니다"
+                      onClick={() => onActivate(s.name)}
+                    />
+                    <Button
+                      label="현재 작업 반영"
+                      icon={<Icon icon={Upload} />}
+                      variant="primary"
+                      size="sm"
+                      tooltip="현재 목 내용을 이 시나리오에 저장합니다"
+                      onClick={onUpdateActive}
+                    />
                   </>
                 ) : (
-                  <Button variant={active ? 'ghost' : 'default'} size="sm" disabled={active} onClick={() => onActivate(s.name)}>
-                    <Play /> {active ? '적용됨' : '활성화'}
-                  </Button>
+                  <Button
+                    label={active ? '적용됨' : '활성화'}
+                    icon={<Icon icon={Play} />}
+                    variant={active ? 'ghost' : 'primary'}
+                    size="sm"
+                    isDisabled={active}
+                    onClick={() => onActivate(s.name)}
+                  />
                 )}
-                <Button variant="ghost" size="icon" aria-label="편집" onClick={() => onEdit(s)}>
-                  <Pencil />
-                </Button>
-                <Button variant="ghost" size="icon" aria-label="삭제" onClick={() => onDelete(s.name)}>
-                  <Trash2 />
-                </Button>
+                <IconButton
+                  label="편집"
+                  icon={<Icon icon={Pencil} />}
+                  variant="ghost"
+                  onClick={() => onEdit(s)}
+                />
+                <IconButton
+                  label="삭제"
+                  icon={<Icon icon={Trash2} />}
+                  variant="ghost"
+                  onClick={() => onDelete(s.name)}
+                />
               </div>
             </div>
           );

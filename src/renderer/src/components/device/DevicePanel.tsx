@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Smartphone, Apple, RefreshCw, SmartphoneNfc, CircleHelp, Loader2 } from 'lucide-react';
 import type { AndroidInterceptionMode, AndroidTrafficPath, DeviceInfo, InterceptionResult } from '@shared/device';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Badge } from '@astryxdesign/core/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { interceptionStarted, useDevices } from '../../state/useDevices';
 import { withProgress } from '../../state/with-progress';
@@ -70,7 +71,7 @@ function DeviceItem({
             {device.name}
           </div>
         </div>
-        <Badge variant={statusTone(device.status)}>{device.status}</Badge>
+        <Badge variant={statusTone(device.status)} label={device.status} />
 
         {!isIos && !active && (
           <select
@@ -101,28 +102,33 @@ function DeviceItem({
         )}
 
         {isIos ? (
-          <Button variant="outline" size="sm" onClick={onIosSetup}>
-            셋업 가이드
-          </Button>
+          <Button label="셋업 가이드" variant="secondary" size="sm" onClick={onIosSetup} />
         ) : busy ? (
-          <Button size="sm" variant="outline" disabled aria-busy="true">
-            <Loader2 className="animate-spin" /> {busy === 'starting' ? '연결 중…' : '해제 중…'}
-          </Button>
+          <Button
+            label={busy === 'starting' ? '연결 중…' : '해제 중…'}
+            icon={<Icon icon={Loader2} className="animate-spin" />}
+            variant="secondary"
+            size="sm"
+            isDisabled
+            aria-busy="true"
+          />
         ) : active ? (
-          <Button variant="destructive" size="sm" onClick={onStop}>
-            해제
-          </Button>
+          <Button label="해제" variant="destructive" size="sm" onClick={onStop} />
         ) : (
-          <Button size="sm" disabled={device.status !== 'ready'} onClick={() => onStart(mode, trafficPath)}>
-            인터셉트
-          </Button>
+          <Button
+            label="인터셉트"
+            variant="primary"
+            size="sm"
+            isDisabled={device.status !== 'ready'}
+            onClick={() => onStart(mode, trafficPath)}
+          />
         )}
       </div>
       {device.status !== 'ready' && device.statusDetail && (
         <p className="ml-1 text-xs leading-relaxed text-[hsl(var(--warning))]">{device.statusDetail}</p>
       )}
       {active && !isIos && (
-        <Badge variant={interceptionBadge(interception!).tone}>{interceptionBadge(interception!).text}</Badge>
+        <Badge variant={interceptionBadge(interception!).tone} label={interceptionBadge(interception!).text} />
       )}
       {interception && interception.warnings.length > 0 && (
         <ul className="ml-4 list-disc text-xs leading-relaxed text-[hsl(var(--warning))]">
@@ -252,10 +258,14 @@ export function DevicePanel({
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">기기</h3>
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" aria-label="기기 새로고침" onClick={() => void refresh()}>
-              <RefreshCw className={refreshing ? 'animate-spin' : ''} />
-              {refreshing ? '검색 중' : '새로고침'}
-            </Button>
+            <Button
+              label={refreshing ? '검색 중' : '새로고침'}
+              icon={<Icon icon={RefreshCw} className={refreshing ? 'animate-spin' : ''} />}
+              variant="ghost"
+              size="sm"
+              aria-label="기기 새로고침"
+              onClick={() => void refresh()}
+            />
           </div>
         </div>
 
@@ -271,9 +281,13 @@ export function DevicePanel({
               title="연결된 기기가 없습니다"
               description="Android는 USB 디버깅(ADB), iOS는 USB로 연결하면 자동 감지됩니다. Wi-Fi 프록시로 접속한 기기는 아래 '접속 중인 기기'에 나타납니다."
               action={
-                <Button variant="outline" size="sm" onClick={() => openWizard('android-usb')}>
-                  <CircleHelp /> 연결 방법 보기
-                </Button>
+                <Button
+                  label="연결 방법 보기"
+                  icon={<Icon icon={CircleHelp} />}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openWizard('android-usb')}
+                />
               }
             />
           )

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CaInfo } from '@shared/certificate';
 import { Modal } from '../primitives';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 
 interface CaExportModalProps {
   open: boolean;
@@ -40,12 +40,13 @@ export function CaExportModal({ open, onOpenChange }: CaExportModalProps): React
       </div>
 
       <div className="mt-4 flex gap-2">
-        <Button size="sm" onClick={() => void onExport('pem')}>
-          PEM (Android)
-        </Button>
-        <Button size="sm" onClick={() => void onExport('mobileconfig')}>
-          .mobileconfig (iOS)
-        </Button>
+        <Button label="PEM (Android)" variant="primary" size="sm" onClick={() => void onExport('pem')} />
+        <Button
+          label=".mobileconfig (iOS)"
+          variant="primary"
+          size="sm"
+          onClick={() => void onExport('mobileconfig')}
+        />
       </div>
 
       {saved && <div className="mt-3 text-xs text-[hsl(var(--success))]">저장됨: {saved}</div>}

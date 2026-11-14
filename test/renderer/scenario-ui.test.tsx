@@ -15,6 +15,7 @@ vi.mock('../../src/renderer/src/components/code/CodeDiffView', () => ({ CodeDiff
 
 import { ScenarioPanel } from '../../src/renderer/src/components/mock/ScenarioPanel';
 import { ScenarioEditor } from '../../src/renderer/src/components/mock/ScenarioEditor';
+import { isDisabled } from './disabled-helper';
 
 const mock = (method: string, path: string, status = 200, body = '{}'): MockDefinition => ({
   id: `m${method}${path}${status}`,
@@ -66,7 +67,7 @@ describe('ScenarioPanel', () => {
     expect(screen.getByText('정상', { selector: 'span.inline-flex' })).toBeTruthy(); // 상속 표시
     fireEvent.click(screen.getAllByText('활성화')[1]);
     expect(onActivate).toHaveBeenCalledWith('결제 실패');
-    expect((screen.getByText('새 시나리오').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(isDisabled(screen.getByText('새 시나리오'))).toBe(true);
   });
 });
 

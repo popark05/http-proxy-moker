@@ -22,6 +22,7 @@ if (!Blob.prototype.arrayBuffer) {
 }
 
 import { MockEditor } from '../../src/renderer/src/components/mock/MockEditor';
+import { isDisabled } from './disabled-helper';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]).toString('base64');
 const mock = (over: Partial<MockDefinition['response']> = {}): MockDefinition => ({
@@ -49,17 +50,17 @@ describe('MockEditor 호스트', () => {
     const onSave = vi.fn();
     render(<MockEditor mock={{ ...mock(), host: '' }} open onOpenChange={() => {}} onSave={onSave} />);
     const save = screen.getByText('저장') as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
     expect(screen.getByRole('alert').textContent).toContain('호스트는 필수');
+    expect(isDisabled(save)).toBe(true);
     fireEvent.change(screen.getByLabelText('호스트'), { target: { value: 'API.example.com' } });
-    expect(save.disabled).toBe(false);
+    expect(isDisabled(save)).toBe(false);
     fireEvent.click(save);
     expect((onSave.mock.calls[0][0] as MockDefinition).host).toBe('api.example.com');
   });
 
   it('프로토콜이나 경로가 들어간 값은 거절한다', () => {
     render(<MockEditor mock={{ ...mock(), host: 'https://a.com/x' }} open onOpenChange={() => {}} onSave={() => {}} />);
-    expect((screen.getByText('저장') as HTMLButtonElement).disabled).toBe(true);
+    expect(isDisabled(screen.getByText('저장'))).toBe(true);
   });
 });
 

@@ -7,6 +7,7 @@ vi.mock('../../src/renderer/src/components/code/CodeView', () => ({
 }));
 
 import { CollectionView, type CollectionViewProps } from '../../src/renderer/src/components/collection/CollectionView';
+import { isDisabled } from './disabled-helper';
 
 const contract = (name: string, over: Partial<Contract> = {}): Contract => ({
   version: 1,
@@ -121,9 +122,9 @@ describe('CollectionView', () => {
     const props = setup();
     fireEvent.click(screen.getByText('/users'));
     const save = screen.getByText(/^저장/).closest('button') as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
+    expect(isDisabled(save)).toBe(true);
     fireEvent.change(screen.getByLabelText('메서드'), { target: { value: 'DELETE' } });
-    expect(save.disabled).toBe(false);
+    expect(isDisabled(save)).toBe(false);
     fireEvent.click(save);
     await waitFor(() => expect(props.onSave).toHaveBeenCalled());
     const saved = (props.onSave as ReturnType<typeof vi.fn>).mock.calls[0][0] as Contract;
@@ -139,7 +140,7 @@ describe('CollectionView', () => {
     await waitFor(() => expect(props.onCreate).toHaveBeenCalled());
     fireEvent.click(screen.getByLabelText('Bruno 가져오기'));
     await waitFor(() => expect(props.onImport).toHaveBeenCalled());
-    expect((await screen.findByRole('status')).textContent).toContain('새 요청 2개');
+    expect(await screen.findByText(/새 요청 2개/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Bruno 내보내기'));
     await waitFor(() => expect(exportBruno).toHaveBeenCalledWith('cci', expect.any(Array), expect.any(Array)));
   });

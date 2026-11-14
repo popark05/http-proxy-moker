@@ -3,9 +3,10 @@ import { GitCompare, ImageUp, Pencil } from 'lucide-react';
 import type { MockDefinition, MockFault } from '@shared/mock';
 import { isBodyModified } from '@shared/mock';
 import { Modal } from '../primitives';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Button } from '@astryxdesign/core/Button';
 import { CodeView } from '../code/CodeView';
 import { CodeDiffView } from '../code/CodeDiffView';
 import { ImagePreview } from '../traffic/ImagePreview';
@@ -249,21 +250,12 @@ export function MockEditor({
                   <span className="text-xs text-primary">원본에서 수정됨</span>
                 )}
                 <Button
+                  label={showDiff ? '편집으로' : '원본과 비교'}
+                  icon={<Icon icon={showDiff ? Pencil : GitCompare} />}
                   variant="ghost"
                   size="sm"
-                  className="h-7"
                   onClick={() => setShowDiff((v) => !v)}
-                >
-                  {showDiff ? (
-                    <>
-                      <Pencil /> 편집으로
-                    </>
-                  ) : (
-                    <>
-                      <GitCompare /> 원본과 비교
-                    </>
-                  )}
-                </Button>
+                />
               </div>
             )}
           </div>
@@ -287,9 +279,13 @@ export function MockEditor({
                       if (file) void replaceWithFile(file);
                     }}
                   />
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                    <ImageUp /> 파일로 교체
-                  </Button>
+                  <Button
+                    label="파일로 교체"
+                    icon={<Icon icon={ImageUp} />}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  />
                 </div>
                 {replaceError && <div className="px-3 py-1 text-xs text-destructive">{replaceError}</div>}
                 <div className="min-h-0 flex-1">
@@ -315,12 +311,12 @@ export function MockEditor({
       )}
 
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-          취소
-        </Button>
+        <Button label="취소" variant="ghost" size="sm" onClick={() => onOpenChange(false)} />
         <Button
+          label="저장"
+          variant="primary"
           size="sm"
-          disabled={!hostValid}
+          isDisabled={!hostValid}
           onClick={() => {
             // 저장 시에도 JSON이면 pretty-print해 포맷을 일관되게 유지.
             onSave({
@@ -332,9 +328,7 @@ export function MockEditor({
             });
             onOpenChange(false);
           }}
-        >
-          저장
-        </Button>
+        />
       </div>
     </Modal>
   );

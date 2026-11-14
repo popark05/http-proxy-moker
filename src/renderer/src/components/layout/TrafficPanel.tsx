@@ -5,7 +5,8 @@ import { FilterBar } from '../traffic/FilterBar';
 import { SelectionBar } from '../traffic/SelectionBar';
 import { TrafficGroupList } from '../traffic/TrafficGroupList';
 import { TrafficList } from '../traffic/TrafficList';
-import { Button } from '@/components/ui/button';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Button } from '@astryxdesign/core/Button';
 import { useContextMenu } from '../primitives/ContextMenu';
 import type { CaptureView } from '../../state/useCapture';
 import {
@@ -79,6 +80,14 @@ export function TrafficPanel({
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1">
         <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">보기</span>
         <Button
+          label={source.kind === 'live' ? '실시간' : `저장된 캡처: ${source.name}`}
+          icon={
+            source.kind === 'live' ? (
+              <Icon icon={Radio} className="text-[hsl(var(--success))]" />
+            ) : (
+              <Icon icon={History} />
+            )
+          }
           variant="ghost"
           size="sm"
           aria-haspopup="menu"
@@ -89,17 +98,7 @@ export function TrafficPanel({
               sourceItems
             );
           }}
-        >
-          {source.kind === 'live' ? (
-            <>
-              <Radio className="text-[hsl(var(--success))]" /> 실시간
-            </>
-          ) : (
-            <>
-              <History /> 저장된 캡처: {source.name}
-            </>
-          )}
-        </Button>
+        />
       </div>
       {source.kind === 'saved' && (
         <div role="status" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
@@ -107,9 +106,14 @@ export function TrafficPanel({
             저장된 캡처 &apos;{source.name}&apos; 보는 중 · 실시간 수집은 계속됩니다
             {newLiveCount > 0 ? ` (새 요청 ${newLiveCount}건)` : ''}
           </span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={sourceActions.backToLive}>
-            <Radio /> 실시간으로 돌아가기
-          </Button>
+          <Button
+            label="실시간으로 돌아가기"
+            icon={<Icon icon={Radio} />}
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
+            onClick={sourceActions.backToLive}
+          />
         </div>
       )}
       <FilterBar {...filterProps} total={exchanges.length} shown={filtered.length} />

@@ -1,8 +1,8 @@
 import { Apple, Smartphone, HelpCircle, ShieldAlert } from 'lucide-react';
 import { clientLabel, clientState, type ClientInfo } from '@shared/clients';
 import type { DeviceInfo } from '@shared/device';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Button } from '@astryxdesign/core/Button';
 
 /** "방금", "12초 전", "3분 전", "2시간 전". */
 export function formatAgo(ms: number): string {
@@ -79,15 +79,19 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                   </div>
                 </div>
                 {state === 'untrusted' ? (
-                  <Badge variant="warning">인증서 미신뢰</Badge>
+                  <Badge variant="warning" label="인증서 미신뢰" />
                 ) : state === 'active' ? (
-                  <Badge variant="success">수신 중</Badge>
+                  <Badge variant="success" label="수신 중" />
                 ) : (
-                  <Badge variant="neutral">대기</Badge>
+                  <Badge variant="neutral" label="대기" />
                 )}
-                <Button variant={filtered ? 'secondary' : 'ghost'} size="sm" onClick={() => onFilter(c.ip)} title="이 기기의 요청만 보기">
-                  {filtered ? '전체 보기' : '이 기기만'}
-                </Button>
+                <Button
+                  label={filtered ? '전체 보기' : '이 기기만'}
+                  variant={filtered ? 'secondary' : 'ghost'}
+                  size="sm"
+                  tooltip="이 기기의 요청만 보기"
+                  onClick={() => onFilter(c.ip)}
+                />
               </div>
               {state === 'untrusted' && (
                 <div className="flex items-start gap-1.5 text-xs leading-relaxed text-[hsl(var(--warning))]">
@@ -102,9 +106,13 @@ export function ClientList({ clients, devices, now, proxyRunning, onFilter, acti
                     </p>
                     {/* 요청이 없어 플랫폼을 모르는 기기도 대부분 iOS(수동 설정)라 가이드를 함께 안내한다. */}
                     {c.platform !== 'android' && (
-                      <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={onIosSetup}>
-                        iOS 셋업 가이드 열기
-                      </Button>
+                      <Button
+                        label="iOS 셋업 가이드 열기"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={onIosSetup}
+                      />
                     )}
                   </div>
                 </div>

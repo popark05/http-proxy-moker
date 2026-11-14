@@ -16,10 +16,12 @@ import {
 import { Modal, methodTone, statusTone } from '../primitives';
 import { useContextMenu, type MenuItem } from '../primitives/ContextMenu';
 import { MockEditor } from './MockEditor';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
 import { cn } from '@/lib/utils';
 
 interface ScenarioEditorProps {
@@ -235,13 +237,16 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
             <option value={NEW_VALUE}>+ 새 시나리오</option>
           </select>
           {scenario && scenario.name === activeScenario ? (
-            <Badge variant="warning">활성</Badge>
+            <Badge variant="warning" label="활성" />
           ) : (
             scenario &&
             onActivate && (
-              <Button size="sm" variant="outline" onClick={() => onActivate(scenario.name)}>
-                이 시나리오 활성화
-              </Button>
+              <Button
+                label="이 시나리오 활성화"
+                variant="secondary"
+                size="sm"
+                onClick={() => onActivate(scenario.name)}
+              />
             )
           )}
           {activeScenario && scenario?.name !== activeScenario && (
@@ -302,7 +307,7 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
                 className="grid grid-cols-[1fr_200px_auto] items-center gap-2 border-b border-border px-3 py-1.5 last:border-b-0"
               >
                 <div className="flex min-w-0 items-center gap-2">
-                  <Badge variant={methodTone(e.method)}>{e.method}</Badge>
+                  <Badge variant={methodTone(e.method)} label={e.method} />
                   <span className="truncate font-mono text-xs" title={`${e.host}${e.path}`}>
                     {e.host && <span className="text-muted-foreground">{e.host}</span>}
                     {e.path}
@@ -313,9 +318,12 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
                     <>
                       <span className="min-w-0 truncate" title={selectedCase.name}>{selectedCase.name}</span>
                       {selectedCase.fault ? (
-                        <Badge variant="error">{selectedCase.fault}</Badge>
+                        <Badge variant="error" label={selectedCase.fault} />
                       ) : (
-                        <Badge variant={statusTone(selectedCase.response.status)}>{selectedCase.response.status}</Badge>
+                        <Badge
+                          variant={statusTone(selectedCase.response.status)}
+                          label={selectedCase.response.status}
+                        />
                       )}
                     </>
                   ) : (
@@ -324,10 +332,10 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
                     </span>
                   )}
                 </div>
-                <Button
+                <IconButton
+                  label={`${e.id} 케이스 메뉴`}
+                  icon={<Icon icon={MoreHorizontal} />}
                   variant="ghost"
-                  size="icon"
-                  aria-label={`${e.id} 케이스 메뉴`}
                   aria-haspopup="menu"
                   onClick={(ev) => {
                     const r = ev.currentTarget.getBoundingClientRect();
@@ -336,9 +344,7 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
                       caseMenu(e, own, inh)
                     );
                   }}
-                >
-                  <MoreHorizontal />
-                </Button>
+                />
               </div>
             );
           })
@@ -352,8 +358,8 @@ export function ScenarioEditor({ open, onOpenChange, scenario, scenarios, librar
       )}
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>취소</Button>
-        <Button size="sm" onClick={save}>저장</Button>
+        <Button label="취소" variant="ghost" size="sm" onClick={() => onOpenChange(false)} />
+        <Button label="저장" variant="primary" size="sm" onClick={save} />
       </div>
       {menu.element}
       {onCommitLibrary && (

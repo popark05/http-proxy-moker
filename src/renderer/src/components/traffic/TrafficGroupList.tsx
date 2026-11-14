@@ -10,7 +10,8 @@ import {
   type CheckState,
   type TrafficRow
 } from '@shared/traffic-group';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { EmptyState } from '../common/EmptyState';
 import { methodTone, statusTone } from '../primitives';
 import { cn } from '@/lib/utils';
@@ -57,9 +58,9 @@ function TriCheckbox({
 
 function StatusBadge({ exchange }: { exchange: CapturedExchange }): React.JSX.Element {
   const r = exchange.response;
-  if (r === 'aborted') return <Badge variant="error">✕</Badge>;
-  if (r) return <Badge variant={statusTone(r.statusCode)}>{r.statusCode}</Badge>;
-  return <Badge variant="neutral">대기</Badge>;
+  if (r === 'aborted') return <Badge variant="error" label="✕" />;
+  if (r) return <Badge variant={statusTone(r.statusCode)} label={r.statusCode} />;
+  return <Badge variant="neutral" label="대기" />;
 }
 
 const ROW_HEIGHT: Record<TrafficRow['kind'], number> = { host: 36, endpoint: 44, call: 36 };
@@ -165,9 +166,9 @@ export function TrafficGroupList({
                     </span>
                   </button>
                   {row.group.errorCount > 0 && (
-                    <Badge variant="error" title="4xx/5xx 또는 중단된 요청">
-                      ⚠ {row.group.errorCount}
-                    </Badge>
+                    <Tooltip content="4xx/5xx 또는 중단된 요청" hasHoverIndication={false}>
+                      <Badge variant="error" label={`⚠ ${row.group.errorCount}`} />
+                    </Tooltip>
                   )}
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {row.group.exchanges.length}건
@@ -282,7 +283,7 @@ function EndpointRow({
         }
         className="grid min-w-0 flex-1 grid-cols-[52px_1fr_auto] items-center gap-2 text-left"
       >
-        <Badge variant={methodTone(endpoint.method)}>{endpoint.method}</Badge>
+        <Badge variant={methodTone(endpoint.method)} label={endpoint.method} />
         <span
           className="truncate font-mono text-sm text-muted-foreground"
           title={endpoint.latest.request.url}

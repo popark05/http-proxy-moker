@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import type { TrafficFilter, StatusClass } from '@shared/traffic-filter';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Chip } from '../primitives';
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const;
@@ -51,25 +52,21 @@ export function FilterBar({
           onChange={(e) => patchFilter({ text: e.target.value })}
           aria-label="트래픽 검색"
         />
-        <Button
+        <IconButton
+          label="필터 펼치기"
+          icon={<Icon icon={SlidersHorizontal} />}
           variant="ghost"
-          size="icon"
-          aria-label="필터 펼치기"
           onClick={() => setExpanded((v) => !v)}
           className="size-8"
-        >
-          <SlidersHorizontal />
-        </Button>
+        />
         {active && (
-          <Button
+          <IconButton
+            label="필터 초기화"
+            icon={<Icon icon={X} />}
             variant="ghost"
-            size="icon"
-            aria-label="필터 초기화"
             onClick={clearFilter}
             className="size-8"
-          >
-            <X />
-          </Button>
+          />
         )}
         <span className="whitespace-nowrap text-xs text-muted-foreground">
           {shown} / {total}

@@ -84,7 +84,7 @@ describe('TrafficPanel 우클릭/저장된 캡처 메뉴', () => {
 
   it('저장된 캡처를 보는 중에는 배너와 새 요청 수를 보여 주고 실시간으로 돌아갈 수 있다', () => {
     const { sourceActions } = setup([ex('1', '/users')], ['어제'], { kind: 'saved', name: '어제' }, 4);
-    const banner = screen.getByRole('status');
+    const banner = screen.getAllByRole('status').find((e) => e.textContent?.includes('저장된 캡처'))!;
     expect(banner.textContent).toContain("저장된 캡처 '어제' 보는 중");
     expect(banner.textContent).toContain('새 요청 4건');
     fireEvent.click(screen.getByText('실시간으로 돌아가기'));

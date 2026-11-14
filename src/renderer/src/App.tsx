@@ -18,7 +18,8 @@ import { TrafficPanel } from './components/layout/TrafficPanel';
 import { Workspace } from './components/layout/Workspace';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { buildCommands } from './lib/commands';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
 import { EmptyState } from './components/common/EmptyState';
 import type { ScenarioV2 } from '@shared/scenario-library';
 import { FlaskConical, Layers, Smartphone } from 'lucide-react';
@@ -393,9 +394,12 @@ function AppInner(): React.JSX.Element {
             title="시나리오를 찾을 수 없습니다"
             description="삭제되었거나 다른 프로젝트의 시나리오입니다."
             action={
-              <Button variant="outline" size="sm" onClick={() => setEditingScenario(undefined)}>
-                목록으로
-              </Button>
+              <Button
+                label="목록으로"
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditingScenario(undefined)}
+              />
             }
           />
         ) : (
@@ -474,17 +478,25 @@ function AppInner(): React.JSX.Element {
   // 열린 탭이 없을 때, 지금 상황에서 가장 자연스러운 다음 행동을 안내한다.
   const modifierKey = document.documentElement.dataset.platform === 'darwin' ? '⌘' : 'Ctrl+';
   const openMocksButton = (
-    <Button variant="outline" size="sm" onClick={openMocksTab}>
-      <FlaskConical /> 목킹 열기
-    </Button>
+    <Button
+      label="목킹 열기"
+      icon={<Icon icon={FlaskConical} />}
+      variant="secondary"
+      size="sm"
+      onClick={openMocksTab}
+    />
   );
   const emptyState: { description: string; action: React.JSX.Element } = !status.running
     ? {
         description: '기기를 연결하면 프록시가 자동으로 켜지고, 앱의 요청이 왼쪽 목록에 쌓입니다. 선택하면 여기에 상세가 열립니다.',
         action: (
-          <Button size="sm" onClick={() => openSection('connect')}>
-            <Smartphone /> 기기 연결 보기
-          </Button>
+          <Button
+            label="기기 연결 보기"
+            icon={<Icon icon={Smartphone} />}
+            variant="primary"
+            size="sm"
+            onClick={() => openSection('connect')}
+          />
         )
       }
     : exchanges.length > 0
@@ -493,9 +505,13 @@ function AppInner(): React.JSX.Element {
         ? {
             description: '아직 접속한 기기가 없습니다. 기기를 연결한 뒤 앱을 사용하면 요청이 쌓입니다.',
             action: (
-              <Button variant="outline" size="sm" onClick={() => openSection('connect')}>
-                <Smartphone /> 기기 연결 보기
-              </Button>
+              <Button
+                label="기기 연결 보기"
+                icon={<Icon icon={Smartphone} />}
+                variant="secondary"
+                size="sm"
+                onClick={() => openSection('connect')}
+              />
             )
           }
         : { description: '기기가 접속했습니다. 앱에서 요청을 보내면 왼쪽 목록에 나타납니다.', action: openMocksButton };

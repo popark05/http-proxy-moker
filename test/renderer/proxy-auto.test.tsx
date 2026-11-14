@@ -9,6 +9,7 @@ import { useProxyActions } from '../../src/renderer/src/state/useProxyActions';
 import { CaptureControls } from '../../src/renderer/src/components/traffic/CaptureControls';
 import { ProxyPanel } from '../../src/renderer/src/components/layout/ProxyPanel';
 import { StatusBar } from '../../src/renderer/src/components/layout/StatusBar';
+import { isDisabled } from './disabled-helper';
 
 const api = { applyMocks: vi.fn(), clearMocks: vi.fn() };
 beforeEach(() => {
@@ -132,7 +133,7 @@ describe('ProxyPanel', () => {
     fireEvent.click(screen.getByText('켜기'));
     expect(props.onStart).toHaveBeenCalledWith(8080);
     fireEvent.change(screen.getByLabelText('포트'), { target: { value: '80' } });
-    expect((screen.getByText('켜기').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(isDisabled(screen.getByText('켜기'))).toBe(true);
     expect(screen.getByRole('alert')).toBeTruthy();
   });
 });

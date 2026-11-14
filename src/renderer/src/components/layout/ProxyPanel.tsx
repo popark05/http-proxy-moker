@@ -3,9 +3,11 @@ import { Copy, Power, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ProxyStatus } from '@shared/capture';
 import { DEFAULT_PROXY_PORT } from '@shared/ipc';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
 import { Modal } from '../primitives';
 
 interface ProxyPanelProps {
@@ -69,16 +71,14 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
           <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
             <span className="text-xs text-muted-foreground">기기에서 접속할 주소</span>
             <code className="ml-auto font-mono text-sm">{address}</code>
-            <Button
+            <IconButton
+              label="주소 복사"
+              icon={<Icon icon={Copy} />}
               variant="ghost"
-              size="icon"
-              aria-label="주소 복사"
               onClick={() => {
                 void navigator.clipboard.writeText(address).then(() => toast.success('주소 복사됨'));
               }}
-            >
-              <Copy />
-            </Button>
+            />
           </div>
         )}
 
@@ -97,18 +97,33 @@ export function ProxyPanel({ open, onOpenChange, status, busy, onStart, onStop, 
             />
           </div>
           {status.running ? (
-            <Button variant="outline" size="sm" disabled={!!busy || !portValid} onClick={() => onRestart(changed ? parsed : undefined)}>
-              <RefreshCw /> {changed ? '포트 바꿔 다시 시작' : '다시 시작'}
-            </Button>
+            <Button
+              label={changed ? '포트 바꿔 다시 시작' : '다시 시작'}
+              icon={<Icon icon={RefreshCw} />}
+              variant="secondary"
+              size="sm"
+              isDisabled={!!busy || !portValid}
+              onClick={() => onRestart(changed ? parsed : undefined)}
+            />
           ) : (
-            <Button size="sm" disabled={!!busy || !portValid} onClick={() => onStart(parsed)}>
-              <Power /> 켜기
-            </Button>
+            <Button
+              label="켜기"
+              icon={<Icon icon={Power} />}
+              variant="primary"
+              size="sm"
+              isDisabled={!!busy || !portValid}
+              onClick={() => onStart(parsed)}
+            />
           )}
           {status.running && (
-            <Button variant="outline" size="sm" disabled={!!busy} onClick={onStop}>
-              <Power /> 끄기
-            </Button>
+            <Button
+              label="끄기"
+              icon={<Icon icon={Power} />}
+              variant="secondary"
+              size="sm"
+              isDisabled={!!busy}
+              onClick={onStop}
+            />
           )}
         </div>
         {!portValid && (

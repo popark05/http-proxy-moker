@@ -1,5 +1,5 @@
 import { Layers, List } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 
 interface SelectionBarProps {
   /** 현재 필터로 보이는 요청 수. */
@@ -44,9 +44,7 @@ export function SelectionBar({
       </label>
       {checkedCount > 0 && (
         <>
-          <Button variant="ghost" size="sm" onClick={onClear}>
-            해제
-          </Button>
+          <Button label="해제" variant="ghost" size="sm" onClick={onClear} />
           <div className="flex-1" />
         </>
       )}

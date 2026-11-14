@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { ProxyStatus } from '@shared/capture';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Icon } from '@astryxdesign/core/Icon';
 import { cn, restartAnimation } from '@/lib/utils';
 import type { AppMode } from '../../state/app-mode';
 
@@ -97,16 +98,17 @@ export function StatusBar({
       <span role="status" className="contents">
         {isMock &&
           (activeMockCount > 0 ? (
-            <Badge ref={badgeRef} variant="warning" className="h-4 rounded-full px-2 py-0 text-2xs">
-              목 {activeMockCount}개 활성
-              {activeScenario ? ` · ${activeScenario}` : ''}
-              {activeScenario && scenarioDirty ? ' · 수정됨' : ''}
-            </Badge>
+            <Badge
+              ref={badgeRef}
+              variant="warning"
+              label={`목 ${activeMockCount}개 활성${activeScenario ? ` · ${activeScenario}` : ''}${activeScenario && scenarioDirty ? ' · 수정됨' : ''}`}
+            />
           ) : (
-            <Badge variant="error" className="h-4 px-2 py-0 text-2xs">
-              <AlertTriangle className="mr-1 size-3" />
-              활성 목 없음 — 응답이 그대로 통과됩니다
-            </Badge>
+            <Badge
+              variant="error"
+              icon={<Icon icon={AlertTriangle} />}
+              label="활성 목 없음 — 응답이 그대로 통과됩니다"
+            />
           ))}
       </span>
     </footer>

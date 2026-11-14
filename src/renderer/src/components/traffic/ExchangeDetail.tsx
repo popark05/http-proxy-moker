@@ -1,9 +1,10 @@
 import { Copy, MousePointerClick } from 'lucide-react';
 import type { CapturedExchange } from '@shared/capture';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@astryxdesign/core/Badge';
 import { EmptyState } from '../common/EmptyState';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
 import { methodTone, statusTone } from '../primitives';
 import { HeaderTable } from './HeaderTable';
 import { BodyView } from './BodyView';
@@ -50,15 +51,17 @@ export function ExchangeDetail({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border p-3">
-        <Badge variant={methodTone(request.method)}>{request.method}</Badge>
+        <Badge variant={methodTone(request.method)} label={request.method} className="shrink-0" />
         {response === 'aborted' ? (
-          <Badge variant="error">중단됨</Badge>
+          <Badge variant="error" label="중단됨" className="shrink-0" />
         ) : response ? (
-          <Badge variant={statusTone(response.statusCode)}>
-            {response.statusCode} {response.statusMessage}
-          </Badge>
+          <Badge
+            variant={statusTone(response.statusCode)}
+            label={`${response.statusCode} ${response.statusMessage}`}
+            className="shrink-0"
+          />
         ) : (
-          <Badge variant="neutral">대기 중</Badge>
+          <Badge variant="neutral" label="대기 중" className="shrink-0" />
         )}
         <span className="break-all font-mono text-sm text-muted-foreground">{request.url}</span>
         {clientDescription && (
@@ -68,9 +71,14 @@ export function ExchangeDetail({
         )}
         <div className="flex-1" />
         {onCloneToMock && (
-          <Button variant="outline" size="sm" onClick={() => onCloneToMock(exchange)}>
-            <Copy /> 목으로 복제
-          </Button>
+          <Button
+            label="목으로 복제"
+            icon={<Icon icon={Copy} />}
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => onCloneToMock(exchange)}
+          />
         )}
       </div>
 
